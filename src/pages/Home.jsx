@@ -25,10 +25,8 @@ export default function Home() {
         const params = new URLSearchParams(window.location.search);
         const token = params.get('verify');
         
-        console.log('Home page - checking for verify token:', token);
         if (token) {
-            console.log('Found verify token, redirecting to Verify page');
-            navigate(`/Verify?verify=${token}`);
+            navigate(`/Verify?verify=${token}`, { replace: true });
         }
     }, [navigate]);
 
