@@ -115,12 +115,18 @@ export default function Dashboard() {
         try {
             setSyncingQuizzes(true);
             const sessionToken = localStorage.getItem('modal_math_session');
-            await base44.functions.invoke('syncHistoricalQuizzes', {
-                groupId: group.id,
-                sessionToken
-            });
+            await Promise.all([
+                base44.functions.invoke('syncHistoricalQuizzes', {
+                    groupId: group.id,
+                    sessionToken
+                }),
+                base44.functions.invoke('syncHistoricalLessons', {
+                    groupId: group.id,
+                    sessionToken
+                })
+            ]);
         } catch (error) {
-            console.error('Failed to sync quizzes:', error);
+            console.error('Failed to sync data:', error);
         } finally {
             setSyncingQuizzes(false);
         }
