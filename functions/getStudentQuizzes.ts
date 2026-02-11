@@ -63,7 +63,7 @@ async function getQuizResults(userId) {
             return [];
         }
 
-        return data.data?.user?.quizAttempts?.edges?.map(e => e.node) || [];
+        return data.data?.user?.quizResults?.edges?.map(e => e.node) || [];
     } catch (error) {
         console.error('GraphQL fetch error:', error);
         return [];
