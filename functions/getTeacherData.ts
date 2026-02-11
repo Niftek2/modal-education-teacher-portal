@@ -79,8 +79,7 @@ async function getThinkificUser(userId) {
     console.log('Fetching Thinkific user:', userId);
     const response = await fetch(`https://api.thinkific.com/api/public/v1/users/${userId}`, {
         headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
             'Content-Type': 'application/json'
         }
     });
