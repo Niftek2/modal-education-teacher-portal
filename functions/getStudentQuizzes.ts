@@ -10,10 +10,14 @@ async function verifySession(token) {
         throw new Error('Unauthorized');
     }
 
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jose.jwtVerify(token, secret);
-    
-    return payload;
+    try {
+        const secret = new TextEncoder().encode(JWT_SECRET);
+        const { payload } = await jose.jwtVerify(token, secret);
+        return payload;
+    } catch (error) {
+        console.error('Token verification failed:', error.message);
+        throw new Error('Invalid session token');
+    }
 }
 
 async function getQuizResults(userId) {
