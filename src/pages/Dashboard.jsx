@@ -20,7 +20,7 @@ export default function Dashboard() {
     useEffect(() => {
         const sessionToken = localStorage.getItem('modal_math_session');
         if (!sessionToken) {
-            navigate('/Login');
+            navigate('/');
             return;
         }
 
