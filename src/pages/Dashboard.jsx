@@ -5,6 +5,7 @@ import { LogOut, Plus, Search, Download, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import StudentTable from '../components/StudentTable';
+import StudentDetail from '../components/StudentDetail';
 import AddStudentModal from '../components/AddStudentModal';
 
 export default function Dashboard() {
