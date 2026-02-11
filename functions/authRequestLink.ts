@@ -89,13 +89,8 @@ Deno.serve(async (req) => {
             userEmail: user.email,
             classroomProductId: CLASSROOM_PRODUCT_ID,
             classroomProductIdType: typeof CLASSROOM_PRODUCT_ID,
-            allEnrollments: enrollData.items?.map(e => ({
-                product_id: e.product_id,
-                product_id_type: typeof e.product_id,
-                product_name: e.product_name,
-                activated_at: e.activated_at,
-                expired_at: e.expired_at
-            })) || []
+            allEnrollments: enrollData.items || [],
+            rawEnrollmentData: enrollData
         });
 
         // Generate magic link token
