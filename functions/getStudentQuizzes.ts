@@ -18,27 +18,38 @@ async function verifySession(token) {
 
 async function getQuizResults(userId) {
     const query = `
-        {
-            quizAttempts(userId: "${userId}") {
-                id
-                quizId
-                quizName
-                courseId
-                courseName
-                score
-                maxScore
-                attemptNumber
-                completedAt
-                timeSpentSeconds
+        query {
+            user(id: "${userId}") {
+                quizAttempts(first: 100) {
+                    edges {
+                        node {
+                            id
+                            quiz {
+                                id
+                                name
+                                course {
+                                    id
+                                    name
+                                }
+                            }
+                            score
+                            maxScore
+                            attemptNumber
+                            completedAt
+                            spentSeconds
+                        }
+                    }
+                }
             }
         }
     `;
 
     try {
-        const response = await fetch(`https://${THINKIFIC_SUBDOMAIN}.thinkific.com/graphql`, {
+        const response = await fetch(`https://api.thinkific.com/graphql`, {
             method: 'POST',
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
+                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ query })
@@ -52,7 +63,7 @@ async function getQuizResults(userId) {
             return [];
         }
 
-        return data.data?.quizAttempts || [];
+        return data.data?.user?.quizAttempts?.edges?.map(e => e.node) || [];
     } catch (error) {
         console.error('GraphQL fetch error:', error);
         return [];
