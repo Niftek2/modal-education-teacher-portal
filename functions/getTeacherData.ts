@@ -117,17 +117,13 @@ async function getThinkificUser(userId) {
 Deno.serve(async (req) => {
     try {
         const { sessionToken } = await req.json();
-        console.log('Session token received:', sessionToken ? 'Yes' : 'No');
         const session = await verifySession(sessionToken);
         
         // Get teacher user details
         const user = await getThinkificUser(session.userId);
-        console.log('User fetched:', user.id, user.email);
         
         // Get teacher's group
-        console.log('Fetching teacher groups...');
         const group = await getTeacherGroups(session.userId);
-        console.log('Group result:', group);
         
         return Response.json({
             teacher: {
@@ -144,7 +140,6 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error('Get teacher data error:', error);
-        console.error('Stack:', error.stack);
         return Response.json({ error: error.message }, { status: 401 });
     }
 });
