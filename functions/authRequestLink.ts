@@ -32,8 +32,7 @@ async function verifyClassroomBundle(userId) {
     
     const response = await fetch(url, {
         headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
             'Content-Type': 'application/json'
         }
     });
