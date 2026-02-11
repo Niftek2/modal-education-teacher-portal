@@ -54,6 +54,8 @@ async function getTeacherGroups(userId) {
                 }
             );
             
+            console.log(`[getTeacherGroups] Checking group ${group.name} - response status: ${usersResponse.status}`);
+            
             if (usersResponse.ok) {
                 const usersData = await usersResponse.json();
                 const users = usersData.items || [];
@@ -70,6 +72,9 @@ async function getTeacherGroups(userId) {
                     console.log(`[getTeacherGroups] User ${userId} found in group ${group.name}`);
                     return group;
                 }
+            } else {
+                const errorText = await usersResponse.text();
+                console.log(`[getTeacherGroups] Failed to fetch users for group ${group.name}: ${usersResponse.status} - ${errorText}`);
             }
         }
         
