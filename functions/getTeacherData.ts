@@ -5,13 +5,11 @@ const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
-async function verifySession(req) {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-        throw new Error('Unauthorized');
+async function verifySession(token) {
+    if (!token) {
+        throw new Error('Unauthorized - no token provided');
     }
 
-    const token = authHeader.substring(7);
     const secret = new TextEncoder().encode(JWT_SECRET);
     const { payload } = await jose.jwtVerify(token, secret);
     
@@ -53,7 +51,8 @@ async function getThinkificUser(userId) {
 
 Deno.serve(async (req) => {
     try {
-        const session = await verifySession(req);
+        const { sessionToken } = await req.json();
+        const session = await verifySession(sessionToken);
         
         // Get teacher user details
         const user = await getThinkificUser(session.userId);
