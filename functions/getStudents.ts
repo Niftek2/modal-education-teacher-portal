@@ -17,7 +17,8 @@ async function verifySession(token) {
 }
 
 async function getGroupMembers(groupId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${groupId}`, {
+    // Get all users from the site
+    const allUsersResponse = await fetch(`https://api.thinkific.com/api/public/v1/users`, {
         headers: {
             'X-Auth-API-Key': THINKIFIC_API_KEY,
             'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
@@ -25,14 +26,17 @@ async function getGroupMembers(groupId) {
         }
     });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Group memberships error:', response.status, errorText);
-        throw new Error(`Failed to fetch group members: ${response.status}`);
+    if (!allUsersResponse.ok) {
+        const errorText = await allUsersResponse.text();
+        console.error('Get users error:', allUsersResponse.status, errorText);
+        throw new Error(`Failed to fetch users: ${allUsersResponse.status}`);
     }
 
-    const data = await response.json();
-    return data.items || [];
+    const usersData = await allUsersResponse.json();
+    console.log('Total users fetched:', usersData.items?.length || 0);
+    
+    // For now, return all students (we'll filter in the calling function)
+    return usersData.items || [];
 }
 
 async function getUserProgress(userId) {
