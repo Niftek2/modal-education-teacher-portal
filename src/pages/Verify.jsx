@@ -21,22 +21,17 @@ export default function Verify() {
                     return;
                 }
 
-                try {
-                    const response = await base44.functions.invoke('authVerify', { token });
-                    
-                    if (response.data.success && response.data.sessionToken) {
-                        localStorage.setItem('modal_math_session', response.data.sessionToken);
-                        setMessage('Login successful! Redirecting...');
-                        setTimeout(() => navigate('/Dashboard'), 1000);
-                    } else {
-                        setMessage('Verification failed. Redirecting...');
-                        setTimeout(() => navigate('/'), 3000);
-                    }
-                } catch (innerError) {
-                    console.error('Token verification error:', innerError);
-                    setMessage('Verification error. Redirecting...');
+                const response = await base44.functions.invoke('authVerify', { token });
+                console.log('authVerify response:', response.data);
+                
+                if (response.data.success && response.data.sessionToken) {
+                    localStorage.setItem('modal_math_session', response.data.sessionToken);
+                    setMessage('Login successful! Redirecting...');
+                    setTimeout(() => navigate('/Dashboard'), 1000);
+                } else {
+                    console.error('Verification failed:', response.data);
+                    setMessage('Verification failed. Redirecting...');
                     setTimeout(() => navigate('/'), 3000);
-                    throw innerError;
                 }
             } catch (error) {
                 console.error('Verification error:', error);
