@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
             .setIssuedAt()
             .sign(secret);
 
-        // Construct magic link - use the verify page
+        // Construct magic link - route to Verify page
         const magicLink = `${req.headers.get('origin')}/Verify?verify=${token}`;
 
         // Send email via Gmail
