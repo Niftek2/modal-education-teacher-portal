@@ -18,11 +18,25 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const loadQuizData = async () => {
         setLoading(true);
         try {
-            const response = await base44.functions.invoke('getStudentQuizzes', {
-                studentId: student.id,
-                sessionToken: sessionToken
-            });
-            setQuizzes(response.data.quizzes || []);
+            // Fetch quiz completions from database for this student
+            const completions = await base44.entities.QuizCompletion.filter({
+                studentId: student.id
+            }, '-completedAt');
+            
+            // Format the data to match the table structure
+            const formatted = completions.map(quiz => ({
+                id: quiz.id,
+                quizTitle: quiz.quizName,
+                courseTitle: quiz.courseName,
+                score: quiz.score,
+                maxScore: quiz.maxScore,
+                percentage: quiz.percentage,
+                attempt: quiz.attemptNumber,
+                completedAt: quiz.completedAt,
+                timeSpentSeconds: quiz.timeSpentSeconds
+            }));
+            
+            setQuizzes(formatted);
         } catch (error) {
             console.error('Failed to load quiz data:', error);
         } finally {
