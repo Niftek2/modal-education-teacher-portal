@@ -78,10 +78,13 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Group ID required' }, { status: 400 });
         }
 
-        // Get all students (@modalmath.com emails)
-        const allUsers = await getGroupMembers(groupId);
-        const students = allUsers
-            .filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
+        // Get group members
+        const memberships = await getGroupMembers(groupId);
+        
+        // Extract user data from memberships and filter by email domain
+        const students = memberships
+            .filter(m => m.user?.email?.toLowerCase().endsWith('@modalmath.com'))
+            .map(m => m.user);
 
         // Get progress for each student
         const studentsWithProgress = await Promise.all(
