@@ -24,8 +24,8 @@ async function findThinkificUser(email) {
     return data.items?.[0];
 }
 
-async function verifyUserInGroup(userId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/group_memberships?query[user_id]=${userId}`, {
+async function verifyClassroomBundle(userId) {
+    const response = await fetch(`https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[product_id]=${CLASSROOM_PRODUCT_ID}`, {
         headers: {
             'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
             'Content-Type': 'application/json'
@@ -37,7 +37,7 @@ async function verifyUserInGroup(userId) {
     }
     
     const data = await response.json();
-    return data.items && data.items.length > 0;
+    return data.items?.some(enrollment => enrollment.activated_at && !enrollment.expired_at);
 }
 
 Deno.serve(async (req) => {
@@ -60,10 +60,10 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'No account found with this email' }, { status: 404 });
         }
 
-        // Verify user is in a group
-        const inGroup = await verifyUserInGroup(user.id);
-        if (!inGroup) {
-            return Response.json({ error: 'You must be assigned to a group to access the portal' }, { status: 403 });
+        // Verify Classroom bundle enrollment
+        const hasAccess = await verifyClassroomBundle(user.id);
+        if (!hasAccess) {
+            return Response.json({ error: 'Active Classroom bundle enrollment required to access portal' }, { status: 403 });
         }
 
         // Generate magic link token
