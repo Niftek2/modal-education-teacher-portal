@@ -78,24 +78,22 @@ Deno.serve(async (req) => {
 
         const quizResults = await getQuizResults(studentId);
 
-        // Enrich quiz data with course titles
-        const enrichedQuizzes = await Promise.all(
-            quizResults.map(async (quiz) => {
-                const courseTitle = quiz.course_id ? await getCourseTitle(quiz.course_id) : 'Unknown';
-                return {
-                    id: quiz.id,
-                    quizTitle: quiz.title,
-                    courseId: quiz.course_id,
-                    courseTitle: courseTitle,
-                    score: quiz.score,
-                    maxScore: quiz.max_score,
-                    percentage: quiz.max_score ? Math.round((quiz.score / quiz.max_score) * 100) : 0,
-                    attempt: quiz.attempt_number || 1,
-                    completedAt: quiz.completed_at,
-                    timeSpentSeconds: quiz.time_spent_seconds || null
-                };
-            })
-        );
+        const enrichedQuizzes = quizResults.map((quiz) => {
+            const courseTitle = quiz.quiz?.course?.name || 'Unknown Course';
+            const quizTitle = quiz.quiz?.name || 'Unknown Quiz';
+            return {
+                id: quiz.id,
+                quizTitle: quizTitle,
+                courseId: quiz.quiz?.course?.id,
+                courseTitle: courseTitle,
+                score: quiz.score,
+                maxScore: quiz.maxScore,
+                percentage: quiz.maxScore ? Math.round((quiz.score / quiz.maxScore) * 100) : 0,
+                attempt: quiz.attempt || 1,
+                completedAt: quiz.completedAt,
+                timeSpentSeconds: quiz.spentSeconds || null
+            };
+        });
 
         return Response.json({ quizzes: enrichedQuizzes });
 
