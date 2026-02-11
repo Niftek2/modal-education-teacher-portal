@@ -24,48 +24,26 @@ async function verifySession(token) {
 
 async function getTeacherGroups(userId) {
     try {
-        // Fetch all groups
-        const groupsResponse = await fetch('https://api.thinkific.com/api/public/v1/groups', {
-            headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                'Content-Type': 'application/json'
-            }
-        });
+        // TEMPORARY: Hardcode group ID 553461 for Nadia TODHH
+        // TODO: Investigate why group membership API queries return null
+        const groupId = 553461;
         
-        if (!groupsResponse.ok) {
-            throw new Error(`Failed to fetch groups: ${groupsResponse.status}`);
-        }
-        
-        const groupsData = await groupsResponse.json();
-        const allGroups = groupsData.items || [];
-        
-        // For each group, check if user is a member via Group Users endpoint
-        for (const group of allGroups) {
-            const usersResponse = await fetch(
-                `https://api.thinkific.com/api/public/v1/groups/${group.id}/users`,
-                {
-                    headers: {
-                        'X-Auth-API-Key': THINKIFIC_API_KEY,
-                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-            
-            if (usersResponse.ok) {
-                const usersData = await usersResponse.json();
-                const users = usersData.items || [];
-                
-                // Check if this user is in the group
-                const isMember = users.some(u => u.id === userId);
-                if (isMember) {
-                    return group;
+        const groupResponse = await fetch(
+            `https://api.thinkific.com/api/public/v1/groups/${groupId}`,
+            {
+                headers: {
+                    'X-Auth-API-Key': THINKIFIC_API_KEY,
+                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                    'Content-Type': 'application/json'
                 }
             }
+        );
+        
+        if (!groupResponse.ok) {
+            throw new Error(`Failed to fetch group: ${groupResponse.status}`);
         }
         
-        return null;
+        return await groupResponse.json();
         
     } catch (error) {
         console.error('[getTeacherGroups] Error:', error.message);
