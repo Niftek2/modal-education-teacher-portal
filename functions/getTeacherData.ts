@@ -22,9 +22,8 @@ async function verifySession(token) {
     }
 }
 
-async function getTeacherGroups(userId) {
+async function getTeacherGroups(teacherName) {
     try {
-        // Fetch all groups
         const groupsResponse = await fetch('https://api.thinkific.com/api/public/v1/groups', {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -36,30 +35,10 @@ async function getTeacherGroups(userId) {
         const groupsData = await groupsResponse.json();
         const allGroups = groupsData.items || [];
         
-        // Check each group for instructor membership
-        for (const group of allGroups) {
-            const instructorsResp = await fetch(
-                `https://api.thinkific.com/api/public/v1/groups/${group.id}/instructors`,
-                {
-                    headers: {
-                        'X-Auth-API-Key': THINKIFIC_API_KEY,
-                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-            
-            if (instructorsResp.ok) {
-                const instructorsData = await instructorsResp.json();
-                const instructors = instructorsData.items || [];
-                
-                if (instructors.some(i => i.id === userId)) {
-                    return group;
-                }
-            }
-        }
+        // Find group matching teacher's name
+        const teacherGroup = allGroups.find(g => g.name === teacherName);
         
-        return null;
+        return teacherGroup || null;
         
     } catch (error) {
         console.error('getTeacherGroups error:', error.message);
