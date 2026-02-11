@@ -7,24 +7,33 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 export default function StudentDetail({ student, isOpen, onClose, sessionToken }) {
     const [quizzes, setQuizzes] = useState([]);
+    const [lessons, setLessons] = useState([]);
+    const [activeTab, setActiveTab] = useState('quizzes');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (isOpen && student) {
-            loadQuizData();
+            loadData();
         }
     }, [isOpen, student]);
 
-    const loadQuizData = async () => {
+    const loadData = async () => {
         setLoading(true);
         try {
-            const quizData = await base44.entities.QuizCompletion.filter({ 
-                studentId: student.id 
-            }, '-completedAt');
+            const [quizData, lessonData] = await Promise.all([
+                base44.entities.QuizCompletion.filter({ 
+                    studentId: student.id 
+                }, '-completedAt'),
+                base44.entities.LessonCompletion.filter({ 
+                    studentId: student.id 
+                }, '-completedAt')
+            ]);
             setQuizzes(quizData);
+            setLessons(lessonData);
         } catch (error) {
-            console.error('Failed to load quiz data:', error);
+            console.error('Failed to load data:', error);
             setQuizzes([]);
+            setLessons([]);
         } finally {
             setLoading(false);
         }
