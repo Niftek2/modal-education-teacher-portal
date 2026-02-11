@@ -46,9 +46,7 @@ export default function Dashboard() {
             console.log('Loading dashboard with token:', sessionToken ? 'Yes' : 'No');
 
             // Get teacher data
-            const teacherResponse = await base44.functions.invoke('getTeacherData', {}, {
-                headers: { 'Authorization': `Bearer ${sessionToken}` }
-            });
+            const teacherResponse = await base44.functions.invoke('getTeacherData', { sessionToken });
 
             console.log('Teacher response:', teacherResponse.data);
             setTeacher(teacherResponse.data.teacher);
@@ -57,9 +55,8 @@ export default function Dashboard() {
             // Get students if group exists
             if (teacherResponse.data.group) {
                 const studentsResponse = await base44.functions.invoke('getStudents', {
-                    groupId: teacherResponse.data.group.id
-                }, {
-                    headers: { 'Authorization': `Bearer ${sessionToken}` }
+                    groupId: teacherResponse.data.group.id,
+                    sessionToken
                 });
 
                 setStudents(studentsResponse.data.students);
