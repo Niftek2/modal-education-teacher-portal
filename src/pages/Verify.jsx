@@ -10,7 +10,7 @@ export default function Verify() {
         const verifyToken = async () => {
             try {
                 const params = new URLSearchParams(window.location.search);
-                const token = params.get('verify');
+                const token = params.get('verify') || params.get('token');
                 
                 if (!token) {
                     setMessage('No verification token found');
