@@ -50,34 +50,52 @@ export default function Dashboard() {
 
             // Get teacher data
             console.log('[Dashboard] Calling getTeacherData...');
-            const start1 = Date.now();
-            const teacherResponse = await base44.functions.invoke('getTeacherData', { sessionToken });
-            console.log(`[Dashboard] getTeacherData took ${Date.now() - start1}ms`);
+            const teacherResponse = await fetch(`${window.location.origin}/api/functions/getTeacherData`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionToken}`
+                },
+                body: JSON.stringify({ sessionToken })
+            });
 
-            console.log('Teacher response:', teacherResponse.data);
-            setTeacher(teacherResponse.data.teacher);
-            setGroup(teacherResponse.data.group);
+            if (!teacherResponse.ok) {
+                throw new Error(`Failed to get teacher data: ${teacherResponse.status}`);
+            }
+
+            const teacherData = await teacherResponse.json();
+            console.log('Teacher response:', teacherData);
+            setTeacher(teacherData.teacher);
+            setGroup(teacherData.group);
 
             // Get students if group exists
-            if (teacherResponse.data.group) {
+            if (teacherData.group) {
                 console.log('[Dashboard] Calling getStudents...');
-                const start2 = Date.now();
-                const studentsResponse = await base44.functions.invoke('getStudents', {
-                    groupId: teacherResponse.data.group.id,
-                    sessionToken
+                const studentsResponse = await fetch(`${window.location.origin}/api/functions/getStudents`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionToken}`
+                    },
+                    body: JSON.stringify({
+                        groupId: teacherData.group.id,
+                        sessionToken
+                    })
                 });
-                console.log(`[Dashboard] getStudents took ${Date.now() - start2}ms`);
 
-                setStudents(studentsResponse.data.students);
-                setFilteredStudents(studentsResponse.data.students);
+                if (!studentsResponse.ok) {
+                    throw new Error(`Failed to get students: ${studentsResponse.status}`);
+                }
+
+                const studentsData = await studentsResponse.json();
+                setStudents(studentsData.students);
+                setFilteredStudents(studentsData.students);
             }
             console.log('[Dashboard] Load complete');
         } catch (error) {
             console.error('Dashboard error:', error);
-            if (error.response?.status === 401) {
-                localStorage.removeItem('modal_math_session');
-                navigate('/');
-            }
+            localStorage.removeItem('modal_math_session');
+            navigate('/');
         } finally {
             setLoading(false);
         }
