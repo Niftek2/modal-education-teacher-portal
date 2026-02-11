@@ -90,9 +90,9 @@ Deno.serve(async (req) => {
                 lastName: user.last_name,
                 email: user.email
             },
-            group: group ? {
-                id: group.id,
-                name: group.name
+            group: group && group.group ? {
+                id: group.group.id,
+                name: group.group.name
             } : null
         });
 
