@@ -24,26 +24,48 @@ async function verifySession(token) {
 
 async function getTeacherGroups(userId) {
     try {
-        // TEMPORARY: Hardcode group ID 553461 for Nadia TODHH
-        // TODO: Investigate why group membership API queries return null
-        const groupId = 553461;
-        
-        const groupResponse = await fetch(
-            `https://api.thinkific.com/api/public/v1/groups/${groupId}`,
-            {
-                headers: {
-                    'X-Auth-API-Key': THINKIFIC_API_KEY,
-                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                    'Content-Type': 'application/json'
-                }
+        // Fetch all groups and check which ones have this user as a member
+        const groupsResponse = await fetch('https://api.thinkific.com/api/public/v1/groups', {
+            headers: {
+                'X-Auth-API-Key': THINKIFIC_API_KEY,
+                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                'Content-Type': 'application/json'
             }
-        );
+        });
         
-        if (!groupResponse.ok) {
-            throw new Error(`Failed to fetch group: ${groupResponse.status}`);
+        if (!groupsResponse.ok) {
+            throw new Error(`Failed to fetch groups: ${groupsResponse.status}`);
         }
         
-        return await groupResponse.json();
+        const groupsData = await groupsResponse.json();
+        const allGroups = groupsData.items || [];
+        
+        // For each group, check if user is a member via Group Users endpoint
+        for (const group of allGroups) {
+            const usersResponse = await fetch(
+                `https://api.thinkific.com/api/public/v1/groups/${group.id}/users`,
+                {
+                    headers: {
+                        'X-Auth-API-Key': THINKIFIC_API_KEY,
+                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            
+            if (usersResponse.ok) {
+                const usersData = await usersResponse.json();
+                const users = usersData.items || [];
+                
+                // Check if this user is in the group
+                const isMember = users.some(u => u.id === userId);
+                if (isMember) {
+                    return group;
+                }
+            }
+        }
+        
+        return null;
         
     } catch (error) {
         console.error('[getTeacherGroups] Error:', error.message);
@@ -90,9 +112,9 @@ Deno.serve(async (req) => {
                 lastName: user.last_name,
                 email: user.email
             },
-            group: group && group.group ? {
-                id: group.group.id,
-                name: group.group.name
+            group: group ? {
+                id: group.id,
+                name: group.name
             } : null
         });
 
