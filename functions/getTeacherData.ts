@@ -43,7 +43,7 @@ async function getTeacherGroups(userId) {
     const allGroups = groupsData.items || [];
     console.log('Found groups:', allGroups.length);
     
-    // Find which groups this teacher is a member of
+    // Find which groups this teacher is a member of - check each group's members
     for (const group of allGroups) {
         console.log('Checking group:', group.id, group.name);
         const membersResponse = await fetch(
@@ -59,17 +59,19 @@ async function getTeacherGroups(userId) {
         
         if (membersResponse.ok) {
             const membersData = await membersResponse.json();
-            console.log(`Group ${group.id} members:`, JSON.stringify(membersData.items || []));
-            const isTeacherMember = membersData.items?.some(m => {
-                console.log(`Comparing user_id: ${m.user_id} === ${userId}`, m.user_id === userId);
-                return m.user_id === userId;
+            const members = membersData.items || [];
+            console.log(`Group ${group.id} (${group.name}) has ${members.length} members`);
+            
+            const isTeacherMember = members.some(m => {
+                const match = m.user_id === userId;
+                console.log(`Comparing user_id: ${m.user_id} === ${userId}: ${match}`);
+                return match;
             });
+            
             if (isTeacherMember) {
-                console.log('Found teacher in group:', group.id);
+                console.log('Found teacher in group:', group.id, group.name);
                 return group;
             }
-        } else {
-            console.log(`Failed to fetch members for group ${group.id}`);
         }
     }
     
