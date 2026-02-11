@@ -27,7 +27,8 @@ async function getTeacherGroups(userId) {
     console.log('Looking for groups for user:', userId);
     const groupsResponse = await fetch(`https://api.thinkific.com/api/public/v1/groups`, {
         headers: {
-            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
+            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
             'Content-Type': 'application/json'
         }
     });
@@ -49,7 +50,8 @@ async function getTeacherGroups(userId) {
             `https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${group.id}`,
             {
                 headers: {
-                    'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
+                    'X-Auth-API-Key': THINKIFIC_API_KEY,
+                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
                     'Content-Type': 'application/json'
                 }
             }
@@ -79,7 +81,8 @@ async function getThinkificUser(userId) {
     console.log('Fetching Thinkific user:', userId);
     const response = await fetch(`https://api.thinkific.com/api/public/v1/users/${userId}`, {
         headers: {
-            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
+            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
             'Content-Type': 'application/json'
         }
     });

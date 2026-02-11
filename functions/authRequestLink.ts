@@ -10,7 +10,8 @@ async function findThinkificUser(email) {
     console.log('Looking up user:', email);
     const response = await fetch(`https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(email)}`, {
         headers: {
-            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
+            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
             'Content-Type': 'application/json'
         }
     });
@@ -32,7 +33,8 @@ async function verifyClassroomBundle(userId) {
     
     const response = await fetch(url, {
         headers: {
-            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
+            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
             'Content-Type': 'application/json'
         }
     });
