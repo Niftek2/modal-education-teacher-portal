@@ -46,6 +46,12 @@ async function getTeacherGroups(userId) {
         
         // For each group, check if user is a member via Group Users endpoint
         for (const group of allGroups) {
+            // Skip certain groups to speed up search
+            if (!['Nadia TODHH', "Ms Nadia's Class", 'Nadia Classroom'].includes(group.name)) {
+                continue;
+            }
+            
+            console.log(`[getTeacherGroups] Checking group: ${group.name}`);
             const usersResponse = await fetch(
                 `https://api.thinkific.com/api/public/v1/groups/${group.id}/users`,
                 {
@@ -57,27 +63,24 @@ async function getTeacherGroups(userId) {
                 }
             );
             
-            console.log(`[getTeacherGroups] Checking group ${group.name} - response status: ${usersResponse.status}`);
+            console.log(`[getTeacherGroups] ${group.name} - Status: ${usersResponse.status}`);
             
             if (usersResponse.ok) {
                 const usersData = await usersResponse.json();
                 const users = usersData.items || [];
-                console.log(`[getTeacherGroups] Group ${group.name} has ${users.length} users`);
+                console.log(`[getTeacherGroups] ${group.name} - ${users.length} users`);
                 
-                // Log user IDs for debugging (especially for Nadia TODHH group)
-                if (group.name === 'Nadia TODHH') {
-                    console.log(`[getTeacherGroups] Nadia TODHH group users:`, users.map(u => ({ id: u.id, name: u.first_name })));
-                }
+                // Log all user IDs in the group
+                console.log(`[getTeacherGroups] ${group.name} users:`, users.map(u => u.id).join(','));
                 
                 // Check if this user is in the group
                 const isMember = users.some(u => u.id === userId);
+                console.log(`[getTeacherGroups] User ${userId} in ${group.name}? ${isMember}`);
+                
                 if (isMember) {
-                    console.log(`[getTeacherGroups] User ${userId} found in group ${group.name}`);
+                    console.log(`[getTeacherGroups] FOUND: User in ${group.name}`);
                     return group;
                 }
-            } else {
-                const errorText = await usersResponse.text();
-                console.log(`[getTeacherGroups] Failed to fetch users for group ${group.name}: ${usersResponse.status} - ${errorText}`);
             }
         }
         
