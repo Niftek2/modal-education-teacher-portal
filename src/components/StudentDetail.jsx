@@ -74,10 +74,10 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                             </TableHeader>
                             <TableBody>
                                 {quizzes.map((quiz) => (
-                                    <TableRow key={`${quiz.id}-${quiz.attempt}`}>
-                                        <TableCell className="font-medium">{quiz.quizTitle}</TableCell>
-                                        <TableCell className="text-sm text-gray-600">{quiz.courseTitle}</TableCell>
-                                        <TableCell className="text-center">{quiz.attempt}</TableCell>
+                                    <TableRow key={`${quiz.id}-${quiz.attemptNumber}`}>
+                                        <TableCell className="font-medium">{quiz.quizName}</TableCell>
+                                        <TableCell className="text-sm text-gray-600">{quiz.courseName}</TableCell>
+                                        <TableCell className="text-center">{quiz.attemptNumber}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <Target className="w-4 h-4 text-gray-400" />
