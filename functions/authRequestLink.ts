@@ -33,10 +33,13 @@ async function verifyClassroomBundle(userId) {
     });
     
     if (!response.ok) {
+        console.error('Enrollment check failed:', response.status, await response.text());
         return false;
     }
     
     const data = await response.json();
+    console.log('Enrollment data:', JSON.stringify(data));
+    console.log('CLASSROOM_PRODUCT_ID:', CLASSROOM_PRODUCT_ID);
     return data.items?.some(enrollment => enrollment.activated_at && !enrollment.expired_at);
 }
 
