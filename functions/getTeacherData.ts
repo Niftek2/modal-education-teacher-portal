@@ -47,7 +47,7 @@ async function getTeacherGroups(userId) {
             console.log('[Groups] Checking group:', group.id, group.name);
             
             const membershipsResponse = await fetch(
-                `https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${group.id}`,
+                `https://api.thinkific.com/api/public/v1/groups/${group.id}/users`,
                 {
                     headers: {
                         'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -58,14 +58,13 @@ async function getTeacherGroups(userId) {
             );
             
             if (membershipsResponse.ok) {
-                const membershipsData = await membershipsResponse.json();
-                const members = membershipsData.items || [];
-                console.log('[Groups] Group', group.id, 'has', members.length, 'members');
+                const usersData = await membershipsResponse.json();
+                const users = usersData.items || [];
+                console.log('[Groups] Group', group.id, 'has', users.length, 'users');
                 
                 // Check if userId is in this group
-                const isMember = members.some(m => {
-                    console.log('[Groups] Comparing', m.user_id, '===', userId);
-                    return m.user_id === userId;
+                const isMember = users.some(u => {
+                    return u.id === userId;
                 });
                 
                 if (isMember) {
@@ -73,7 +72,8 @@ async function getTeacherGroups(userId) {
                     return group;
                 }
             } else {
-                console.log('[Groups] Failed to fetch memberships for group', group.id);
+                const errorText = await membershipsResponse.text();
+                console.log('[Groups] Failed to fetch users for group', group.id, ':', membershipsResponse.status, errorText.substring(0, 100));
             }
         }
         
