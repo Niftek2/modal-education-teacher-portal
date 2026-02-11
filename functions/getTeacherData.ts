@@ -51,7 +51,8 @@ async function getThinkificUser(userId) {
 
 Deno.serve(async (req) => {
     try {
-        const { sessionToken } = await req.json();
+        const authHeader = req.headers.get('Authorization');
+        const sessionToken = authHeader?.replace('Bearer ', '');
         const session = await verifySession(sessionToken);
         
         // Get teacher user details
