@@ -23,9 +23,8 @@ async function verifySession(token) {
 }
 
 async function getTeacherGroups(userId) {
-    console.log('START getTeacherGroups for:', userId);
     try {
-        // Find Nadia TODHH group specifically
+        // Fetch all groups
         const groupsResponse = await fetch('https://api.thinkific.com/api/public/v1/groups', {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -35,53 +34,32 @@ async function getTeacherGroups(userId) {
         });
         
         const groupsData = await groupsResponse.json();
-        const nadiaGroup = groupsData.items?.find(g => g.name === 'Nadia TODHH');
-        console.log('Nadia TODHH group:', nadiaGroup?.id);
+        const allGroups = groupsData.items || [];
         
-        if (!nadiaGroup) {
-            console.log('Nadia TODHH group not found');
-            return null;
+        // Check each group for instructor membership
+        for (const group of allGroups) {
+            const instructorsResp = await fetch(
+                `https://api.thinkific.com/api/public/v1/groups/${group.id}/instructors`,
+                {
+                    headers: {
+                        'X-Auth-API-Key': THINKIFIC_API_KEY,
+                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            
+            if (instructorsResp.ok) {
+                const instructorsData = await instructorsResp.json();
+                const instructors = instructorsData.items || [];
+                
+                if (instructors.some(i => i.id === userId)) {
+                    return group;
+                }
+            }
         }
         
-        // Check both group_members and instructors
-        const [membersResp, instructorsResp] = await Promise.all([
-            fetch(
-                `https://api.thinkific.com/api/public/v1/group_members?query[group_id]=${nadiaGroup.id}`,
-                {
-                    headers: {
-                        'X-Auth-API-Key': THINKIFIC_API_KEY,
-                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            ),
-            fetch(
-                `https://api.thinkific.com/api/public/v1/group_instructors?query[group_id]=${nadiaGroup.id}`,
-                {
-                    headers: {
-                        'X-Auth-API-Key': THINKIFIC_API_KEY,
-                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            )
-        ]);
-        
-        const membersData = await membersResp.json();
-        const instructorsData = await instructorsResp.json();
-        
-        const members = membersData.items || [];
-        const instructors = instructorsData.items || [];
-        
-        console.log('Members:', members.map(u => u.user_id).join(','));
-        console.log('Instructors:', instructors.map(u => u.user_id).join(','));
-        
-        const isMember = members.some(u => u.user_id === userId);
-        const isInstructor = instructors.some(u => u.user_id === userId);
-        
-        console.log('Is member?', isMember, 'Is instructor?', isInstructor);
-        
-        return (isMember || isInstructor) ? nadiaGroup : null;
+        return null;
         
     } catch (error) {
         console.error('getTeacherGroups error:', error.message);
