@@ -218,22 +218,31 @@ export default function Dashboard() {
                         />
                     </div>
                     <div className="flex gap-2">
-                        <Button
-                            onClick={exportToCSV}
-                            variant="outline"
-                            className="border-gray-300"
-                        >
-                            <Download className="w-4 h-4 mr-2" />
-                            Export CSV
-                        </Button>
-                        <Button
-                            onClick={() => setShowAddModal(true)}
-                            className="bg-purple-900 hover:bg-purple-800 text-white"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Students
-                        </Button>
-                    </div>
+                         <Button
+                             onClick={handleSyncQuizzes}
+                             disabled={syncingQuizzes}
+                             variant="outline"
+                             className="border-gray-300"
+                         >
+                             <RefreshCw className={`w-4 h-4 mr-2 ${syncingQuizzes ? 'animate-spin' : ''}`} />
+                             {syncingQuizzes ? 'Syncing...' : 'Sync Quiz Data'}
+                         </Button>
+                         <Button
+                             onClick={exportToCSV}
+                             variant="outline"
+                             className="border-gray-300"
+                         >
+                             <Download className="w-4 h-4 mr-2" />
+                             Export CSV
+                         </Button>
+                         <Button
+                             onClick={() => setShowAddModal(true)}
+                             className="bg-purple-900 hover:bg-purple-800 text-white"
+                         >
+                             <Plus className="w-4 h-4 mr-2" />
+                             Add Students
+                         </Button>
+                     </div>
                 </div>
 
                 {/* Student Table */}
