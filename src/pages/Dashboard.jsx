@@ -238,6 +238,17 @@ export default function Dashboard() {
                     onSuccess={handleStudentsAdded}
                 />
             )}
+
+            {/* Student Detail Modal */}
+            <StudentDetail
+                student={selectedStudent}
+                isOpen={showStudentDetail}
+                onClose={() => {
+                    setShowStudentDetail(false);
+                    setSelectedStudent(null);
+                }}
+                sessionToken={localStorage.getItem('modal_math_session')}
+            />
         </div>
     );
 }
