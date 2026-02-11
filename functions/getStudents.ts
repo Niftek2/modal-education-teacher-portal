@@ -86,12 +86,11 @@ Deno.serve(async (req) => {
         }
 
         // Get group members
-        const memberships = await getGroupMembers(groupId);
+        const users = await getGroupMembers(groupId);
         
         // Filter for students only (@modalmath.com emails)
-        const students = memberships
-            .filter(m => m.user?.email?.toLowerCase().endsWith('@modalmath.com'))
-            .map(m => m.user);
+        const students = users
+            .filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
 
         // Get progress for each student
         const studentsWithProgress = await Promise.all(
