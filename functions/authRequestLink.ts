@@ -41,18 +41,22 @@ async function verifyClassroomBundle(userId) {
     
     if (!response.ok) {
         const errorText = await response.text();
+        console.error('Enrollment check failed:', response.status, errorText);
         throw new Error(`Failed to check enrollment: ${response.status} - ${errorText}`);
     }
     
     const data = await response.json();
+    console.log('Enrollments found:', data.items?.length || 0);
     
     // Check if user has an active enrollment in the "Your Classroom" course
     const hasActive = data.items?.some(enrollment => {
+        console.log('Checking enrollment:', enrollment.course_id, 'vs', CLASSROOM_PRODUCT_ID);
         return String(enrollment.course_id) === String(CLASSROOM_PRODUCT_ID) && 
                enrollment.activated_at && 
                !enrollment.expired;
     });
     
+    console.log('Has classroom access:', hasActive);
     return hasActive || false;
 }
 
