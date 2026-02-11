@@ -31,10 +31,13 @@ async function getGroupMembers(groupId) {
         });
 
         if (!response.ok) {
-            throw new Error('Failed to fetch group members');
+            const errorText = await response.text();
+            console.error('Group members API error:', response.status, errorText);
+            throw new Error(`Failed to fetch group members: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();
+        console.log('Group members response:', data.items?.length || 0, 'items');
         allMembers = allMembers.concat(data.items || []);
         
         hasMore = data.meta?.pagination?.next_page !== null;
