@@ -17,7 +17,7 @@ async function verifySession(token) {
 }
 
 async function getGroupMembers(groupId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/group_memberships?group_id=${groupId}`, {
+    const response = await fetch(`https://api.thinkific.com/api/public/v1/groups/${groupId}/users`, {
         headers: {
             'X-Auth-API-Key': THINKIFIC_API_KEY,
             'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
@@ -27,7 +27,7 @@ async function getGroupMembers(groupId) {
 
     if (!response.ok) {
         const errorText = await response.text();
-        console.error('Get group memberships error:', response.status, errorText);
+        console.error('Get group users error:', response.status, errorText);
         throw new Error(`Failed to fetch group members: ${response.status}`);
     }
 
