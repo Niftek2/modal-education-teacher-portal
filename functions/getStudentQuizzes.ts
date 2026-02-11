@@ -17,54 +17,24 @@ async function verifySession(token) {
 }
 
 async function getQuizResults(userId) {
-    const query = `
-        query {
-            quizResults(filter: { userId: ${userId} }, first: 50) {
-                edges {
-                    node {
-                        id
-                        quiz {
-                            id
-                            name
-                            course {
-                                id
-                                name
-                            }
-                        }
-                        score
-                        maxScore
-                        attempt
-                        completedAt
-                        spentSeconds
-                    }
-                }
-            }
-        }
-    `;
-
-    const response = await fetch(`https://api.thinkific.com/graphql`, {
-        method: 'POST',
+    const response = await fetch(`https://api.thinkific.com/api/public/v1/quiz_results?query[user_id]=${userId}&limit=100`, {
         headers: {
             'X-Auth-API-Key': THINKIFIC_API_KEY,
             'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
             'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ query })
+        }
     });
 
     if (!response.ok) {
-        console.error('Quiz results error:', response.status);
+        console.error('Quiz results error:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Response:', errorText);
         return [];
     }
 
     const data = await response.json();
-    
-    if (data.errors) {
-        console.error('GraphQL errors:', data.errors);
-        return [];
-    }
-
-    return data.data?.quizResults?.edges?.map(edge => edge.node) || [];
+    console.log('Quiz results raw:', data);
+    return data.items || [];
 }
 
 Deno.serve(async (req) => {
