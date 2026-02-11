@@ -17,12 +17,39 @@ async function verifySession(token) {
 }
 
 async function getQuizResults(userId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/quiz_results?query[user_id]=${userId}`, {
+    const query = `
+        query {
+            quizResults(filter: { userId: ${userId} }, first: 50) {
+                edges {
+                    node {
+                        id
+                        quiz {
+                            id
+                            name
+                            course {
+                                id
+                                name
+                            }
+                        }
+                        score
+                        maxScore
+                        attempt
+                        completedAt
+                        spentSeconds
+                    }
+                }
+            }
+        }
+    `;
+
+    const response = await fetch(`https://api.thinkific.com/graphql`, {
+        method: 'POST',
         headers: {
             'X-Auth-API-Key': THINKIFIC_API_KEY,
             'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
             'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({ query })
     });
 
     if (!response.ok) {
@@ -31,24 +58,13 @@ async function getQuizResults(userId) {
     }
 
     const data = await response.json();
-    return data.items || [];
-}
-
-async function getCourseTitle(courseId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/courses/${courseId}`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-
-    if (!response.ok) {
-        return 'Unknown Course';
+    
+    if (data.errors) {
+        console.error('GraphQL errors:', data.errors);
+        return [];
     }
 
-    const data = await response.json();
-    return data.name || 'Unknown Course';
+    return data.data?.quizResults?.edges?.map(edge => edge.node) || [];
 }
 
 Deno.serve(async (req) => {
