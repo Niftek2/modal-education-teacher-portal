@@ -5,13 +5,11 @@ const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
-async function verifySession(req) {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+async function verifySession(token) {
+    if (!token) {
         throw new Error('Unauthorized');
     }
 
-    const token = authHeader.substring(7);
     const secret = new TextEncoder().encode(JWT_SECRET);
     const { payload } = await jose.jwtVerify(token, secret);
     
@@ -82,8 +80,8 @@ async function getUserProgress(userId) {
 
 Deno.serve(async (req) => {
     try {
-        await verifySession(req);
-        const { groupId } = await req.json();
+        const { groupId, sessionToken } = await req.json();
+        await verifySession(sessionToken);
 
         if (!groupId) {
             return Response.json({ error: 'Group ID required' }, { status: 400 });

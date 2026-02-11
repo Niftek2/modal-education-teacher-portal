@@ -6,13 +6,11 @@ const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const STUDENT_PRODUCT_ID = Deno.env.get("STUDENT_PRODUCT_ID");
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
-async function verifySession(req) {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+async function verifySession(token) {
+    if (!token) {
         throw new Error('Unauthorized');
     }
 
-    const token = authHeader.substring(7);
     const secret = new TextEncoder().encode(JWT_SECRET);
     const { payload } = await jose.jwtVerify(token, secret);
     
@@ -97,8 +95,8 @@ async function enrollInStudentBundle(userId) {
 
 Deno.serve(async (req) => {
     try {
-        await verifySession(req);
-        const { students, groupId } = await req.json();
+        const { students, groupId, sessionToken } = await req.json();
+        await verifySession(sessionToken);
 
         if (!students || !Array.isArray(students) || students.length === 0) {
             return Response.json({ error: 'Students array required' }, { status: 400 });
