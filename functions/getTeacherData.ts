@@ -17,7 +17,8 @@ async function verifySession(token) {
 }
 
 async function getTeacherGroups(userId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/groups`, {
+    // Get all groups
+    const groupsResponse = await fetch(`https://api.thinkific.com/api/public/v1/groups`, {
         headers: {
             'X-Auth-API-Key': THINKIFIC_API_KEY,
             'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
@@ -25,12 +26,36 @@ async function getTeacherGroups(userId) {
         }
     });
     
-    if (!response.ok) {
+    if (!groupsResponse.ok) {
         throw new Error('Failed to fetch groups');
     }
     
-    const data = await response.json();
-    return data.items?.find(group => group.owner_id === userId);
+    const groupsData = await groupsResponse.json();
+    const allGroups = groupsData.items || [];
+    
+    // Find which groups this teacher is a member of
+    for (const group of allGroups) {
+        const membersResponse = await fetch(
+            `https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${group.id}`,
+            {
+                headers: {
+                    'X-Auth-API-Key': THINKIFIC_API_KEY,
+                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        
+        if (membersResponse.ok) {
+            const membersData = await membersResponse.json();
+            const isTeacherMember = membersData.items?.some(m => m.user_id === userId);
+            if (isTeacherMember) {
+                return group;
+            }
+        }
+    }
+    
+    return null;
 }
 
 async function getThinkificUser(userId) {
