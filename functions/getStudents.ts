@@ -17,39 +17,22 @@ async function verifySession(token) {
 }
 
 async function getGroupMembers(groupId) {
-    let allMembers = [];
-    let page = 1;
-    let hasMore = true;
-
-    while (hasMore) {
-        const url = `https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${groupId}&page=${page}&limit=50`;
-        console.log('Fetching group memberships from:', url);
-        
-        const response = await fetch(url, {
-            headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        const errorText = await response.text();
-        console.log('Response status:', response.status);
-        console.log('Response body:', errorText.substring(0, 500));
-
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status} - ${errorText}`);
+    const response = await fetch(`https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${groupId}`, {
+        headers: {
+            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Content-Type': 'application/json'
         }
+    });
 
-        const data = JSON.parse(errorText);
-        console.log('Received', data.items?.length || 0, 'items');
-        allMembers = allMembers.concat(data.items || []);
-        
-        hasMore = data.meta?.pagination?.next_page !== null;
-        page++;
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Group memberships error:', response.status, errorText);
+        throw new Error(`Failed to fetch group members: ${response.status}`);
     }
 
-    return allMembers;
+    const data = await response.json();
+    return data.items || [];
 }
 
 async function getUserProgress(userId) {
