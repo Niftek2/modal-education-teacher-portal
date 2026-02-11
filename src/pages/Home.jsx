@@ -28,7 +28,7 @@ export default function Home() {
         if (token) {
             verifyToken(token);
         }
-    }, []);
+    }, [navigate]);
 
     const verifyToken = async (token) => {
         try {
