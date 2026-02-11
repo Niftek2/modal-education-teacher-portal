@@ -17,54 +17,26 @@ async function verifySession(token) {
 }
 
 async function getQuizResults(userId) {
-    const query = `
-        query {
-            user(id: "${userId}") {
-                quizResults(first: 100) {
-                    edges {
-                        node {
-                            id
-                            quiz {
-                                id
-                                name
-                                course {
-                                    id
-                                    name
-                                }
-                            }
-                            score
-                            maxScore
-                            attemptNumber
-                            completedAt
-                            spentSeconds
-                        }
-                    }
-                }
-            }
-        }
-    `;
-
     try {
-        const response = await fetch(`https://${THINKIFIC_SUBDOMAIN}.thinkific.com/graphql`, {
-            method: 'POST',
+        const response = await fetch(`https://api.thinkific.com/api/public/v1/quiz_results?query[user_id]=${userId}&limit=100`, {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
+                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ query })
+            }
         });
 
-        const data = await response.json();
-        console.log('GraphQL response:', data);
-        
-        if (data.errors) {
-            console.error('GraphQL errors:', data.errors);
+        if (!response.ok) {
+            console.error('Quiz results fetch error:', response.status);
             return [];
         }
 
-        return data.data?.user?.quizResults?.edges?.map(e => e.node) || [];
+        const data = await response.json();
+        console.log('Quiz results:', data);
+        
+        return data.items || [];
     } catch (error) {
-        console.error('GraphQL fetch error:', error);
+        console.error('Quiz fetch error:', error);
         return [];
     }
 }
