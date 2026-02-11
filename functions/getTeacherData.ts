@@ -10,10 +10,16 @@ async function verifySession(token) {
         throw new Error('Unauthorized - no token provided');
     }
 
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jose.jwtVerify(token, secret);
-    
-    return payload;
+    try {
+        console.log('Verifying session token...');
+        const secret = new TextEncoder().encode(JWT_SECRET);
+        const { payload } = await jose.jwtVerify(token, secret);
+        console.log('Token verified. UserId:', payload.userId);
+        return payload;
+    } catch (err) {
+        console.error('Token verification failed:', err.message);
+        throw new Error('Invalid or expired session token');
+    }
 }
 
 async function getTeacherGroups(userId) {
