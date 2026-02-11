@@ -24,7 +24,7 @@ async function verifySession(token) {
 
 async function getTeacherGroups(userId) {
     try {
-        // Fetch all groups first
+        // Fetch all groups
         const groupsResponse = await fetch('https://api.thinkific.com/api/public/v1/groups', {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -40,51 +40,32 @@ async function getTeacherGroups(userId) {
         
         const groupsData = await groupsResponse.json();
         const allGroups = groupsData.items || [];
-        console.log('[Groups] Found total groups:', allGroups.length);
         
-        // For each group, check if this user is a member via group_memberships
+        // For each group, fetch its users and check if teacher is a member
         for (const group of allGroups) {
-            console.log('[Groups] Checking group:', group.id, group.name);
-            
-            // Fetch all memberships for this group
-            let hasMore = true;
-            let offset = 0;
-            
-            while (hasMore) {
-                const membershipsResponse = await fetch(
-                    `https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${group.id}&limit=100&offset=${offset}`,
-                    {
-                        headers: {
-                            'X-Auth-API-Key': THINKIFIC_API_KEY,
-                            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                            'Content-Type': 'application/json'
-                        }
+            const usersResponse = await fetch(
+                `https://api.thinkific.com/api/public/v1/groups/${group.id}/users`,
+                {
+                    headers: {
+                        'X-Auth-API-Key': THINKIFIC_API_KEY,
+                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                        'Content-Type': 'application/json'
                     }
-                );
-                
-                if (!membershipsResponse.ok) {
-                    console.log('[Groups] Failed to fetch memberships for group', group.id);
-                    break;
                 }
+            );
+            
+            if (usersResponse.ok) {
+                const usersData = await usersResponse.json();
+                const users = usersData.items || [];
                 
-                const membershipsData = await membershipsResponse.json();
-                const memberships = membershipsData.items || [];
-                console.log('[Groups] Group', group.id, 'batch has', memberships.length, 'memberships');
-                
-                // Check if userId is in this batch
-                const isMember = memberships.some(m => m.user_id === userId);
+                // Check if this user is in the group
+                const isMember = users.some(u => u.id === userId);
                 if (isMember) {
-                    console.log('[Groups] Found teacher in group:', group.id, group.name);
                     return group;
                 }
-                
-                // Check if there are more pages
-                hasMore = memberships.length === 100;
-                offset += 100;
             }
         }
         
-        console.log('[Groups] Teacher not found in any group');
         return null;
         
     } catch (error) {
