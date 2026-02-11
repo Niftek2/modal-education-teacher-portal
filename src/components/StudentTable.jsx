@@ -45,19 +45,7 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
         }
     };
 
-    const getProgressColor = (percentage) => {
-        if (percentage >= 75) return 'text-green-700 bg-green-50';
-        if (percentage >= 50) return 'text-yellow-700 bg-yellow-50';
-        return 'text-red-700 bg-red-50';
-    };
-
-    const getProgressIcon = (percentage) => {
-        if (percentage >= 50) return <TrendingUp className="w-4 h-4" />;
-        if (percentage > 0) return <Minus className="w-4 h-4" />;
-        return <TrendingDown className="w-4 h-4" />;
-    };
-
-    const formatLastActivity = (date) => {
+    const formatLastLogin = (date) => {
         if (!date) return 'Never';
         const d = new Date(date);
         const now = new Date();
