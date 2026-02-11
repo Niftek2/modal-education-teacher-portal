@@ -27,12 +27,20 @@ async function findThinkificUser(email) {
 }
 
 async function verifyClassroomBundle(userId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[product_id]=${CLASSROOM_PRODUCT_ID}`, {
+    const url = `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[product_id]=${CLASSROOM_PRODUCT_ID}`;
+    console.log('Fetching enrollments from:', url);
+    console.log('Using subdomain:', THINKIFIC_SUBDOMAIN);
+    console.log('CLASSROOM_PRODUCT_ID:', CLASSROOM_PRODUCT_ID);
+    
+    const response = await fetch(url, {
         headers: {
             'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-Thinkific-Application': THINKIFIC_SUBDOMAIN
         }
     });
+    
+    console.log('Response status:', response.status);
     
     if (!response.ok) {
         const errorText = await response.text();
@@ -41,9 +49,7 @@ async function verifyClassroomBundle(userId) {
     }
     
     const data = await response.json();
-    console.log('Enrollment data:', JSON.stringify(data));
-    console.log('Checking CLASSROOM_PRODUCT_ID:', CLASSROOM_PRODUCT_ID);
-    console.log('User ID:', userId);
+    console.log('Full enrollment response:', JSON.stringify(data, null, 2));
     
     if (!data.items || data.items.length === 0) {
         console.log('No enrollments found for user');
@@ -51,11 +57,13 @@ async function verifyClassroomBundle(userId) {
     }
     
     const hasActive = data.items.some(enrollment => {
-        console.log('Enrollment:', JSON.stringify(enrollment));
-        return enrollment.activated_at && !enrollment.expired_at;
+        console.log('Checking enrollment:', JSON.stringify(enrollment));
+        const isActive = enrollment.activated_at && !enrollment.expired_at;
+        console.log('Is active?', isActive);
+        return isActive;
     });
     
-    console.log('Has active enrollment:', hasActive);
+    console.log('Final result - has active enrollment:', hasActive);
     return hasActive;
 }
 
