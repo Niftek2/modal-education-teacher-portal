@@ -225,6 +225,8 @@ export default function Dashboard() {
                     students={filteredStudents} 
                     groupId={group.id}
                     onStudentRemoved={handleStudentsAdded}
+                    sessionToken={localStorage.getItem('modal_math_session')}
+                    onStudentSelected={handleStudentSelected}
                 />
             </main>
 
