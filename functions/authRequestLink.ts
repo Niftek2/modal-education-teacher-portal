@@ -5,7 +5,6 @@ const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const CLASSROOM_PRODUCT_ID = Deno.env.get("CLASSROOM_PRODUCT_ID");
 const MAGIC_LINK_SECRET = Deno.env.get("MAGIC_LINK_SECRET");
-const APP_BASE_URL = Deno.env.get("APP_BASE_URL") || "https://modalmath-teacher-portal.base44.app";
 
 async function findThinkificUser(email) {
     const response = await fetch(`https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(email)}`, {
@@ -79,7 +78,9 @@ Deno.serve(async (req) => {
             .setIssuedAt()
             .sign(secret);
 
-        const magicLink = `${APP_BASE_URL}/?verify=${token}`;
+        // Get base URL from request
+        const origin = req.headers.get('origin') || req.headers.get('referer')?.split('?')[0] || 'https://app.base44.com';
+        const magicLink = `${origin}?verify=${token}`;
 
         // Send email via Base44
         await base44.integrations.Core.SendEmail({
