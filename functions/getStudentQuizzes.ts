@@ -22,7 +22,8 @@ async function verifySession(token) {
 
 async function getQuizResults(userId) {
     try {
-        const response = await fetch(`https://api.thinkific.com/api/public/v1/quiz_results?query[user_id]=${userId}&limit=100`, {
+        console.log('Fetching quiz results for user:', userId);
+        const response = await fetch(`https://api.thinkific.com/api/public/v1/quizzes_attempts?query[user_id]=${userId}`, {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
                 'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
@@ -30,13 +31,15 @@ async function getQuizResults(userId) {
             }
         });
 
+        console.log('Quiz results response status:', response.status);
+
         if (!response.ok) {
             console.error('Quiz results fetch error:', response.status);
             return [];
         }
 
         const data = await response.json();
-        console.log('Quiz results:', data);
+        console.log('Quiz results data:', data);
         
         return data.items || [];
     } catch (error) {
