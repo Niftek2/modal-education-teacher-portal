@@ -86,6 +86,11 @@ export default function Dashboard() {
         loadDashboard(sessionToken);
     };
 
+    const handleStudentSelected = (student) => {
+        setSelectedStudent(student);
+        setShowStudentDetail(true);
+    };
+
     const exportToCSV = () => {
         const headers = ['Name', 'Email', 'Progress %', 'Completed Lessons', 'Last Activity'];
         const rows = filteredStudents.map(s => [
