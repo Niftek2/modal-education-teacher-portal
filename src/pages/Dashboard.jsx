@@ -46,10 +46,13 @@ export default function Dashboard() {
     const loadDashboard = async (sessionToken) => {
         try {
             setLoading(true);
-            console.log('Loading dashboard with token:', sessionToken ? 'Yes' : 'No');
+            console.log('[Dashboard] Starting load...');
 
             // Get teacher data
+            console.log('[Dashboard] Calling getTeacherData...');
+            const start1 = Date.now();
             const teacherResponse = await base44.functions.invoke('getTeacherData', { sessionToken });
+            console.log(`[Dashboard] getTeacherData took ${Date.now() - start1}ms`);
 
             console.log('Teacher response:', teacherResponse.data);
             setTeacher(teacherResponse.data.teacher);
@@ -57,14 +60,18 @@ export default function Dashboard() {
 
             // Get students if group exists
             if (teacherResponse.data.group) {
+                console.log('[Dashboard] Calling getStudents...');
+                const start2 = Date.now();
                 const studentsResponse = await base44.functions.invoke('getStudents', {
                     groupId: teacherResponse.data.group.id,
                     sessionToken
                 });
+                console.log(`[Dashboard] getStudents took ${Date.now() - start2}ms`);
 
                 setStudents(studentsResponse.data.students);
                 setFilteredStudents(studentsResponse.data.students);
             }
+            console.log('[Dashboard] Load complete');
         } catch (error) {
             console.error('Dashboard error:', error);
             if (error.response?.status === 401) {
