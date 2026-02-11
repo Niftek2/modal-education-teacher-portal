@@ -61,8 +61,10 @@ async function verifyClassroomBundle(userId) {
 
 Deno.serve(async (req) => {
     try {
+        console.log('=== Auth Request Started ===');
         const base44 = createClientFromRequest(req);
         const { email } = await req.json();
+        console.log('Email received:', email);
 
         if (!email || !email.includes('@')) {
             return Response.json({ error: 'Valid email required' }, { status: 400 });
