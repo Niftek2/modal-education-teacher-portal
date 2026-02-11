@@ -57,8 +57,12 @@ async function getTeacherGroups(userId) {
         
         console.log('group_members endpoint status:', usersResponse.status);
         const usersData = await usersResponse.json();
+        console.log('group_members full response:', JSON.stringify(usersData));
+        
         const users = usersData.items || [];
-        console.log('Nadia TODHH members:', users.map(u => u.user_id).join(','));
+        console.log('Nadia TODHH members count:', users.length);
+        console.log('Member user_ids:', users.map(u => u.user_id).join(','));
+        console.log('Searching for userId:', userId);
         
         const isMember = users.some(u => u.user_id === userId);
         console.log('Is user', userId, 'a member?', isMember);
