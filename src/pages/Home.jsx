@@ -21,29 +21,14 @@ export default function Home() {
             return;
         }
 
-        // Check for verification token in URL
+        // Check for verification token in URL - redirect to Verify page
         const params = new URLSearchParams(window.location.search);
         const token = params.get('verify');
         
         if (token) {
-            verifyToken(token);
+            navigate(`/Verify?verify=${token}`);
         }
     }, [navigate]);
-
-    const verifyToken = async (token) => {
-        try {
-            setVerifying(true);
-            const response = await base44.functions.invoke('authVerify', { token });
-            
-            if (response.data.success) {
-                localStorage.setItem('modal_math_session', response.data.sessionToken);
-                navigate('/Dashboard');
-            }
-        } catch (err) {
-            setError('Invalid or expired login link');
-            setVerifying(false);
-        }
-    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
