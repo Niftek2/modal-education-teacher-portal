@@ -56,10 +56,8 @@ async function verifyClassroomBundle(userId) {
 
 Deno.serve(async (req) => {
     try {
-        console.log('=== Auth Request Started ===');
         const base44 = createClientFromRequest(req);
         const { email } = await req.json();
-        console.log('Email received:', email);
 
         if (!email || !email.includes('@')) {
             return Response.json({ error: 'Valid email required' }, { status: 400 });
@@ -76,11 +74,29 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'No account found with this email' }, { status: 404 });
         }
 
-        // Verify Classroom bundle enrollment
-        const hasAccess = await verifyClassroomBundle(user.id);
-        if (!hasAccess) {
-            return Response.json({ error: 'Active Classroom bundle enrollment required to access portal' }, { status: 403 });
-        }
+        // DEBUG: Get all enrollments
+        const enrollResponse = await fetch(`https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${user.id}`, {
+            headers: {
+                'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        const enrollData = await enrollResponse.json();
+        
+        return Response.json({
+            debug: true,
+            userId: user.id,
+            userEmail: user.email,
+            classroomProductId: CLASSROOM_PRODUCT_ID,
+            classroomProductIdType: typeof CLASSROOM_PRODUCT_ID,
+            allEnrollments: enrollData.items?.map(e => ({
+                product_id: e.product_id,
+                product_id_type: typeof e.product_id,
+                product_name: e.product_name,
+                activated_at: e.activated_at,
+                expired_at: e.expired_at
+            })) || []
+        });
 
         // Generate magic link token
         const secret = new TextEncoder().encode(MAGIC_LINK_SECRET);
