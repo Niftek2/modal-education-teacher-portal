@@ -97,7 +97,7 @@ export default function Home() {
         <div className="min-h-screen bg-white flex items-center justify-center p-6">
             <div className="max-w-md w-full">
                 <div className="text-center mb-12">
-                    <h1 className="text-4xl font-bold text-black mb-2">Modal Math</h1>
+                    <h1 className="text-4xl font-bold text-black mb-2">Modal Education</h1>
                     <p className="text-lg text-gray-600">Teacher Portal</p>
                 </div>
 
