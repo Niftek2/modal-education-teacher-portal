@@ -18,25 +18,15 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const loadQuizData = async () => {
         setLoading(true);
         try {
-            // Fetch quiz completions from database for this student
-            const completions = await base44.entities.QuizCompletion.filter({
-                studentId: student.id
-            }, '-completedAt');
+            const sessionToken = localStorage.getItem('modal_math_session');
             
-            // Format the data to match the table structure
-            const formatted = completions.map(quiz => ({
-                id: quiz.id,
-                quizTitle: quiz.quizName,
-                courseTitle: quiz.courseName,
-                score: quiz.score,
-                maxScore: quiz.maxScore,
-                percentage: quiz.percentage,
-                attempt: quiz.attemptNumber,
-                completedAt: quiz.completedAt,
-                timeSpentSeconds: quiz.timeSpentSeconds
-            }));
+            // Fetch quiz history from Thinkific API
+            const response = await base44.functions.invoke('getStudentQuizzes', {
+                studentId: student.id,
+                sessionToken
+            });
             
-            setQuizzes(formatted);
+            setQuizzes(response.data.quizzes || []);
         } catch (error) {
             console.error('Failed to load quiz data:', error);
         } finally {
