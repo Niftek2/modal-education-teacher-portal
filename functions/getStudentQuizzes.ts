@@ -32,15 +32,18 @@ async function getQuizAttempts(userId) {
         });
 
         console.log('Quiz attempts response status:', response.status);
+        const data = await response.json();
+        console.log('Full response from Thinkific:', data);
+        
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Failed to fetch quiz attempts:', response.status, errorText);
+            console.error('Failed to fetch quiz attempts:', response.status, data);
             return [];
         }
 
-        const data = await response.json();
-        console.log('Quiz attempts data items:', data.items?.length || 0);
-        return data.items || [];
+        const items = data.items || [];
+        console.log('Quiz attempts data items count:', items.length);
+        console.log('Quiz attempts items:', items);
+        return items;
     } catch (error) {
         console.error('Quiz attempts fetch error:', error);
         return [];
