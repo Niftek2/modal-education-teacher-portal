@@ -45,8 +45,8 @@ export default function Dashboard() {
             setLoading(true);
 
             // Get teacher data
-            const teacherResponse = await base44.functions.invoke('getTeacherData', {
-                sessionToken
+            const teacherResponse = await base44.functions.invoke('getTeacherData', {}, {
+                headers: { 'Authorization': `Bearer ${sessionToken}` }
             });
 
             setTeacher(teacherResponse.data.teacher);
