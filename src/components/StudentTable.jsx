@@ -19,7 +19,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 
-export default function StudentTable({ students, groupId, onStudentRemoved }) {
+export default function StudentTable({ students, groupId, onStudentRemoved, sessionToken, onStudentSelected }) {
     const [removing, setRemoving] = useState(null);
     const [showConfirm, setShowConfirm] = useState(null);
 
