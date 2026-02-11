@@ -67,7 +67,7 @@ export default function Dashboard() {
             console.error('Dashboard error:', error);
             if (error.response?.status === 401) {
                 localStorage.removeItem('modal_math_session');
-                navigate('/Login');
+                navigate('/');
             }
         } finally {
             setLoading(false);
