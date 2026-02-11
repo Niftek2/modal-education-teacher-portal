@@ -77,9 +77,8 @@ Deno.serve(async (req) => {
         // Get teacher user details
         const user = await getThinkificUser(session.userId);
         
-        // Get teacher's group (using full name)
-        const groupName = `${user.first_name} ${user.last_name}`;
-        const group = await getTeacherGroups(groupName);
+        // Get teacher's group (using their user ID)
+        const group = await getTeacherGroup(session.userId);
         
         return Response.json({
             teacher: {
