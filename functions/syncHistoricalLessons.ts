@@ -113,15 +113,19 @@ Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         const { groupId, sessionToken } = await req.json();
+        console.log('syncHistoricalLessons called with groupId:', groupId);
         
         await verifySession(sessionToken);
+        console.log('Session verified');
 
         if (!groupId) {
             return Response.json({ error: 'Group ID required' }, { status: 400 });
         }
 
         // Get all students in group
+        console.log('Fetching students for group:', groupId);
         const students = await getGroupStudents(groupId);
+        console.log('Found students:', students.length);
         
         let totalLessons = 0;
         const lessonCompletions = [];
