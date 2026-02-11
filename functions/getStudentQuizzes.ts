@@ -69,25 +69,20 @@ Deno.serve(async (req) => {
         }
 
         const quizResults = await getQuizResults(studentId);
-        console.log('Student ID:', studentId, 'Got results:', quizResults.length);
 
-        const enrichedQuizzes = quizResults.map((quiz) => {
-            console.log('Processing quiz:', quiz);
-            return {
-                id: quiz.id,
-                quizTitle: quiz.title || 'Unknown Quiz',
-                courseId: quiz.course_id,
-                courseTitle: quiz.course_name || 'Unknown Course',
-                score: quiz.score,
-                maxScore: quiz.max_score,
-                percentage: quiz.max_score ? Math.round((quiz.score / quiz.max_score) * 100) : 0,
-                attempt: quiz.attempt_number || 1,
-                completedAt: quiz.completed_at,
-                timeSpentSeconds: quiz.time_spent_seconds || null
-            };
-        });
+        const enrichedQuizzes = quizResults.map((quiz) => ({
+            id: quiz.id,
+            quizTitle: quiz.quizName || 'Unknown Quiz',
+            courseId: quiz.courseId,
+            courseTitle: quiz.courseName || 'Unknown Course',
+            score: quiz.score,
+            maxScore: quiz.maxScore,
+            percentage: quiz.maxScore ? Math.round((quiz.score / quiz.maxScore) * 100) : 0,
+            attempt: quiz.attemptNumber || 1,
+            completedAt: quiz.completedAt,
+            timeSpentSeconds: quiz.timeSpentSeconds || null
+        }));
 
-        console.log('Enriched quizzes:', enrichedQuizzes);
         return Response.json({ quizzes: enrichedQuizzes });
 
     } catch (error) {
