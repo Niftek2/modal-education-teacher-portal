@@ -46,56 +46,31 @@ export default function Dashboard() {
     const loadDashboard = async (sessionToken) => {
         try {
             setLoading(true);
-            console.log('[Dashboard] Starting load...');
+            console.log('Loading dashboard with token:', sessionToken ? 'Yes' : 'No');
 
             // Get teacher data
-            console.log('[Dashboard] Calling getTeacherData...');
-            const teacherResponse = await fetch(`${window.location.origin}/api/functions/getTeacherData`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionToken}`
-                },
-                body: JSON.stringify({ sessionToken })
-            });
+            const teacherResponse = await base44.functions.invoke('getTeacherData', { sessionToken });
 
-            if (!teacherResponse.ok) {
-                throw new Error(`Failed to get teacher data: ${teacherResponse.status}`);
-            }
-
-            const teacherData = await teacherResponse.json();
-            console.log('Teacher response:', teacherData);
-            setTeacher(teacherData.teacher);
-            setGroup(teacherData.group);
+            console.log('Teacher response:', teacherResponse.data);
+            setTeacher(teacherResponse.data.teacher);
+            setGroup(teacherResponse.data.group);
 
             // Get students if group exists
-            if (teacherData.group) {
-                console.log('[Dashboard] Calling getStudents...');
-                const studentsResponse = await fetch(`${window.location.origin}/api/functions/getStudents`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionToken}`
-                    },
-                    body: JSON.stringify({
-                        groupId: teacherData.group.id,
-                        sessionToken
-                    })
+            if (teacherResponse.data.group) {
+                const studentsResponse = await base44.functions.invoke('getStudents', {
+                    groupId: teacherResponse.data.group.id,
+                    sessionToken
                 });
 
-                if (!studentsResponse.ok) {
-                    throw new Error(`Failed to get students: ${studentsResponse.status}`);
-                }
-
-                const studentsData = await studentsResponse.json();
-                setStudents(studentsData.students);
-                setFilteredStudents(studentsData.students);
+                setStudents(studentsResponse.data.students);
+                setFilteredStudents(studentsResponse.data.students);
             }
-            console.log('[Dashboard] Load complete');
         } catch (error) {
             console.error('Dashboard error:', error);
-            localStorage.removeItem('modal_math_session');
-            navigate('/');
+            if (error.response?.status === 401) {
+                localStorage.removeItem('modal_math_session');
+                navigate('/');
+            }
         } finally {
             setLoading(false);
         }
