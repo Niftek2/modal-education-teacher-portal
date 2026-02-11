@@ -46,14 +46,14 @@ async function getUserProgress(userId) {
     });
 
     if (!response.ok) {
-        return { percentage: 0, lastActivity: null };
+        return { percentage: 0, lastActivity: null, lastLogin: null };
     }
 
     const data = await response.json();
     const progresses = data.items || [];
     
     if (progresses.length === 0) {
-        return { percentage: 0, lastActivity: null };
+        return { percentage: 0, lastActivity: null, lastLogin: null };
     }
 
     const avgProgress = progresses.reduce((sum, p) => sum + (p.percentage_completed || 0), 0) / progresses.length;
@@ -66,6 +66,7 @@ async function getUserProgress(userId) {
     return {
         percentage: Math.round(avgProgress),
         lastActivity: latestActivity,
+        lastLogin: latestActivity,
         completedLessons: progresses.reduce((sum, p) => sum + (p.completed_chapters || 0), 0)
     };
 }
