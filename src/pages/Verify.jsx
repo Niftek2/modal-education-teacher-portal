@@ -10,11 +10,14 @@ export default function Verify() {
         const verifyToken = async () => {
             try {
                 const params = new URLSearchParams(window.location.search);
-                const token = params.get('verify') || params.get('token');
+                const token = params.get('verify');
+                
+                console.log('URL search params:', window.location.search);
+                console.log('Token extracted:', token);
                 
                 if (!token) {
-                    setMessage('No verification token found');
-                    setTimeout(() => navigate('/'), 3000);
+                    setMessage('No verification token found. Please check your email link.');
+                    setTimeout(() => navigate('/'), 5000);
                     return;
                 }
 
