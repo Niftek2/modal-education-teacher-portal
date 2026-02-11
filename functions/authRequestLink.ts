@@ -96,32 +96,42 @@ Deno.serve(async (req) => {
         const origin = req.headers.get('origin') || req.headers.get('referer')?.split('?')[0] || 'https://app.base44.com';
         const magicLink = `${origin}?verify=${token}`;
 
-        // Send email via Resend
-        const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+        // Send email via Gmail
+        const accessToken = await base44.asServiceRole.connectors.getAccessToken('gmail');
         
-        const resendResponse = await fetch('https://api.resend.com/emails', {
+        const emailContent = [
+            `To: ${email}`,
+            'From: Modal Math <contact@modalmath.com>',
+            'Subject: Your Teacher Portal Login Link',
+            'MIME-Version: 1.0',
+            'Content-Type: text/html; charset=utf-8',
+            '',
+            '<h2>Welcome to Modal Math Teacher Portal</h2>',
+            '<p>Click the link below to access your dashboard:</p>',
+            `<p><a href="${magicLink}" style="background: #4B2865; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Login to Portal</a></p>`,
+            '<p>This link expires in 15 minutes.</p>',
+            '<p>If you didn\'t request this, please ignore this email.</p>'
+        ].join('\r\n');
+        
+        const encoder = new TextEncoder();
+        const data = encoder.encode(emailContent);
+        const base64 = btoa(String.fromCharCode(...data))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+        
+        const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${RESEND_API_KEY}`,
+                'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                from: 'Modal Math <contact@modalmath.com>',
-                to: email,
-                subject: 'Your Teacher Portal Login Link',
-                html: `
-                    <h2>Welcome to Modal Math Teacher Portal</h2>
-                    <p>Click the link below to access your dashboard:</p>
-                    <p><a href="${magicLink}" style="background: #4B2865; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Login to Portal</a></p>
-                    <p>This link expires in 15 minutes.</p>
-                    <p>If you didn't request this, please ignore this email.</p>
-                `
-            })
+            body: JSON.stringify({ raw: base64 })
         });
         
-        if (!resendResponse.ok) {
-            const error = await resendResponse.text();
-            throw new Error(`Resend API error: ${error}`);
+        if (!gmailResponse.ok) {
+            const error = await gmailResponse.text();
+            throw new Error(`Gmail API error: ${error}`);
         }
 
         return Response.json({ 
