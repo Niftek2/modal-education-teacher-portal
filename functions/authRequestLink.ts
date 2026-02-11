@@ -9,8 +9,7 @@ const MAGIC_LINK_SECRET = Deno.env.get("MAGIC_LINK_SECRET");
 async function findThinkificUser(email) {
     const response = await fetch(`https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(email)}`, {
         headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
             'Content-Type': 'application/json'
         }
     });
@@ -28,8 +27,7 @@ async function findThinkificUser(email) {
 async function verifyUserInGroup(userId) {
     const response = await fetch(`https://api.thinkific.com/api/public/v1/group_memberships?query[user_id]=${userId}`, {
         headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
             'Content-Type': 'application/json'
         }
     });
