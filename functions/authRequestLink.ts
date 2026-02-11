@@ -33,14 +33,28 @@ async function verifyClassroomBundle(userId) {
     });
     
     if (!response.ok) {
-        console.error('Enrollment check failed:', response.status, await response.text());
-        return false;
+        const errorText = await response.text();
+        console.error('Enrollment check failed:', response.status, errorText);
+        throw new Error(`Failed to check enrollment: ${response.status} - ${errorText}`);
     }
     
     const data = await response.json();
     console.log('Enrollment data:', JSON.stringify(data));
-    console.log('CLASSROOM_PRODUCT_ID:', CLASSROOM_PRODUCT_ID);
-    return data.items?.some(enrollment => enrollment.activated_at && !enrollment.expired_at);
+    console.log('Checking CLASSROOM_PRODUCT_ID:', CLASSROOM_PRODUCT_ID);
+    console.log('User ID:', userId);
+    
+    if (!data.items || data.items.length === 0) {
+        console.log('No enrollments found for user');
+        return false;
+    }
+    
+    const hasActive = data.items.some(enrollment => {
+        console.log('Enrollment:', JSON.stringify(enrollment));
+        return enrollment.activated_at && !enrollment.expired_at;
+    });
+    
+    console.log('Has active enrollment:', hasActive);
+    return hasActive;
 }
 
 Deno.serve(async (req) => {
