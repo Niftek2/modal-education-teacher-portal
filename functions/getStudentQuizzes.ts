@@ -83,15 +83,15 @@ Deno.serve(async (req) => {
 
         const enrichedQuizzes = quizResults.map((quiz) => ({
             id: quiz.id,
-            quizTitle: quiz.quizName || 'Unknown Quiz',
-            courseId: quiz.courseId,
-            courseTitle: quiz.courseName || 'Unknown Course',
+            quizTitle: quiz.quiz?.name || 'Unknown Quiz',
+            courseId: quiz.quiz?.course?.id,
+            courseTitle: quiz.quiz?.course?.name || 'Unknown Course',
             score: quiz.score,
             maxScore: quiz.maxScore,
             percentage: quiz.maxScore ? Math.round((quiz.score / quiz.maxScore) * 100) : 0,
             attempt: quiz.attemptNumber || 1,
             completedAt: quiz.completedAt,
-            timeSpentSeconds: quiz.timeSpentSeconds || null
+            timeSpentSeconds: quiz.spentSeconds || null
         }));
 
         return Response.json({ quizzes: enrichedQuizzes });
