@@ -43,31 +43,45 @@ async function getTeacherGroups(userId) {
             return null;
         }
         
-        // Try group_members endpoint instead
-        const usersResponse = await fetch(
-            `https://api.thinkific.com/api/public/v1/group_members?query[group_id]=${nadiaGroup.id}`,
-            {
-                headers: {
-                    'X-Auth-API-Key': THINKIFIC_API_KEY,
-                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                    'Content-Type': 'application/json'
+        // Check both group_members and instructors
+        const [membersResp, instructorsResp] = await Promise.all([
+            fetch(
+                `https://api.thinkific.com/api/public/v1/group_members?query[group_id]=${nadiaGroup.id}`,
+                {
+                    headers: {
+                        'X-Auth-API-Key': THINKIFIC_API_KEY,
+                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                        'Content-Type': 'application/json'
+                    }
                 }
-            }
-        );
+            ),
+            fetch(
+                `https://api.thinkific.com/api/public/v1/group_instructors?query[group_id]=${nadiaGroup.id}`,
+                {
+                    headers: {
+                        'X-Auth-API-Key': THINKIFIC_API_KEY,
+                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            )
+        ]);
         
-        console.log('group_members endpoint status:', usersResponse.status);
-        const usersData = await usersResponse.json();
-        console.log('group_members full response:', JSON.stringify(usersData));
+        const membersData = await membersResp.json();
+        const instructorsData = await instructorsResp.json();
         
-        const users = usersData.items || [];
-        console.log('Nadia TODHH members count:', users.length);
-        console.log('Member user_ids:', users.map(u => u.user_id).join(','));
-        console.log('Searching for userId:', userId);
+        const members = membersData.items || [];
+        const instructors = instructorsData.items || [];
         
-        const isMember = users.some(u => u.user_id === userId);
-        console.log('Is user', userId, 'a member?', isMember);
+        console.log('Members:', members.map(u => u.user_id).join(','));
+        console.log('Instructors:', instructors.map(u => u.user_id).join(','));
         
-        return isMember ? nadiaGroup : null;
+        const isMember = members.some(u => u.user_id === userId);
+        const isInstructor = instructors.some(u => u.user_id === userId);
+        
+        console.log('Is member?', isMember, 'Is instructor?', isInstructor);
+        
+        return (isMember || isInstructor) ? nadiaGroup : null;
         
     } catch (error) {
         console.error('getTeacherGroups error:', error.message);
