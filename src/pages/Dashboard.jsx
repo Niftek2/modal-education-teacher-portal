@@ -18,6 +18,7 @@ export default function Dashboard() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [showStudentDetail, setShowStudentDetail] = useState(false);
+    const [syncingQuizzes, setSyncingQuizzes] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
