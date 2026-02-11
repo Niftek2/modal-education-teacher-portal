@@ -40,9 +40,12 @@ async function getTeacherGroups(userId) {
         
         const groupsData = await groupsResponse.json();
         const allGroups = groupsData.items || [];
+        console.log('[Groups] Found total groups:', allGroups.length);
         
         // For each group, check if this user is a member
         for (const group of allGroups) {
+            console.log('[Groups] Checking group:', group.id, group.name);
+            
             const membershipsResponse = await fetch(
                 `https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${group.id}`,
                 {
@@ -57,15 +60,24 @@ async function getTeacherGroups(userId) {
             if (membershipsResponse.ok) {
                 const membershipsData = await membershipsResponse.json();
                 const members = membershipsData.items || [];
+                console.log('[Groups] Group', group.id, 'has', members.length, 'members');
                 
                 // Check if userId is in this group
-                const isMember = members.some(m => m.user_id === userId);
+                const isMember = members.some(m => {
+                    console.log('[Groups] Comparing', m.user_id, '===', userId);
+                    return m.user_id === userId;
+                });
+                
                 if (isMember) {
+                    console.log('[Groups] Found teacher in group:', group.id, group.name);
                     return group;
                 }
+            } else {
+                console.log('[Groups] Failed to fetch memberships for group', group.id);
             }
         }
         
+        console.log('[Groups] Teacher not found in any group');
         return null;
         
     } catch (error) {
