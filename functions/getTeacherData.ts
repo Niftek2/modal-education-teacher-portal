@@ -59,6 +59,11 @@ async function getTeacherGroups(userId) {
                 const users = usersData.items || [];
                 console.log(`[getTeacherGroups] Group ${group.name} has ${users.length} users`);
                 
+                // Log user IDs for debugging (especially for Nadia TODHH group)
+                if (group.name === 'Nadia TODHH') {
+                    console.log(`[getTeacherGroups] Nadia TODHH group users:`, users.map(u => ({ id: u.id, name: u.first_name })));
+                }
+                
                 // Check if this user is in the group
                 const isMember = users.some(u => u.id === userId);
                 if (isMember) {
