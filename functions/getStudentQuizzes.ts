@@ -17,24 +17,46 @@ async function verifySession(token) {
 }
 
 async function getQuizResults(userId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/quiz_results?query[user_id]=${userId}&limit=100`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
+    const query = `
+        {
+            quizAttempts(userId: "${userId}") {
+                id
+                quizId
+                quizName
+                courseId
+                courseName
+                score
+                maxScore
+                attemptNumber
+                completedAt
+                timeSpentSeconds
+            }
         }
-    });
+    `;
 
-    if (!response.ok) {
-        console.error('Quiz results error:', response.status, response.statusText);
-        const errorText = await response.text();
-        console.error('Response:', errorText);
+    try {
+        const response = await fetch(`https://${THINKIFIC_SUBDOMAIN}.thinkific.com/graphql`, {
+            method: 'POST',
+            headers: {
+                'X-Auth-API-Key': THINKIFIC_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ query })
+        });
+
+        const data = await response.json();
+        console.log('GraphQL response:', data);
+        
+        if (data.errors) {
+            console.error('GraphQL errors:', data.errors);
+            return [];
+        }
+
+        return data.data?.quizAttempts || [];
+    } catch (error) {
+        console.error('GraphQL fetch error:', error);
         return [];
     }
-
-    const data = await response.json();
-    console.log('Quiz results raw:', data);
-    return data.items || [];
 }
 
 Deno.serve(async (req) => {
