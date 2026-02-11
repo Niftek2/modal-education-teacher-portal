@@ -110,9 +110,13 @@ async function getStudentLessonCompletions(userId) {
 }
 
 Deno.serve(async (req) => {
+    console.log('Function invoked, method:', req.method);
     try {
         const base44 = createClientFromRequest(req);
-        const { groupId, sessionToken } = await req.json();
+        console.log('Base44 client created');
+        const body = await req.json();
+        console.log('Request body received:', body);
+        const { groupId, sessionToken } = body;
         console.log('syncHistoricalLessons called with groupId:', groupId);
         
         await verifySession(sessionToken);
