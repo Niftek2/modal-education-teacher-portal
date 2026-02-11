@@ -72,6 +72,7 @@ async function getTeacherGroups(userId) {
 }
 
 async function getThinkificUser(userId) {
+    console.log('Fetching Thinkific user:', userId);
     const response = await fetch(`https://api.thinkific.com/api/public/v1/users/${userId}`, {
         headers: {
             'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -80,8 +81,12 @@ async function getThinkificUser(userId) {
         }
     });
     
+    console.log('Thinkific user response status:', response.status);
+    
     if (!response.ok) {
-        throw new Error('Failed to fetch user');
+        const errorText = await response.text();
+        console.error('Thinkific user fetch error:', response.status, errorText);
+        throw new Error(`Failed to fetch user: ${response.status} - ${errorText}`);
     }
     
     return await response.json();
