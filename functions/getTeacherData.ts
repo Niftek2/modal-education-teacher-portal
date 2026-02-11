@@ -23,9 +23,9 @@ async function verifySession(token) {
 }
 
 async function getTeacherGroups(userId) {
+    console.log('START getTeacherGroups for:', userId);
     try {
-        console.log('[getTeacherGroups] Starting group lookup for userId:', userId);
-        // Fetch all groups and check which ones have this user as a member
+        // Find Nadia TODHH group specifically
         const groupsResponse = await fetch('https://api.thinkific.com/api/public/v1/groups', {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -34,61 +34,38 @@ async function getTeacherGroups(userId) {
             }
         });
         
-        console.log('[getTeacherGroups] Groups list response status:', groupsResponse.status);
-        
-        if (!groupsResponse.ok) {
-            throw new Error(`Failed to fetch groups: ${groupsResponse.status}`);
-        }
-        
         const groupsData = await groupsResponse.json();
-        const allGroups = groupsData.items || [];
-        console.log('[getTeacherGroups] Found groups:', allGroups.map(g => ({ id: g.id, name: g.name })));
+        const nadiaGroup = groupsData.items?.find(g => g.name === 'Nadia TODHH');
+        console.log('Nadia TODHH group:', nadiaGroup?.id);
         
-        // For each group, check if user is a member via Group Users endpoint
-        for (const group of allGroups) {
-            // Skip certain groups to speed up search
-            if (!['Nadia TODHH', "Ms Nadia's Class", 'Nadia Classroom'].includes(group.name)) {
-                continue;
-            }
-            
-            console.log(`[getTeacherGroups] Checking group: ${group.name}`);
-            const usersResponse = await fetch(
-                `https://api.thinkific.com/api/public/v1/groups/${group.id}/users`,
-                {
-                    headers: {
-                        'X-Auth-API-Key': THINKIFIC_API_KEY,
-                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-            
-            console.log(`[getTeacherGroups] ${group.name} - Status: ${usersResponse.status}`);
-            
-            if (usersResponse.ok) {
-                const usersData = await usersResponse.json();
-                const users = usersData.items || [];
-                console.log(`[getTeacherGroups] ${group.name} - ${users.length} users`);
-                
-                // Log all user IDs in the group
-                console.log(`[getTeacherGroups] ${group.name} users:`, users.map(u => u.id).join(','));
-                
-                // Check if this user is in the group
-                const isMember = users.some(u => u.id === userId);
-                console.log(`[getTeacherGroups] User ${userId} in ${group.name}? ${isMember}`);
-                
-                if (isMember) {
-                    console.log(`[getTeacherGroups] FOUND: User in ${group.name}`);
-                    return group;
-                }
-            }
+        if (!nadiaGroup) {
+            console.log('Nadia TODHH group not found');
+            return null;
         }
         
-        console.log(`[getTeacherGroups] User ${userId} not found in any group`);
-        return null;
+        // Check if user is in this group
+        const usersResponse = await fetch(
+            `https://api.thinkific.com/api/public/v1/groups/${nadiaGroup.id}/users`,
+            {
+                headers: {
+                    'X-Auth-API-Key': THINKIFIC_API_KEY,
+                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        
+        const usersData = await usersResponse.json();
+        const users = usersData.items || [];
+        console.log('Nadia TODHH has users:', users.map(u => u.id).join(','));
+        
+        const isMember = users.some(u => u.id === userId);
+        console.log('Is user', userId, 'a member?', isMember);
+        
+        return isMember ? nadiaGroup : null;
         
     } catch (error) {
-        console.error('[getTeacherGroups] Error:', error.message);
+        console.error('getTeacherGroups error:', error.message);
         return null;
     }
 }
