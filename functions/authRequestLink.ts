@@ -81,25 +81,11 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'No account found with this email' }, { status: 404 });
         }
 
-        // Verify Classroom bundle enrollment - DEBUG
-        const enrollmentResponse = await fetch(`https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${user.id}`, {
-            headers: {
-                'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        const enrollmentData = await enrollmentResponse.json();
-        
-        // Return debug info
-        return Response.json({
-            debug: {
-                userId: user.id,
-                userEmail: user.email,
-                classroomProductId: CLASSROOM_PRODUCT_ID,
-                enrollments: enrollmentData.items || [],
-                enrollmentCount: enrollmentData.items?.length || 0
-            }
-        }, { status: 200 });
+        // Verify Classroom bundle enrollment
+        const hasAccess = await verifyClassroomBundle(user.id);
+        if (!hasAccess) {
+            return Response.json({ error: 'Active Classroom bundle enrollment required to access portal' }, { status: 403 });
+        }
 
         // Generate magic link token
         const secret = new TextEncoder().encode(MAGIC_LINK_SECRET);
