@@ -39,6 +39,7 @@ async function getTeacherGroups(userId) {
         
         const groupsData = await groupsResponse.json();
         const allGroups = groupsData.items || [];
+        console.log('[getTeacherGroups] Found groups:', allGroups.map(g => ({ id: g.id, name: g.name })));
         
         // For each group, check if user is a member via Group Users endpoint
         for (const group of allGroups) {
@@ -56,15 +57,18 @@ async function getTeacherGroups(userId) {
             if (usersResponse.ok) {
                 const usersData = await usersResponse.json();
                 const users = usersData.items || [];
+                console.log(`[getTeacherGroups] Group ${group.name} has ${users.length} users`);
                 
                 // Check if this user is in the group
                 const isMember = users.some(u => u.id === userId);
                 if (isMember) {
+                    console.log(`[getTeacherGroups] User ${userId} found in group ${group.name}`);
                     return group;
                 }
             }
         }
         
+        console.log(`[getTeacherGroups] User ${userId} not found in any group`);
         return null;
         
     } catch (error) {
