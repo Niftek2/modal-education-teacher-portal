@@ -46,9 +46,8 @@ export default function AddStudentModal({ groupId, onClose, onSuccess }) {
             
             const response = await base44.functions.invoke('addStudents', {
                 students: valid,
-                groupId: groupId
-            }, {
-                headers: { 'Authorization': `Bearer ${sessionToken}` }
+                groupId: groupId,
+                sessionToken
             });
 
             setResults(response.data.results);
