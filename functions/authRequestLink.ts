@@ -92,9 +92,8 @@ Deno.serve(async (req) => {
             .setIssuedAt()
             .sign(secret);
 
-        // Get base URL from request
-        const origin = req.headers.get('origin') || req.headers.get('referer')?.split('?')[0] || 'https://app.base44.com';
-        const magicLink = `${origin}?verify=${token}`;
+        // Construct magic link - use the app's home page
+        const magicLink = `${req.headers.get('origin')}/?verify=${token}`;
 
         // Send email via Gmail
         const accessToken = await base44.asServiceRole.connectors.getAccessToken('gmail');
