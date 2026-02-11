@@ -24,7 +24,7 @@ async function verifySession(token) {
 
 async function getTeacherGroup(userId) {
     try {
-        const membershipsResponse = await fetch(`https://api.thinkific.com/api/public/v1/group_memberships?user_id=${userId}`, {
+        const membershipsResponse = await fetch(`https://api.thinkific.com/api/public/v1/group_memberships?query[user_id]=${userId}`, {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
                 'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
