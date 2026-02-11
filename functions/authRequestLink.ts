@@ -96,18 +96,32 @@ Deno.serve(async (req) => {
         const origin = req.headers.get('origin') || req.headers.get('referer')?.split('?')[0] || 'https://app.base44.com';
         const magicLink = `${origin}?verify=${token}`;
 
-        // Send email via Base44
-        await base44.integrations.Core.SendEmail({
-            to: email,
-            from_name: 'Modal Math',
-            subject: 'Your Teacher Portal Login Link',
-            body: `
-                <h2>Welcome to Modal Math Teacher Portal</h2>
-                <p>Click the link below to access your dashboard:</p>
-                <p><a href="${magicLink}" style="background: #4B2865; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Login to Portal</a></p>
-                <p>This link expires in 15 minutes.</p>
-                <p>If you didn't request this, please ignore this email.</p>
-            `
+        // Send email via Gmail
+        const accessToken = await base44.asServiceRole.connectors.getAccessToken('gmail');
+        
+        const emailContent = [
+            'Content-Type: text/html; charset=utf-8',
+            'MIME-Version: 1.0',
+            `To: ${email}`,
+            'From: contact@modalmath.com',
+            'Subject: Your Teacher Portal Login Link',
+            '',
+            '<h2>Welcome to Modal Math Teacher Portal</h2>',
+            '<p>Click the link below to access your dashboard:</p>',
+            `<p><a href="${magicLink}" style="background: #4B2865; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Login to Portal</a></p>`,
+            '<p>This link expires in 15 minutes.</p>',
+            '<p>If you didn\'t request this, please ignore this email.</p>'
+        ].join('\n');
+        
+        const encodedMessage = btoa(emailContent).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        
+        await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ raw: encodedMessage })
         });
 
         return Response.json({ 
