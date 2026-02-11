@@ -46,7 +46,8 @@ async function getTeacherGroups(userId) {
         for (const group of allGroups) {
             console.log('[Groups] Checking group:', group.id, group.name);
             
-            const membershipsResponse = await fetch(
+            // Try the users endpoint
+            let usersResponse = await fetch(
                 `https://api.thinkific.com/api/public/v1/groups/${group.id}/users`,
                 {
                     headers: {
@@ -57,10 +58,25 @@ async function getTeacherGroups(userId) {
                 }
             );
             
-            if (membershipsResponse.ok) {
-                const usersData = await membershipsResponse.json();
+            if (usersResponse.status === 404) {
+                // Try the members endpoint instead
+                console.log('[Groups] Users endpoint not available, trying members...');
+                usersResponse = await fetch(
+                    `https://api.thinkific.com/api/public/v1/groups/${group.id}/members`,
+                    {
+                        headers: {
+                            'X-Auth-API-Key': THINKIFIC_API_KEY,
+                            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+            }
+            
+            if (usersResponse.ok) {
+                const usersData = await usersResponse.json();
                 const users = usersData.items || [];
-                console.log('[Groups] Group', group.id, 'has', users.length, 'users');
+                console.log('[Groups] Group', group.id, 'has', users.length, 'members');
                 
                 // Check if userId is in this group
                 const isMember = users.some(u => {
@@ -72,8 +88,8 @@ async function getTeacherGroups(userId) {
                     return group;
                 }
             } else {
-                const errorText = await membershipsResponse.text();
-                console.log('[Groups] Failed to fetch users for group', group.id, ':', membershipsResponse.status, errorText.substring(0, 100));
+                const errorText = await usersResponse.text();
+                console.log('[Groups] Failed to fetch members for group', group.id, ':', usersResponse.status);
             }
         }
         
