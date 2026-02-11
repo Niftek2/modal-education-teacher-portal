@@ -43,9 +43,9 @@ async function getTeacherGroups(userId) {
             return null;
         }
         
-        // Check if user is in this group
+        // Try group_members endpoint instead
         const usersResponse = await fetch(
-            `https://api.thinkific.com/api/public/v1/groups/${nadiaGroup.id}/users`,
+            `https://api.thinkific.com/api/public/v1/group_members?query[group_id]=${nadiaGroup.id}`,
             {
                 headers: {
                     'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -55,11 +55,12 @@ async function getTeacherGroups(userId) {
             }
         );
         
+        console.log('group_members endpoint status:', usersResponse.status);
         const usersData = await usersResponse.json();
         const users = usersData.items || [];
-        console.log('Nadia TODHH has users:', users.map(u => u.id).join(','));
+        console.log('Nadia TODHH members:', users.map(u => u.user_id).join(','));
         
-        const isMember = users.some(u => u.id === userId);
+        const isMember = users.some(u => u.user_id === userId);
         console.log('Is user', userId, 'a member?', isMember);
         
         return isMember ? nadiaGroup : null;
