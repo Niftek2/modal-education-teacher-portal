@@ -1,8 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import * as jose from 'npm:jose@5.2.0';
 
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
 async function verifySession(token) {
@@ -20,36 +18,9 @@ async function verifySession(token) {
     }
 }
 
-async function getQuizResults(userId) {
-    try {
-        console.log('Fetching quiz results for user:', userId);
-        const response = await fetch(`https://api.thinkific.com/api/public/v1/quizzes_attempts?query[user_id]=${userId}`, {
-            headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        console.log('Quiz results response status:', response.status);
-
-        if (!response.ok) {
-            console.error('Quiz results fetch error:', response.status);
-            return [];
-        }
-
-        const data = await response.json();
-        console.log('Quiz results data:', data);
-        
-        return data.items || [];
-    } catch (error) {
-        console.error('Quiz fetch error:', error);
-        return [];
-    }
-}
-
 Deno.serve(async (req) => {
     try {
+        const base44 = createClientFromRequest(req);
         const { studentId, sessionToken } = await req.json();
         await verifySession(sessionToken);
 
@@ -57,20 +28,27 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Student ID required' }, { status: 400 });
         }
 
-        const quizResults = await getQuizResults(studentId);
+        console.log('Fetching quizzes for student:', studentId);
 
-        const enrichedQuizzes = quizResults.map((quiz) => ({
+        // Query the QuizCompletion entity from the database
+        const quizCompletions = await base44.asServiceRole.entities.QuizCompletion.filter({
+            studentId: studentId
+        });
+
+        console.log('Found quiz completions:', quizCompletions.length);
+
+        const enrichedQuizzes = quizCompletions.map((quiz) => ({
             id: quiz.id,
-            quizTitle: quiz.quiz_name || 'Unknown Quiz',
-            courseId: quiz.course_id,
-            courseTitle: quiz.course_name || 'Unknown Course',
+            quizTitle: quiz.quizName || 'Unknown Quiz',
+            courseId: quiz.courseId,
+            courseTitle: quiz.courseName || 'Unknown Course',
             score: quiz.score,
-            maxScore: quiz.max_score,
-            percentage: quiz.max_score ? Math.round((quiz.score / quiz.max_score) * 100) : 0,
-            attempt: quiz.attempt_number || 1,
-            completedAt: quiz.completed_at,
-            timeSpentSeconds: quiz.time_spent_seconds || null
-        }));
+            maxScore: quiz.maxScore,
+            percentage: quiz.percentage || 0,
+            attempt: quiz.attemptNumber || 1,
+            completedAt: quiz.completedAt,
+            timeSpentSeconds: quiz.timeSpentSeconds || null
+        })).sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
 
         return Response.json({ quizzes: enrichedQuizzes });
 
