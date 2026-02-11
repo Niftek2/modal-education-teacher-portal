@@ -17,7 +17,8 @@ async function verifySession(token) {
 }
 
 async function getGroupMembers(groupId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/group_users?query[group_id]=${groupId}`, {
+    // Get all users then filter by group assignment via API
+    const response = await fetch(`https://api.thinkific.com/api/public/v1/users?query[group_id]=${groupId}`, {
         headers: {
             'X-Auth-API-Key': THINKIFIC_API_KEY,
             'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
