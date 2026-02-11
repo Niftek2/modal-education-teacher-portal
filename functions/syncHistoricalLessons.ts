@@ -60,16 +60,18 @@ async function getStudentLessonCompletions(userId) {
         const query = `
             query GetStudentLessons($userId: ID!) {
                 user(id: $userId) {
-                    completedLessons {
-                        id
-                        name
-                        chapter {
-                            course {
+                    enrollments {
+                        course {
+                            id
+                            name
+                            lessons {
                                 id
                                 name
+                                userProgress {
+                                    completedAt
+                                }
                             }
                         }
-                        completedAt
                     }
                 }
             }
