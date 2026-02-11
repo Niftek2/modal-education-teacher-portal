@@ -22,7 +22,8 @@ async function verifySession(token) {
 async function getQuizAttempts(userId) {
     try {
         console.log('Fetching quiz attempts for user:', userId);
-        const response = await fetch(`https://api.thinkific.com/api/public/v1/quizzes_attempts?query[user_id]=${userId}`, {
+        // Try quiz_attempts (note: singular) instead of quizzes_attempts
+        const response = await fetch(`https://api.thinkific.com/api/public/v1/quiz_attempts?query[user_id]=${userId}`, {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
                 'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
@@ -32,7 +33,8 @@ async function getQuizAttempts(userId) {
 
         console.log('Quiz attempts response status:', response.status);
         if (!response.ok) {
-            console.error('Failed to fetch quiz attempts:', response.status);
+            const errorText = await response.text();
+            console.error('Failed to fetch quiz attempts:', response.status, errorText);
             return [];
         }
 
