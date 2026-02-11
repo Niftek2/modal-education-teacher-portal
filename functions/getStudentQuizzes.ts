@@ -20,7 +20,7 @@ async function getQuizResults(userId) {
     const query = `
         query {
             user(id: "${userId}") {
-                quizAttempts(first: 100) {
+                quizResults(first: 100) {
                     edges {
                         node {
                             id
