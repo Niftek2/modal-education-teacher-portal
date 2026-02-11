@@ -16,7 +16,9 @@ async function findThinkificUser(email) {
     });
     
     if (!response.ok) {
-        throw new Error('Failed to query Thinkific user');
+        const errorText = await response.text();
+        console.error('Thinkific API error:', response.status, errorText);
+        throw new Error(`Thinkific API returned ${response.status}: ${errorText}`);
     }
     
     const data = await response.json();
