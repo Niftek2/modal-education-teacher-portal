@@ -80,30 +80,28 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
                     </TableHeader>
                     <TableBody>
                         {students.map((student) => (
-                            <TableRow key={student.id} className="border-b border-gray-100 hover:bg-gray-50">
+                            <TableRow 
+                                key={student.id} 
+                                className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                                onClick={() => onStudentSelected(student)}
+                            >
                                 <TableCell className="font-medium text-black">
                                     {student.firstName} {student.lastName}
                                 </TableCell>
                                 <TableCell className="text-gray-600 text-sm">
                                     {student.email}
                                 </TableCell>
-                                <TableCell>
-                                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${getProgressColor(student.percentage || 0)}`}>
-                                        {getProgressIcon(student.percentage || 0)}
-                                        {student.percentage || 0}%
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-gray-600">
-                                    {student.completedLessons || 0} lessons
-                                </TableCell>
                                 <TableCell className="text-gray-600 text-sm">
-                                    {formatLastActivity(student.lastActivity)}
+                                    {formatLastLogin(student.lastActivity)}
                                 </TableCell>
                                 <TableCell>
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        onClick={() => setShowConfirm(student)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowConfirm(student);
+                                        }}
                                         disabled={removing === student.id}
                                         className="text-gray-400 hover:text-red-600"
                                     >
