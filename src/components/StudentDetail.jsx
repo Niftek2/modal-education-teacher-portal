@@ -19,16 +19,18 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
         setLoading(true);
         try {
             const sessionToken = localStorage.getItem('modal_math_session');
+            console.log('Loading quizzes for student:', student.id);
             
-            // Fetch quiz history from Thinkific API
             const response = await base44.functions.invoke('getStudentQuizzes', {
                 studentId: student.id,
                 sessionToken
             });
             
+            console.log('Quiz data received:', response.data);
             setQuizzes(response.data.quizzes || []);
         } catch (error) {
             console.error('Failed to load quiz data:', error);
+            setQuizzes([]);
         } finally {
             setLoading(false);
         }
