@@ -28,6 +28,8 @@ async function getTeacherGroups(userId) {
     });
     
     if (!groupsResponse.ok) {
+        const errorText = await groupsResponse.text();
+        console.error('Groups fetch error:', groupsResponse.status, errorText);
         throw new Error('Failed to fetch groups');
     }
     
@@ -51,12 +53,17 @@ async function getTeacherGroups(userId) {
         
         if (membersResponse.ok) {
             const membersData = await membersResponse.json();
-            console.log(`Group ${group.id} has ${membersData.items?.length || 0} members`);
-            const isTeacherMember = membersData.items?.some(m => m.user_id === userId);
+            console.log(`Group ${group.id} members:`, JSON.stringify(membersData.items || []));
+            const isTeacherMember = membersData.items?.some(m => {
+                console.log(`Comparing user_id: ${m.user_id} === ${userId}`, m.user_id === userId);
+                return m.user_id === userId;
+            });
             if (isTeacherMember) {
                 console.log('Found teacher in group:', group.id);
                 return group;
             }
+        } else {
+            console.log(`Failed to fetch members for group ${group.id}`);
         }
     }
     
