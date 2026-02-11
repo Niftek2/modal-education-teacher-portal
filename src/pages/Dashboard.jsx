@@ -16,6 +16,8 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState(null);
+    const [showStudentDetail, setShowStudentDetail] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
