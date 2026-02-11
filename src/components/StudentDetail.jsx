@@ -64,47 +64,99 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     <div className="text-center py-8">
                         <div className="inline-block w-8 h-8 border-4 border-purple-200 border-t-purple-900 rounded-full animate-spin"></div>
                     </div>
-                ) : quizzes.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                        No quiz attempts yet
-                    </div>
                 ) : (
                     <div className="space-y-6">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Quiz</TableHead>
-                                    <TableHead>Course</TableHead>
-                                    <TableHead>Attempt</TableHead>
-                                    <TableHead>Score</TableHead>
-                                    <TableHead>Date & Time</TableHead>
-                                    <TableHead>Duration</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {quizzes.map((quiz) => (
-                                    <TableRow key={`${quiz.id}-${quiz.attemptNumber}`}>
-                                        <TableCell className="font-medium">{quiz.quizName}</TableCell>
-                                        <TableCell className="text-sm text-gray-600">{quiz.courseName}</TableCell>
-                                        <TableCell className="text-center">{quiz.attemptNumber}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Target className="w-4 h-4 text-gray-400" />
-                                                <span className="font-semibold">{quiz.score}/{quiz.maxScore}</span>
-                                                <span className="text-gray-500">({quiz.percentage}%)</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-sm">{formatDate(quiz.completedAt)}</TableCell>
-                                        <TableCell className="text-sm">
-                                            <div className="flex items-center gap-1 text-gray-600">
-                                                <Clock className="w-4 h-4" />
-                                                {formatTime(quiz.timeSpentSeconds)}
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                        <div className="flex gap-4 border-b border-gray-200">
+                            <button
+                                onClick={() => setActiveTab('quizzes')}
+                                className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors ${
+                                    activeTab === 'quizzes'
+                                        ? 'border-purple-900 text-purple-900'
+                                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                Quizzes ({quizzes.length})
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('lessons')}
+                                className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors ${
+                                    activeTab === 'lessons'
+                                        ? 'border-purple-900 text-purple-900'
+                                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                Lessons ({lessons.length})
+                            </button>
+                        </div>
+
+                        {activeTab === 'quizzes' ? (
+                            quizzes.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                    No quiz attempts yet
+                                </div>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Quiz</TableHead>
+                                            <TableHead>Course</TableHead>
+                                            <TableHead>Attempt</TableHead>
+                                            <TableHead>Score</TableHead>
+                                            <TableHead>Date & Time</TableHead>
+                                            <TableHead>Duration</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {quizzes.map((quiz) => (
+                                            <TableRow key={`${quiz.id}-${quiz.attemptNumber}`}>
+                                                <TableCell className="font-medium">{quiz.quizName}</TableCell>
+                                                <TableCell className="text-sm text-gray-600">{quiz.courseName}</TableCell>
+                                                <TableCell className="text-center">{quiz.attemptNumber}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Target className="w-4 h-4 text-gray-400" />
+                                                        <span className="font-semibold">{quiz.score}/{quiz.maxScore}</span>
+                                                        <span className="text-gray-500">({quiz.percentage}%)</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-sm">{formatDate(quiz.completedAt)}</TableCell>
+                                                <TableCell className="text-sm">
+                                                    <div className="flex items-center gap-1 text-gray-600">
+                                                        <Clock className="w-4 h-4" />
+                                                        {formatTime(quiz.timeSpentSeconds)}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )
+                        ) : (
+                            lessons.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                    No lessons completed yet
+                                </div>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Lesson</TableHead>
+                                            <TableHead>Course</TableHead>
+                                            <TableHead>Completed</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {lessons.map((lesson) => (
+                                            <TableRow key={lesson.id}>
+                                                <TableCell className="font-medium">{lesson.lessonName}</TableCell>
+                                                <TableCell className="text-sm text-gray-600">{lesson.courseName}</TableCell>
+                                                <TableCell className="text-sm">{formatDate(lesson.completedAt)}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )
+                        )}
                     </div>
                 )}
             </DialogContent>
