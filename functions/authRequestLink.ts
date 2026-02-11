@@ -27,44 +27,31 @@ async function findThinkificUser(email) {
 }
 
 async function verifyClassroomBundle(userId) {
-    const url = `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[product_id]=${CLASSROOM_PRODUCT_ID}`;
-    console.log('Fetching enrollments from:', url);
-    console.log('Using subdomain:', THINKIFIC_SUBDOMAIN);
-    console.log('CLASSROOM_PRODUCT_ID:', CLASSROOM_PRODUCT_ID);
+    // Get ALL enrollments for the user
+    const url = `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}`;
     
     const response = await fetch(url, {
         headers: {
             'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
-            'Content-Type': 'application/json',
-            'X-Thinkific-Application': THINKIFIC_SUBDOMAIN
+            'Content-Type': 'application/json'
         }
     });
     
-    console.log('Response status:', response.status);
-    
     if (!response.ok) {
         const errorText = await response.text();
-        console.error('Enrollment check failed:', response.status, errorText);
         throw new Error(`Failed to check enrollment: ${response.status} - ${errorText}`);
     }
     
     const data = await response.json();
-    console.log('Full enrollment response:', JSON.stringify(data, null, 2));
     
-    if (!data.items || data.items.length === 0) {
-        console.log('No enrollments found for user');
-        return false;
-    }
-    
-    const hasActive = data.items.some(enrollment => {
-        console.log('Checking enrollment:', JSON.stringify(enrollment));
-        const isActive = enrollment.activated_at && !enrollment.expired_at;
-        console.log('Is active?', isActive);
-        return isActive;
+    // Check if user has an active enrollment in the Classroom bundle
+    const hasActive = data.items?.some(enrollment => {
+        return String(enrollment.product_id) === String(CLASSROOM_PRODUCT_ID) && 
+               enrollment.activated_at && 
+               !enrollment.expired_at;
     });
     
-    console.log('Final result - has active enrollment:', hasActive);
-    return hasActive;
+    return hasActive || false;
 }
 
 Deno.serve(async (req) => {
