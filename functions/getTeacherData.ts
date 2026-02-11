@@ -24,6 +24,7 @@ async function verifySession(token) {
 
 async function getTeacherGroups(userId) {
     try {
+        console.log('[getTeacherGroups] Starting group lookup for userId:', userId);
         // Fetch all groups and check which ones have this user as a member
         const groupsResponse = await fetch('https://api.thinkific.com/api/public/v1/groups', {
             headers: {
@@ -32,6 +33,8 @@ async function getTeacherGroups(userId) {
                 'Content-Type': 'application/json'
             }
         });
+        
+        console.log('[getTeacherGroups] Groups list response status:', groupsResponse.status);
         
         if (!groupsResponse.ok) {
             throw new Error(`Failed to fetch groups: ${groupsResponse.status}`);
