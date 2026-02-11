@@ -17,26 +17,6 @@ async function verifySession(token) {
 }
 
 async function getGroupMembers(groupId) {
-    console.log('Fetching group members for group:', groupId);
-    console.log('Using API key:', THINKIFIC_API_KEY?.substring(0, 10) + '...');
-    console.log('Using subdomain:', THINKIFIC_SUBDOMAIN);
-    
-    // Try fetching the group to verify auth works
-    const groupResponse = await fetch(`https://api.thinkific.com/api/public/v1/groups/${groupId}`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-    
-    console.log('Group fetch status:', groupResponse.status);
-    if (!groupResponse.ok) {
-        const errorText = await groupResponse.text();
-        console.error('Group fetch error:', groupResponse.status, errorText);
-    }
-    
-    // Get all users from the site
     const allUsersResponse = await fetch(`https://api.thinkific.com/api/public/v1/users`, {
         headers: {
             'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -45,8 +25,6 @@ async function getGroupMembers(groupId) {
         }
     });
 
-    console.log('Users endpoint status:', allUsersResponse.status);
-    
     if (!allUsersResponse.ok) {
         const errorText = await allUsersResponse.text();
         console.error('Get users error:', allUsersResponse.status, errorText);
@@ -54,8 +32,6 @@ async function getGroupMembers(groupId) {
     }
 
     const usersData = await allUsersResponse.json();
-    console.log('Total users fetched:', usersData.items?.length || 0);
-    
     return usersData.items || [];
 }
 
