@@ -22,7 +22,7 @@ async function getGroupMembers(groupId) {
     let hasMore = true;
 
     while (hasMore) {
-        const response = await fetch(`https://api.thinkific.com/api/public/v1/group_members?query[group_id]=${groupId}&page=${page}&limit=25`, {
+        const response = await fetch(`https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${groupId}&page=${page}&limit=25`, {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
                 'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
@@ -32,12 +32,12 @@ async function getGroupMembers(groupId) {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('Group members API error:', response.status, errorText);
+            console.error('Group memberships API error:', response.status, errorText);
             throw new Error(`Failed to fetch group members: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();
-        console.log('Group members response:', data.items?.length || 0, 'items');
+        console.log('Group memberships response:', data.items?.length || 0, 'items');
         allMembers = allMembers.concat(data.items || []);
         
         hasMore = data.meta?.pagination?.next_page !== null;
