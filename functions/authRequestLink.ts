@@ -100,29 +100,39 @@ Deno.serve(async (req) => {
         const accessToken = await base44.asServiceRole.connectors.getAccessToken('gmail');
         
         const emailContent = [
-            'Content-Type: text/html; charset=utf-8',
-            'MIME-Version: 1.0',
             `To: ${email}`,
-            'From: contact@modalmath.com',
+            'From: Modal Math <contact@modalmath.com>',
             'Subject: Your Teacher Portal Login Link',
+            'MIME-Version: 1.0',
+            'Content-Type: text/html; charset=utf-8',
             '',
             '<h2>Welcome to Modal Math Teacher Portal</h2>',
             '<p>Click the link below to access your dashboard:</p>',
             `<p><a href="${magicLink}" style="background: #4B2865; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Login to Portal</a></p>`,
             '<p>This link expires in 15 minutes.</p>',
             '<p>If you didn\'t request this, please ignore this email.</p>'
-        ].join('\n');
+        ].join('\r\n');
         
-        const encodedMessage = btoa(emailContent).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const encoder = new TextEncoder();
+        const data = encoder.encode(emailContent);
+        const base64 = btoa(String.fromCharCode(...data))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
         
-        await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ raw: encodedMessage })
+            body: JSON.stringify({ raw: base64 })
         });
+        
+        if (!gmailResponse.ok) {
+            const error = await gmailResponse.text();
+            throw new Error(`Gmail API error: ${error}`);
+        }
 
         return Response.json({ 
             success: true,
