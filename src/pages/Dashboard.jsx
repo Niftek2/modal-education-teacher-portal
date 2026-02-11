@@ -111,6 +111,21 @@ export default function Dashboard() {
         a.click();
     };
 
+    const handleSyncQuizzes = async () => {
+        try {
+            setSyncingQuizzes(true);
+            const sessionToken = localStorage.getItem('modal_math_session');
+            await base44.functions.invoke('syncHistoricalQuizzes', {
+                groupId: group.id,
+                sessionToken
+            });
+        } catch (error) {
+            console.error('Failed to sync quizzes:', error);
+        } finally {
+            setSyncingQuizzes(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center">
