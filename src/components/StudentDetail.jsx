@@ -18,24 +18,12 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const loadQuizData = async () => {
         setLoading(true);
         try {
-            const sessionToken = localStorage.getItem('modal_math_session');
-            console.log('=== Loading quizzes for student ===');
-            console.log('Student object:', student);
-            console.log('Student ID:', student.id);
-            console.log('Student Thinkific ID:', student.thinkificId);
-            
-            const response = await base44.functions.invoke('getStudentQuizzes', {
-                studentId: student.id,
-                sessionToken
-            });
-            
-            console.log('Full API response:', response);
-            console.log('Quiz data received:', response.data);
-            console.log('Number of quizzes:', response.data.quizzes?.length || 0);
-            setQuizzes(response.data.quizzes || []);
+            const quizData = await base44.entities.QuizCompletion.filter({ 
+                studentId: student.id 
+            }, '-completedAt');
+            setQuizzes(quizData);
         } catch (error) {
             console.error('Failed to load quiz data:', error);
-            console.error('Error details:', error.response?.data || error.message);
             setQuizzes([]);
         } finally {
             setLoading(false);
