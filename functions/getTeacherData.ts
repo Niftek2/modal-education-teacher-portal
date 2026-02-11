@@ -24,13 +24,8 @@ async function verifySession(token) {
 
 async function getTeacherGroups(userId) {
     try {
-        console.log('[getTeacherGroups] Looking for groups for user:', userId);
-        
-        // Query group_memberships for this user
-        const url = `https://api.thinkific.com/api/public/v1/group_memberships?query[user_id]=${userId}`;
-        console.log('[getTeacherGroups] Fetching from:', url);
-        
-        const membershipsResponse = await fetch(url, {
+        // Fetch all groups first
+        const groupsResponse = await fetch('https://api.thinkific.com/api/public/v1/groups', {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
                 'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
@@ -38,50 +33,40 @@ async function getTeacherGroups(userId) {
             }
         });
         
-        console.log('[getTeacherGroups] Response status:', membershipsResponse.status);
-        
-        if (!membershipsResponse.ok) {
-            const errorText = await membershipsResponse.text();
-            throw new Error(`API error ${membershipsResponse.status}: ${errorText}`);
+        if (!groupsResponse.ok) {
+            const errorText = await groupsResponse.text();
+            throw new Error(`Failed to fetch groups: ${groupsResponse.status} - ${errorText}`);
         }
         
-        const membershipsData = await membershipsResponse.json();
-        console.log('[getTeacherGroups] Response data:', JSON.stringify(membershipsData).substring(0, 500));
+        const groupsData = await groupsResponse.json();
+        const allGroups = groupsData.items || [];
         
-        const memberships = membershipsData.items || [];
-        console.log('[getTeacherGroups] Found memberships count:', memberships.length);
-        
-        if (memberships.length === 0) {
-            console.log('[getTeacherGroups] User has no group memberships');
-            return null;
-        }
-        
-        // Get the first group ID from memberships
-        const groupId = memberships[0].group_id;
-        console.log('[getTeacherGroups] User is member of group ID:', groupId);
-        
-        // Fetch the full group details
-        const groupUrl = `https://api.thinkific.com/api/public/v1/groups/${groupId}`;
-        console.log('[getTeacherGroups] Fetching group from:', groupUrl);
-        
-        const groupResponse = await fetch(groupUrl, {
-            headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                'Content-Type': 'application/json'
+        // For each group, check if this user is a member
+        for (const group of allGroups) {
+            const membershipsResponse = await fetch(
+                `https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${group.id}`,
+                {
+                    headers: {
+                        'X-Auth-API-Key': THINKIFIC_API_KEY,
+                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            
+            if (membershipsResponse.ok) {
+                const membershipsData = await membershipsResponse.json();
+                const members = membershipsData.items || [];
+                
+                // Check if userId is in this group
+                const isMember = members.some(m => m.user_id === userId);
+                if (isMember) {
+                    return group;
+                }
             }
-        });
-        
-        console.log('[getTeacherGroups] Group response status:', groupResponse.status);
-        
-        if (!groupResponse.ok) {
-            const errorText = await groupResponse.text();
-            throw new Error(`Failed to fetch group: ${groupResponse.status} - ${errorText}`);
         }
         
-        const group = await groupResponse.json();
-        console.log('[getTeacherGroups] Found group:', group.id, group.name);
-        return group;
+        return null;
         
     } catch (error) {
         console.error('[getTeacherGroups] Error:', error.message);
