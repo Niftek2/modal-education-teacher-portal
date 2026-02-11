@@ -17,8 +17,15 @@ async function verifySession(token) {
 }
 
 async function getGroupMembers(groupId) {
-    try {
-        const response = await fetch(`https://api.thinkific.com/api/public/v1/groups/${groupId}/users`, {
+    let allMembers = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+        const url = `https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${groupId}&page=${page}&limit=50`;
+        console.log('Fetching group memberships from:', url);
+        
+        const response = await fetch(url, {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
                 'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
@@ -26,20 +33,23 @@ async function getGroupMembers(groupId) {
             }
         });
 
+        const errorText = await response.text();
+        console.log('Response status:', response.status);
+        console.log('Response body:', errorText.substring(0, 500));
+
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Get group users error:', response.status, errorText);
-            throw new Error(`Failed to fetch group members: ${response.status}`);
+            throw new Error(`API error: ${response.status} - ${errorText}`);
         }
 
-        const data = await response.json();
-        console.log('Group users response:', data.items?.length || 0, 'items');
-        return data.items || [];
-
-    } catch (error) {
-        console.error('getGroupMembers error:', error.message);
-        throw error;
+        const data = JSON.parse(errorText);
+        console.log('Received', data.items?.length || 0, 'items');
+        allMembers = allMembers.concat(data.items || []);
+        
+        hasMore = data.meta?.pagination?.next_page !== null;
+        page++;
     }
+
+    return allMembers;
 }
 
 async function getUserProgress(userId) {
