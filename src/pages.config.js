@@ -49,11 +49,13 @@
  */
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
+import Verify from './pages/Verify';
 
 
 export const PAGES = {
     "Dashboard": Dashboard,
     "Home": Home,
+    "Verify": Verify,
 }
 
 export const pagesConfig = {
