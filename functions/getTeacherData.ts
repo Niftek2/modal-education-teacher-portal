@@ -27,8 +27,7 @@ async function getTeacherGroups(userId) {
     console.log('Looking for groups for user:', userId);
     const groupsResponse = await fetch(`https://api.thinkific.com/api/public/v1/groups`, {
         headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
             'Content-Type': 'application/json'
         }
     });
