@@ -45,11 +45,10 @@ async function getQuizResults(userId) {
     `;
 
     try {
-        const response = await fetch(`https://api.thinkific.com/graphql`, {
+        const response = await fetch(`https://${THINKIFIC_SUBDOMAIN}.thinkific.com/graphql`, {
             method: 'POST',
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ query })
