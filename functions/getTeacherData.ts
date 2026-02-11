@@ -23,64 +23,70 @@ async function verifySession(token) {
 }
 
 async function getTeacherGroups(userId) {
-    // Get all group memberships for this user
-    console.log('START: Looking for groups for user:', userId);
-    console.log('API Key available:', !!THINKIFIC_API_KEY);
-    console.log('Subdomain available:', !!THINKIFIC_SUBDOMAIN);
-    
-    const membershipsResponse = await fetch(
-        `https://api.thinkific.com/api/public/v1/group_memberships?query[user_id]=${userId}`,
-        {
+    try {
+        console.log('[getTeacherGroups] Looking for groups for user:', userId);
+        
+        // Query group_memberships for this user
+        const url = `https://api.thinkific.com/api/public/v1/group_memberships?query[user_id]=${userId}`;
+        console.log('[getTeacherGroups] Fetching from:', url);
+        
+        const membershipsResponse = await fetch(url, {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
                 'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
                 'Content-Type': 'application/json'
             }
+        });
+        
+        console.log('[getTeacherGroups] Response status:', membershipsResponse.status);
+        
+        if (!membershipsResponse.ok) {
+            const errorText = await membershipsResponse.text();
+            throw new Error(`API error ${membershipsResponse.status}: ${errorText}`);
         }
-    );
-    
-    console.log('Memberships response status:', membershipsResponse.status);
-    
-    if (!membershipsResponse.ok) {
-        const errorText = await membershipsResponse.text();
-        console.error('Group memberships fetch error:', membershipsResponse.status, errorText);
-        return null;
-    }
-    
-    const membershipsData = await membershipsResponse.json();
-    const memberships = membershipsData.items || [];
-    console.log('Found memberships:', memberships.length);
-    
-    if (memberships.length === 0) {
-        console.log('User has no group memberships');
-        return null;
-    }
-    
-    // Get the first group ID from memberships
-    const groupId = memberships[0].group_id;
-    console.log('User is member of group:', groupId);
-    
-    // Fetch the group details
-    const groupResponse = await fetch(
-        `https://api.thinkific.com/api/public/v1/groups/${groupId}`,
-        {
+        
+        const membershipsData = await membershipsResponse.json();
+        console.log('[getTeacherGroups] Response data:', JSON.stringify(membershipsData).substring(0, 500));
+        
+        const memberships = membershipsData.items || [];
+        console.log('[getTeacherGroups] Found memberships count:', memberships.length);
+        
+        if (memberships.length === 0) {
+            console.log('[getTeacherGroups] User has no group memberships');
+            return null;
+        }
+        
+        // Get the first group ID from memberships
+        const groupId = memberships[0].group_id;
+        console.log('[getTeacherGroups] User is member of group ID:', groupId);
+        
+        // Fetch the full group details
+        const groupUrl = `https://api.thinkific.com/api/public/v1/groups/${groupId}`;
+        console.log('[getTeacherGroups] Fetching group from:', groupUrl);
+        
+        const groupResponse = await fetch(groupUrl, {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
                 'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
                 'Content-Type': 'application/json'
             }
+        });
+        
+        console.log('[getTeacherGroups] Group response status:', groupResponse.status);
+        
+        if (!groupResponse.ok) {
+            const errorText = await groupResponse.text();
+            throw new Error(`Failed to fetch group: ${groupResponse.status} - ${errorText}`);
         }
-    );
-    
-    if (!groupResponse.ok) {
-        const errorText = await groupResponse.text();
-        console.error('Group fetch error:', groupResponse.status, errorText);
+        
+        const group = await groupResponse.json();
+        console.log('[getTeacherGroups] Found group:', group.id, group.name);
+        return group;
+        
+    } catch (error) {
+        console.error('[getTeacherGroups] Error:', error.message);
         return null;
     }
-    
-    const group = await groupResponse.json();
-    console.log('Found group:', group.id, group.name);
-    return group;
 }
 
 async function getThinkificUser(userId) {
