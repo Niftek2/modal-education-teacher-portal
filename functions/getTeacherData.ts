@@ -49,8 +49,7 @@ async function getTeacherGroups(userId) {
             `https://api.thinkific.com/api/public/v1/group_memberships?query[group_id]=${group.id}`,
             {
                 headers: {
-                    'X-Auth-API-Key': THINKIFIC_API_KEY,
-                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                    'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
                     'Content-Type': 'application/json'
                 }
             }
