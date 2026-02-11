@@ -43,12 +43,14 @@ export default function Dashboard() {
     const loadDashboard = async (sessionToken) => {
         try {
             setLoading(true);
+            console.log('Loading dashboard with token:', sessionToken ? 'Yes' : 'No');
 
             // Get teacher data
             const teacherResponse = await base44.functions.invoke('getTeacherData', {}, {
                 headers: { 'Authorization': `Bearer ${sessionToken}` }
             });
 
+            console.log('Teacher response:', teacherResponse.data);
             setTeacher(teacherResponse.data.teacher);
             setGroup(teacherResponse.data.group);
 
