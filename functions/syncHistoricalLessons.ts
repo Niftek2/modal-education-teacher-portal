@@ -79,11 +79,30 @@ async function getStudentLessonCompletions(userId) {
 
         const result = await queryThinkificGraphQL(query, { userId });
         
-        if (!result.user || !result.user.completedLessons) {
+        if (!result.user || !result.user.enrollments) {
             return [];
         }
 
-        return result.user.completedLessons;
+        const lessons = [];
+        result.user.enrollments.forEach(enrollment => {
+            enrollment.course.lessons.forEach(lesson => {
+                if (lesson.userProgress?.completedAt) {
+                    lessons.push({
+                        id: lesson.id,
+                        name: lesson.name,
+                        chapter: {
+                            course: {
+                                id: enrollment.course.id,
+                                name: enrollment.course.name
+                            }
+                        },
+                        completedAt: lesson.userProgress.completedAt
+                    });
+                }
+            });
+        });
+
+        return lessons;
     } catch (error) {
         console.error('Failed to fetch lesson completions:', error);
         return [];
