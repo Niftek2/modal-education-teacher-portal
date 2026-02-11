@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Plus, Search, Download, AlertCircle } from 'lucide-react';
+import { LogOut, Plus, Search, Download, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import StudentTable from '../components/StudentTable';
