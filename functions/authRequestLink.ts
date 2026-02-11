@@ -44,11 +44,11 @@ async function verifyClassroomBundle(userId) {
     
     const data = await response.json();
     
-    // Check if user has an active enrollment in the Classroom bundle
+    // Check if user has an active enrollment in the "Your Classroom" course
     const hasActive = data.items?.some(enrollment => {
-        return String(enrollment.product_id) === String(CLASSROOM_PRODUCT_ID) && 
+        return String(enrollment.course_id) === String(CLASSROOM_PRODUCT_ID) && 
                enrollment.activated_at && 
-               !enrollment.expired_at;
+               !enrollment.expired;
     });
     
     return hasActive || false;
@@ -74,24 +74,11 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'No account found with this email' }, { status: 404 });
         }
 
-        // DEBUG: Get all enrollments
-        const enrollResponse = await fetch(`https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${user.id}`, {
-            headers: {
-                'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        const enrollData = await enrollResponse.json();
-        
-        return Response.json({
-            debug: true,
-            userId: user.id,
-            userEmail: user.email,
-            classroomProductId: CLASSROOM_PRODUCT_ID,
-            classroomProductIdType: typeof CLASSROOM_PRODUCT_ID,
-            allEnrollments: enrollData.items || [],
-            rawEnrollmentData: enrollData
-        });
+        // Verify user has Classroom bundle access
+        const hasAccess = await verifyClassroomBundle(user.id);
+        if (!hasAccess) {
+            return Response.json({ error: 'No active Classroom bundle enrollment found' }, { status: 403 });
+        }
 
         // Generate magic link token
         const secret = new TextEncoder().encode(MAGIC_LINK_SECRET);
