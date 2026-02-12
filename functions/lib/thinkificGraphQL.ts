@@ -1,7 +1,6 @@
 // Thinkific GraphQL Client for historical data backfill
 // Uses API Access Token Authorization (required for GraphQL)
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
+const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 const GRAPHQL_URL = "https://api.thinkific.com/stable/graphql";
 
 async function graphqlRequest(query, variables = {}) {
@@ -12,8 +11,7 @@ async function graphqlRequest(query, variables = {}) {
     const response = await fetch(GRAPHQL_URL, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         },
