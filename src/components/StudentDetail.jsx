@@ -31,21 +31,23 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const studentEvents = events.filter(e => e.studentEmail?.toLowerCase() === student.email?.toLowerCase());
             
             // Split into quizzes and lessons
-            setQuizzes(studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => ({
-                quizName: e.contentTitle,
-                courseName: e.courseName,
-                score: e.score,
-                maxScore: e.metadata?.maxScore || 100,
-                percentage: e.percentage,
+            setQuizzes(studentEvents.filter(e => e.eventType === 'quiz.attempted').map(e => ({
+                quizName: e.contentTitle || 'Unknown Quiz',
+                courseName: e.courseName || 'Unknown Course',
+                score: e.metadata?.grade || 0,
+                maxScore: 100,
+                percentage: e.metadata?.grade || 0,
                 completedAt: e.occurredAt,
-                attemptNumber: e.metadata?.attemptNumber || 1,
-                timeSpentSeconds: e.metadata?.timeSpentSeconds || 0,
-                source: e.source
+                attemptNumber: 1,
+                timeSpentSeconds: 0,
+                source: e.source,
+                correctCount: e.metadata?.correctCount,
+                incorrectCount: e.metadata?.incorrectCount
             })));
 
-            setLessons(studentEvents.filter(e => e.eventType === 'lesson_completed').map(e => ({
-                lessonName: e.contentTitle || 'Course Progress',
-                courseName: e.courseName,
+            setLessons(studentEvents.filter(e => e.eventType === 'lesson.completed').map(e => ({
+                lessonName: e.contentTitle || 'Unknown Lesson',
+                courseName: e.courseName || 'Unknown Course',
                 completedAt: e.occurredAt,
                 source: e.source
             })));
