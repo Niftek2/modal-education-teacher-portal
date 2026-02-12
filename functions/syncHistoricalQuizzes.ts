@@ -1,11 +1,18 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { ThinkificClient } from './lib/thinkificClient.js';
 
-async function hashQuizAttempt(userId, quizId, lessonId, createdAt) {
-    const data = `${userId}-${quizId}-${lessonId}-${createdAt}`;
+async function createExternalId(userId, quizId, lessonId, createdAt) {
+    const data = `${userId}-${quizId}-${lessonId || 'none'}-${createdAt}`;
     const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
     const hashArray = Array.from(new Uint8Array(buffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+}
+
+async function createLessonExternalId(userId, lessonId, courseId, createdAt) {
+    const data = `${userId}-${lessonId}-${courseId || 'none'}-${createdAt}`;
+    const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
+    const hashArray = Array.from(new Uint8Array(buffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
 }
 
 Deno.serve(async (req) => {
@@ -40,12 +47,12 @@ Deno.serve(async (req) => {
                 for (const event of quizEvents) {
                     const payload = event.payload || {};
                     
-                    // Create deterministic ID
-                    let quizCompletionId;
+                    // Create stable external ID
+                    let externalId;
                     if (payload.quiz_attempt?.id) {
-                        quizCompletionId = `quiz_${payload.quiz_attempt.id}`;
+                        externalId = `quiz_attempt_${payload.quiz_attempt.id}`;
                     } else {
-                        quizCompletionId = await hashQuizAttempt(
+                        externalId = await createExternalId(
                             student.id,
                             payload.quiz_id || event.object_id,
                             payload.lesson_id,
@@ -53,9 +60,9 @@ Deno.serve(async (req) => {
                         );
                     }
 
-                    // Check if exists
+                    // Check if exists by externalId
                     const existing = await base44.asServiceRole.entities.QuizCompletion.filter({
-                        id: quizCompletionId
+                        externalId
                     });
 
                     if (existing.length === 0) {
@@ -64,7 +71,7 @@ Deno.serve(async (req) => {
                         const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
 
                         await base44.asServiceRole.entities.QuizCompletion.create({
-                            id: quizCompletionId,
+                            externalId,
                             studentId: String(student.id),
                             studentEmail: student.email,
                             studentName: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
@@ -93,15 +100,22 @@ Deno.serve(async (req) => {
                 for (const event of lessonEvents) {
                     const payload = event.payload || {};
                     
-                    // Check if exists
+                    // Create stable external ID for lesson
+                    const externalId = await createLessonExternalId(
+                        student.id,
+                        payload.lesson_id || event.object_id,
+                        payload.course_id,
+                        event.occurred_at
+                    );
+
+                    // Check if exists by externalId
                     const existing = await base44.asServiceRole.entities.LessonCompletion.filter({
-                        studentId: String(student.id),
-                        lessonId: String(payload.lesson_id || event.object_id || ''),
-                        completedAt: event.occurred_at
+                        externalId
                     });
 
                     if (existing.length === 0) {
                         await base44.asServiceRole.entities.LessonCompletion.create({
+                            externalId,
                             studentId: String(student.id),
                             studentEmail: student.email,
                             studentName: `${student.first_name || ''} ${student.last_name || ''}`.trim(),

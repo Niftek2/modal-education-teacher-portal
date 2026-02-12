@@ -81,11 +81,14 @@ async function handleLessonCompleted(base44, payload) {
         return;
     }
 
-    // Check if already exists (idempotency)
+    const occurredAt = completed_at || new Date().toISOString();
+
+    // Create stable external ID
+    const externalId = await createLessonExternalId(user_id, lesson_id, course_id, occurredAt);
+
+    // Check if already exists by externalId
     const existing = await base44.asServiceRole.entities.LessonCompletion.filter({
-        studentId: String(user_id),
-        lessonId: String(lesson_id),
-        completedAt: completed_at
+        externalId
     });
 
     if (existing.length > 0) {
@@ -94,6 +97,7 @@ async function handleLessonCompleted(base44, payload) {
     }
 
     await base44.asServiceRole.entities.LessonCompletion.create({
+        externalId,
         studentId: String(user_id),
         studentEmail: email,
         studentName: `${first_name || ''} ${last_name || ''}`.trim(),
@@ -101,7 +105,7 @@ async function handleLessonCompleted(base44, payload) {
         lessonName: lesson_name || 'Unknown Lesson',
         courseId: String(course_id || ''),
         courseName: course_name || '',
-        completedAt: completed_at || new Date().toISOString()
+        completedAt: occurredAt
     });
 
     console.log(`[WEBHOOK] Lesson completion recorded: ${lesson_name}`);

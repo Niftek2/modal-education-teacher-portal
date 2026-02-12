@@ -14,13 +14,11 @@ async function verifySession(token) {
     return payload;
 }
 
-function hashQuizAttempt(userId, quizId, lessonId, createdAt) {
-    const data = `${userId}-${quizId}-${lessonId}-${createdAt}`;
-    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(data))
-        .then(buffer => {
-            const hashArray = Array.from(new Uint8Array(buffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        });
+async function createExternalId(userId, quizId, lessonId, createdAt) {
+    const data = `${userId}-${quizId}-${lessonId || 'none'}-${createdAt}`;
+    const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
+    const hashArray = Array.from(new Uint8Array(buffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
 }
 
 Deno.serve(async (req) => {
@@ -46,7 +44,7 @@ Deno.serve(async (req) => {
             studentId: String(studentId)
         });
 
-        const existingIds = new Set(existingQuizzes.map(q => q.id));
+        const existingExternalIds = new Set(existingQuizzes.map(q => q.externalId));
         
         // Convert events to QuizCompletion format and store new ones
         const newQuizzes = [];
@@ -54,12 +52,12 @@ Deno.serve(async (req) => {
         for (const event of quizEvents) {
             const payload = event.payload || {};
             
-            // Use quiz_attempt.id if available, otherwise create deterministic hash
-            let quizCompletionId;
+            // Create stable external ID for deduplication
+            let externalId;
             if (payload.quiz_attempt?.id) {
-                quizCompletionId = `quiz_${payload.quiz_attempt.id}`;
+                externalId = `quiz_attempt_${payload.quiz_attempt.id}`;
             } else {
-                quizCompletionId = await hashQuizAttempt(
+                externalId = await createExternalId(
                     studentId,
                     payload.quiz_id || event.object_id,
                     payload.lesson_id,
@@ -68,7 +66,7 @@ Deno.serve(async (req) => {
             }
 
             // Skip if already exists
-            if (existingIds.has(quizCompletionId)) {
+            if (existingExternalIds.has(externalId)) {
                 continue;
             }
 
@@ -77,7 +75,7 @@ Deno.serve(async (req) => {
             const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
 
             newQuizzes.push({
-                id: quizCompletionId,
+                externalId,
                 studentId: String(studentId),
                 studentEmail: payload.email || '',
                 studentName: `${payload.first_name || ''} ${payload.last_name || ''}`.trim(),
