@@ -110,20 +110,20 @@ Deno.serve(async (req) => {
         while (hasMoreEnrollments) {
             const query = `
                 query GetEnrollments($userId: ID!, $after: String) {
-                    user(id: $userId) {
-                        id
+                    user(gid: $userId) {
+                        gid
                         email
                         firstName
                         lastName
-                        enrollments(first: 20, after: $after) {
+                        courses(first: 20, after: $after) {
                             edges {
                                 node {
-                                    id
-                                    activatedAt
+                                    gid
+                                    enrolledAt
                                     completedAt
                                     percentageCompleted
                                     course {
-                                        id
+                                        gid
                                         name
                                     }
                                 }
@@ -148,11 +148,11 @@ Deno.serve(async (req) => {
                 return Response.json({ error: 'User not found' }, { status: 404 });
             }
 
-            const edges = data.user.enrollments?.edges || [];
+            const edges = data.user.courses?.edges || [];
             enrollments.push(...edges.map(e => e.node));
 
-            hasMoreEnrollments = data.user.enrollments?.pageInfo?.hasNextPage || false;
-            enrollmentCursor = data.user.enrollments?.pageInfo?.endCursor;
+            hasMoreEnrollments = data.user.courses?.pageInfo?.hasNextPage || false;
+            enrollmentCursor = data.user.courses?.pageInfo?.endCursor;
 
             console.log(`[ACTIVITY] Fetched ${edges.length} enrollments (total: ${enrollments.length}, hasNext: ${hasMoreEnrollments})`);
         }
@@ -165,8 +165,8 @@ Deno.serve(async (req) => {
         const allQuizSamples = [];
 
         for (const enrollment of enrollments) {
-            const enrollmentId = enrollment.id;
-            const courseId = enrollment.course.id;
+            const enrollmentId = enrollment.gid;
+            const courseId = enrollment.course.gid;
             const courseName = enrollment.course.name;
 
             console.log(`[ACTIVITY] Processing enrollment ${enrollmentId} (${courseName})...`);
@@ -190,13 +190,13 @@ Deno.serve(async (req) => {
                 while (hasMoreContents) {
                     const query = `
                         query GetCompletedContents($userId: ID!, $courseId: ID!, $after: String) {
-                            enrollment(userId: $userId, courseId: $courseId) {
-                                id
+                            userCourseEnrollment(userGid: $userId, courseGid: $courseId) {
+                                gid
                                 progress {
                                     completedContents(first: 20, after: $after) {
                                         edges {
                                             node {
-                                                id
+                                                gid
                                                 name
                                                 type
                                                 completedAt
@@ -221,12 +221,12 @@ Deno.serve(async (req) => {
 
                     const data = await graphQLQuery(query, variables);
 
-                    const edges = data.enrollment?.progress?.completedContents?.edges || [];
+                    const edges = data.userCourseEnrollment?.progress?.completedContents?.edges || [];
                     detail.completedContents.push(...edges.map(e => e.node));
                     detail.completedContentsCount += edges.length;
 
-                    hasMoreContents = data.enrollment?.progress?.completedContents?.pageInfo?.hasNextPage || false;
-                    contentsCursor = data.enrollment?.progress?.completedContents?.pageInfo?.endCursor;
+                    hasMoreContents = data.userCourseEnrollment?.progress?.completedContents?.pageInfo?.hasNextPage || false;
+                    contentsCursor = data.userCourseEnrollment?.progress?.completedContents?.pageInfo?.endCursor;
 
                     console.log(`[ACTIVITY]   Completed contents: ${detail.completedContents.length} (hasNext: ${hasMoreContents})`);
                 }
@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
                 // Collect first 5 samples
                 detail.completedContents.slice(0, 5).forEach(item => {
                     allCompletedSamples.push({
-                        contentId: item.id,
+                        contentId: item.gid,
                         contentTitle: item.name,
                         contentType: item.type,
                         completedAt: item.completedAt,
@@ -254,12 +254,12 @@ Deno.serve(async (req) => {
                 while (hasMoreQuizzes) {
                     const query = `
                         query GetQuizAttempts($userId: ID!, $courseId: ID!, $after: String) {
-                            enrollment(userId: $userId, courseId: $courseId) {
-                                id
+                            userCourseEnrollment(userGid: $userId, courseGid: $courseId) {
+                                gid
                                 quizAttempts(first: 20, after: $after) {
                                     edges {
                                         node {
-                                            id
+                                            gid
                                             score
                                             maxScore
                                             percentageScore
@@ -267,7 +267,7 @@ Deno.serve(async (req) => {
                                             submittedAt
                                             timeSpentSeconds
                                             quiz {
-                                                id
+                                                gid
                                                 name
                                             }
                                         }
@@ -290,12 +290,12 @@ Deno.serve(async (req) => {
 
                     const data = await graphQLQuery(query, variables);
 
-                    const edges = data.enrollment?.quizAttempts?.edges || [];
+                    const edges = data.userCourseEnrollment?.quizAttempts?.edges || [];
                     detail.quizAttempts.push(...edges.map(e => e.node));
                     detail.quizAttemptsCount += edges.length;
 
-                    hasMoreQuizzes = data.enrollment?.quizAttempts?.pageInfo?.hasNextPage || false;
-                    quizCursor = data.enrollment?.quizAttempts?.pageInfo?.endCursor;
+                    hasMoreQuizzes = data.userCourseEnrollment?.quizAttempts?.pageInfo?.hasNextPage || false;
+                    quizCursor = data.userCourseEnrollment?.quizAttempts?.pageInfo?.endCursor;
 
                     console.log(`[ACTIVITY]   Quiz attempts: ${detail.quizAttempts.length} (hasNext: ${hasMoreQuizzes})`);
                 }
@@ -303,7 +303,7 @@ Deno.serve(async (req) => {
                 // Collect first 5 samples
                 detail.quizAttempts.slice(0, 5).forEach(item => {
                     allQuizSamples.push({
-                        quizId: item.quiz?.id,
+                        quizId: item.quiz?.gid,
                         quizName: item.quiz?.name,
                         score: item.score,
                         maxScore: item.maxScore,
