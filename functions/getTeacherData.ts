@@ -1,8 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import * as jose from 'npm:jose@5.2.0';
+import * as thinkific from './lib/thinkificClient.js';
 
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
 async function verifySession(token) {
@@ -24,42 +23,17 @@ async function verifySession(token) {
 
 async function getTeacherGroups(userId) {
     try {
-        // Get all groups where this teacher is a member
-        const groupsResponse = await fetch(`https://api.thinkific.com/api/public/v1/groups`, {
-            headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!groupsResponse.ok) {
-            throw new Error(`Failed to fetch groups: ${groupsResponse.status}`);
-        }
-        
-        const groupsData = await groupsResponse.json();
-        const allGroups = groupsData.items || [];
-        
-        // Filter to groups where userId is a member
+        // Use Thinkific SDK to fetch all groups
+        const allGroups = await thinkific.listGroups();
         const teacherGroups = [];
+        
         for (const group of allGroups) {
             try {
-                const membersResponse = await fetch(`https://api.thinkific.com/api/public/v1/users?query[group_id]=${group.id}`, {
-                    headers: {
-                        'X-Auth-API-Key': THINKIFIC_API_KEY,
-                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                        'Content-Type': 'application/json'
-                    }
-                });
+                const groupUsers = await thinkific.listGroupUsers(group.id);
+                const isMember = groupUsers.some(u => String(u.id) === String(userId));
                 
-                if (membersResponse.ok) {
-                    const membersData = await membersResponse.json();
-                    const members = membersData.items || [];
-                    const isMember = members.some(m => String(m.id) === String(userId));
-                    
-                    if (isMember) {
-                        teacherGroups.push(group);
-                    }
+                if (isMember) {
+                    teacherGroups.push(group);
                 }
             } catch (err) {
                 console.error(`Failed to check group membership for ${group.id}:`, err.message);
@@ -67,32 +41,10 @@ async function getTeacherGroups(userId) {
         }
         
         return teacherGroups;
-        
     } catch (error) {
         console.error('getTeacherGroups error:', error.message);
         return null;
     }
-}
-
-async function getThinkificUser(userId) {
-    console.log('Fetching Thinkific user:', userId);
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/users/${userId}`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-    
-    console.log('Thinkific user response status:', response.status);
-    
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Thinkific user fetch error:', response.status, errorText);
-        throw new Error(`Failed to fetch user: ${response.status} - ${errorText}`);
-    }
-    
-    return await response.json();
 }
 
 Deno.serve(async (req) => {
@@ -100,8 +52,8 @@ Deno.serve(async (req) => {
         const { sessionToken } = await req.json();
         const session = await verifySession(sessionToken);
         
-        // Get teacher user details
-        const user = await getThinkificUser(session.userId);
+        // Get teacher user details using Thinkific SDK
+        const user = await thinkific.getUser(session.userId);
         
         // Get teacher's groups (plural - all groups, not filtered to one)
         const groups = await getTeacherGroups(session.userId);
