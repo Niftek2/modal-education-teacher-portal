@@ -162,9 +162,10 @@ Deno.serve(async (req) => {
                     query GetCompletedContents($userId: ID!, $courseId: ID!, $after: String) {
                         user(gid: $userId) {
                             gid
-                            courses(filter: { id: $courseId }) {
+                            courses(first: 50) {
                                 edges {
                                     node {
+                                        id
                                         gid
                                         progress {
                                             completedContents(first: 20, after: $after) {
@@ -197,7 +198,9 @@ Deno.serve(async (req) => {
 
                 try {
                     const data = await graphQLQuery(query, variables);
-                    const courseNode = data.user?.courses?.edges?.[0]?.node;
+                    const courseEdges = data.user?.courses?.edges || [];
+                    const matchedCourse = courseEdges.find(e => e.node.id === courseId);
+                    const courseNode = matchedCourse?.node;
                     const edges = courseNode?.progress?.completedContents?.edges || [];
                     
                     console.log(`[ACTIVITY] Found ${edges.length} completed content items`);
@@ -232,9 +235,10 @@ Deno.serve(async (req) => {
                     query GetQuizAttempts($userId: ID!, $courseId: ID!, $after: String) {
                         user(gid: $userId) {
                             gid
-                            courses(filter: { id: $courseId }) {
+                            courses(first: 50) {
                                 edges {
                                     node {
+                                        id
                                         gid
                                         quizAttempts(first: 20, after: $after) {
                                             edges {
@@ -273,7 +277,9 @@ Deno.serve(async (req) => {
 
                 try {
                     const data = await graphQLQuery(query, variables);
-                    const courseNode = data.user?.courses?.edges?.[0]?.node;
+                    const courseEdges = data.user?.courses?.edges || [];
+                    const matchedCourse = courseEdges.find(e => e.node.id === courseId);
+                    const courseNode = matchedCourse?.node;
                     const edges = courseNode?.quizAttempts?.edges || [];
                     
                     console.log(`[ACTIVITY] Found ${edges.length} quiz attempts`);

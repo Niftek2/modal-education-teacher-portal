@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
         // Step 1: Get root query fields
         console.log('[SCHEMA] Fetching root query fields...');
         const rootQuery = await graphQLQuery(`
-            query {
+            query GetRootFields {
                 __schema {
                     queryType {
                         fields(includeDeprecated: false) {
