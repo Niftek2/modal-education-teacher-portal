@@ -19,9 +19,19 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 
-export default function StudentTable({ students, groupId, onStudentRemoved, sessionToken, onStudentSelected }) {
+export default function StudentTable({ students, groupId, onStudentRemoved, sessionToken, onStudentSelected, activities = [] }) {
     const [removing, setRemoving] = useState(null);
     const [showConfirm, setShowConfirm] = useState(null);
+
+    const getLastActive = (email) => {
+        const studentActivities = activities.filter(a => a.studentEmail === email);
+        if (studentActivities.length === 0) return null;
+        
+        const sorted = studentActivities.sort((a, b) => 
+            new Date(b.occurredAt) - new Date(a.occurredAt)
+        );
+        return sorted[0]?.occurredAt;
+    };
 
     const handleRemove = async (student) => {
         try {
