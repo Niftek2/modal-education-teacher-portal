@@ -182,8 +182,8 @@ async function handleQuizAttempted(base44, evt, webhookId) {
             studentUserId: String(studentUserId || ''),
             studentEmail: studentEmail,
             studentDisplayName: studentEmail.split('@')[0],
-            courseId: '', // Not available in quiz webhook payload
-            courseName: '',
+            courseId: String(courseId || ''),
+            courseName: courseName || '',
             eventType: 'quiz.attempted',
             contentId: String(quizId),
             contentTitle: quizName || 'Unknown Quiz',
