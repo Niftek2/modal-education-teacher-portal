@@ -339,6 +339,17 @@ export default function Dashboard() {
                     }}
                 />
             )}
+
+            {/* Quiz Import Modal */}
+            {showQuizImport && (
+                <QuizImportModal
+                    onClose={() => setShowQuizImport(false)}
+                    onSuccess={() => {
+                        setShowQuizImport(false);
+                        loadDashboard(localStorage.getItem('modal_math_session'));
+                    }}
+                />
+            )}
         </div>
     );
 }
