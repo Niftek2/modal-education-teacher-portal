@@ -97,7 +97,9 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {students.map((student) => (
+                        {students.map((student) => {
+                            const lastActiveEvent = getLastActive(student.email);
+                            return (
                             <TableRow 
                                 key={student.id} 
                                 className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
@@ -110,7 +112,27 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
                                     {student.email}
                                 </TableCell>
                                 <TableCell className="text-gray-600 text-sm">
-                                    {formatLastLogin(getLastActive(student.email))}
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{formatLastLogin(lastActiveEvent?.occurredAt)}</span>
+                                                    {lastActiveEvent && (
+                                                        <HelpCircle className="w-3 h-3 text-gray-400" />
+                                                    )}
+                                                </div>
+                                            </TooltipTrigger>
+                                            {lastActiveEvent && (
+                                                <TooltipContent side="left" className="text-xs">
+                                                    <div className="space-y-1">
+                                                        <div><strong>Event:</strong> {lastActiveEvent.eventType}</div>
+                                                        <div><strong>Time:</strong> {new Date(lastActiveEvent.occurredAt).toLocaleString()}</div>
+                                                        <div><strong>ID:</strong> {lastActiveEvent.rawEventId?.slice(0, 8)}...</div>
+                                                    </div>
+                                                </TooltipContent>
+                                            )}
+                                        </Tooltip>
+                                    </TooltipProvider>
                                 </TableCell>
                                 <TableCell>
                                     <Button
