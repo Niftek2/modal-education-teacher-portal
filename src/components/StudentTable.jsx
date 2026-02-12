@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trash2, AlertTriangle } from 'lucide-react';
+import { Trash2, AlertTriangle, HelpCircle } from 'lucide-react';
 import { api } from '@/components/api';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +18,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export default function StudentTable({ students, groupId, onStudentRemoved, sessionToken, onStudentSelected, activities = [] }) {
     const [removing, setRemoving] = useState(null);
