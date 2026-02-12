@@ -74,7 +74,7 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
                         <TableRow className="bg-gray-50 border-b border-gray-200">
                             <TableHead className="font-semibold text-black">Student</TableHead>
                             <TableHead className="font-semibold text-black">Email</TableHead>
-                            <TableHead className="font-semibold text-black">Last Login</TableHead>
+                            <TableHead className="font-semibold text-black">Last Activity</TableHead>
                             <TableHead className="w-12"></TableHead>
                         </TableRow>
                     </TableHeader>
