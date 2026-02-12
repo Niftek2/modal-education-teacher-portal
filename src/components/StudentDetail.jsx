@@ -34,19 +34,22 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             
             // Split into quizzes and lessons
             const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => {
-                const percentage = e.metadata?.grade || 0;
+                const scorePercent = e.metadata?.scorePercent;
                 return {
                     quizName: e.contentTitle || 'Unknown Quiz',
                     courseName: e.courseName || 'Unknown Course',
                     level: e.courseName || 'Unknown',
-                    score: percentage,
+                    score: scorePercent,
                     maxScore: 100,
-                    percentage: percentage,
+                    percentage: scorePercent,
                     completedAt: e.occurredAt,
                     attemptNumber: 1,
                     timeSpentSeconds: 0,
                     correctCount: e.metadata?.correctCount,
-                    incorrectCount: e.metadata?.incorrectCount
+                    incorrectCount: e.metadata?.incorrectCount,
+                    gradePercent: e.metadata?.gradePercent,
+                    attempts: e.metadata?.attempts,
+                    resultId: e.metadata?.resultId
                 };
             });
             setQuizzes(quizList.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt)));
