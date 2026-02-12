@@ -27,9 +27,9 @@ async function findThinkificUser(email) {
     return data.items?.[0];
 }
 
-async function verifyClassroomBundle(userId) {
-    // Get ALL enrollments for the user
-    const url = `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}`;
+async function verifyClassroomEnrollment(userId) {
+    // Check if teacher is enrolled in the "your classroom" course
+    const url = `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[course_id]=${CLASSROOM_PRODUCT_ID}`;
     
     const response = await fetch(url, {
         headers: {
@@ -46,18 +46,17 @@ async function verifyClassroomBundle(userId) {
     }
     
     const data = await response.json();
-    console.log('Enrollments found:', data.items?.length || 0);
+    const enrollments = data.items || [];
     
-    // Check if user has an active enrollment in the "Your Classroom" course
-    const hasActive = data.items?.some(enrollment => {
-        console.log('Checking enrollment:', enrollment.course_id, 'vs', CLASSROOM_PRODUCT_ID);
-        return String(enrollment.course_id) === String(CLASSROOM_PRODUCT_ID) && 
-               enrollment.activated_at && 
-               !enrollment.expired;
+    console.log('Enrollments found for course:', enrollments.length);
+    
+    // Check if user has an active enrollment
+    const hasActive = enrollments.some(enrollment => {
+        return enrollment.activated_at && !enrollment.expired;
     });
     
-    console.log('Has classroom access:', hasActive);
-    return hasActive || false;
+    console.log('Has active enrollment:', hasActive);
+    return hasActive;
 }
 
 Deno.serve(async (req) => {
@@ -80,10 +79,10 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'No account found with this email' }, { status: 404 });
         }
 
-        // Verify user has Classroom bundle access
-        const hasAccess = await verifyClassroomBundle(user.id);
+        // Verify user has Classroom course enrollment
+        const hasAccess = await verifyClassroomEnrollment(user.id);
         if (!hasAccess) {
-            return Response.json({ error: 'No active Classroom bundle enrollment found' }, { status: 403 });
+            return Response.json({ error: 'No active enrollment in "your classroom" course' }, { status: 403 });
         }
 
         // Generate magic link token
