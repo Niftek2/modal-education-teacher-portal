@@ -1,7 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import * as jose from 'npm:jose@5.2.0';
 
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
+const JWT_SECRET = Deno.env.get("JWT_SECRET");
+
+async function verifySession(token: string) {
+    if (!token) {
+        throw new Error('Unauthorized');
+    }
+
+    const secret = new TextEncoder().encode(JWT_SECRET);
+    const { payload } = await jose.jwtVerify(token, secret);
+    return payload;
+}
 
 async function createExternalId(userId: string, quizId: string, attemptId: string, createdAt: string) {
     const data = `${userId}-${quizId}-${attemptId}-${createdAt}`;
@@ -107,13 +119,10 @@ async function getStudentQuizResults(userId: string) {
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+        const { groupId, sessionToken } = await req.json();
 
-        if (user?.role !== 'admin') {
-            return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-        }
-
-        const { groupId } = await req.json();
+        // Verify session token
+        await verifySession(sessionToken);
 
         if (!groupId) {
             return Response.json({ error: 'Group ID required' }, { status: 400 });
