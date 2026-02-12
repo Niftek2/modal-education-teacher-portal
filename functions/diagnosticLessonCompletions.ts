@@ -28,16 +28,17 @@ async function graphQLQuery(query, variables = {}) {
         throw new Error('THINKIFIC_API_ACCESS_TOKEN not configured');
     }
 
-    const url = `https://${THINKIFIC_SUBDOMAIN}.thinkific.com/graphql`;
+    const url = `https://api.thinkific.com/stable/graphql`;
     
     console.log(`[DIAG] GraphQL POST ${url}`);
+    console.log(`[DIAG] GraphQL query (first 200 chars):`, query.substring(0, 200));
 
     const response = await fetch(url, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${API_ACCESS_TOKEN}`,
             'Content-Type': 'application/json',
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+            'Accept': 'application/json'
         },
         body: JSON.stringify({
             query,
@@ -46,7 +47,16 @@ async function graphQLQuery(query, variables = {}) {
     });
 
     const status = response.status;
-    const body = await response.json();
+    const text = await response.text();
+    console.log(`[DIAG] GraphQL response status: ${status}, first 200 chars: ${text.substring(0, 200)}`);
+    
+    let body;
+    try {
+        body = JSON.parse(text);
+    } catch (e) {
+        console.error(`[DIAG] Failed to parse GraphQL response as JSON:`, text.substring(0, 500));
+        throw new Error(`Invalid JSON response: ${text.substring(0, 200)}`);
+    }
 
     console.log(`[DIAG] GraphQL response status: ${status}`);
 
