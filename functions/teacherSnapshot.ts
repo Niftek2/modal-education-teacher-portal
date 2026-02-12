@@ -13,83 +13,90 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
         }
 
-        // Get all webhook events
-        const webhookEvents = await base44.asServiceRole.entities.WebhookEventLog.list('-timestamp', 1000);
-        
-        // Get all activity events
-        const activityEvents = await base44.asServiceRole.entities.ActivityEvent.list('-occurredAt', 1000);
+        // Get all webhook events in last 24h
+        const twentyFourHoursAgo = new Date();
+        twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
-        // Calculate last 24h
-        const now = new Date();
-        const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-        const webhooksLast24h = webhookEvents.filter(w => new Date(w.timestamp) > oneDayAgo);
-        const activitiesLast24h = activityEvents.filter(a => new Date(a.occurredAt) > oneDayAgo);
-
-        // Group activities by event type
-        const activityCountsByType = {};
-        activitiesLast24h.forEach(a => {
-            activityCountsByType[a.eventType] = (activityCountsByType[a.eventType] || 0) + 1;
+        const webhookEvents = await base44.asServiceRole.entities.WebhookEventLog.filter({
+            timestamp: { $gte: twentyFourHoursAgo.toISOString() }
         });
 
-        // Per-student sample
-        const studentEmails = new Set(activityEvents.map(a => a.studentEmail).filter(Boolean));
-        const perStudentSample = {};
+        const webhookCountsByTopic = {};
+        let lastWebhookTime = null;
+        webhookEvents.forEach(event => {
+            webhookCountsByTopic[event.topic] = (webhookCountsByTopic[event.topic] || 0) + 1;
+            if (!lastWebhookTime || new Date(event.timestamp) > new Date(lastWebhookTime)) {
+                lastWebhookTime = event.timestamp;
+            }
+        });
 
-        for (const email of studentEmails) {
-            const studentActivities = activityEvents.filter(a => a.studentEmail === email);
-            const studentQuizzes = studentActivities.filter(a => a.eventType === 'quiz_attempted');
+        // Get all activity events in last 24h
+        const activityEvents = await base44.asServiceRole.entities.ActivityEvent.filter({
+            occurredAt: { $gte: twentyFourHoursAgo.toISOString() }
+        });
+
+        const activityCountsByType = {};
+        activityEvents.forEach(event => {
+            activityCountsByType[event.eventType] = (activityCountsByType[event.eventType] || 0) + 1;
+        });
+
+        // Get all activity events for per-student sample
+        const allActivityEvents = await base44.asServiceRole.entities.ActivityEvent.list();
+
+        // Build per-student sample
+        const studentMap = {};
+        allActivityEvents.forEach(event => {
+            if (!studentMap[event.studentEmail]) {
+                studentMap[event.studentEmail] = {
+                    email: event.studentEmail,
+                    displayName: event.studentDisplayName,
+                    quizCount: 0,
+                    lessonCount: 0,
+                    unknownLevelQuizCount: 0
+                };
+            }
             
-            // Count quizzes with unknown level (no courseId or courseId not in standard levels)
-            const standardLevels = ['K', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'PK'];
-            const unknownLevelQuizzes = studentQuizzes.filter(q => 
-                !q.courseId || !standardLevels.includes(q.courseId)
-            );
+            if (event.eventType === 'quiz_attempted') {
+                studentMap[event.studentEmail].quizCount++;
+                // Count quizzes without a level in metadata
+                if (!event.metadata?.level) {
+                    studentMap[event.studentEmail].unknownLevelQuizCount++;
+                }
+            } else if (event.eventType === 'lesson_completed') {
+                studentMap[event.studentEmail].lessonCount++;
+            }
+        });
 
-            perStudentSample[email] = {
-                totalActivities: studentActivities.length,
-                totalQuizzes: studentQuizzes.length,
-                unknownLevelQuizCount: unknownLevelQuizzes.length,
-                lastActivity: studentActivities.length > 0 ? studentActivities[0].occurredAt : null,
-                courses: [...new Set(studentActivities.map(a => a.courseId).filter(Boolean))]
-            };
-        }
+        const perStudentSample = Object.values(studentMap).sort((a, b) => b.quizCount - a.quizCount);
 
         return Response.json({
             timestamp: new Date().toISOString(),
-            entitlement: {
-                userEmail: user.email,
-                userRole: user.role
+            user: {
+                email: user.email,
+                fullName: user.full_name,
+                role: user.role
             },
-            groups: {
-                count: 0,
-                list: []
-            },
-            roster: {
-                totalStudents: studentEmails.size,
-                emails: Array.from(studentEmails).sort()
+            summary: {
+                totalWebhookEventsLast24h: webhookEvents.length,
+                totalActivityEventsLast24h: activityEvents.length,
+                lastWebhookReceived: lastWebhookTime,
+                uniqueStudents: Object.keys(studentMap).length
             },
             webhooks: {
-                lastReceived: webhookEvents.length > 0 ? webhookEvents[0].timestamp : null,
-                countLast24h: webhooksLast24h.length,
-                topicsLast24h: webhooksLast24h.reduce((acc, w) => {
-                    acc[w.topic] = (acc[w.topic] || 0) + 1;
-                    return acc;
-                }, {})
+                countsByTopic: webhookCountsByTopic,
+                lastReceived: lastWebhookTime
             },
-            activityEvents: {
-                totalCount: activityEvents.length,
-                countLast24h: activitiesLast24h.length,
-                countsByTypeLast24h: activityCountsByType
+            activity: {
+                countsByType: activityCountsByType
             },
-            perStudentSample: perStudentSample,
-            summary: {
-                totalWebhookEvents: webhookEvents.length,
-                totalActivityEvents: activityEvents.length,
-                uniqueStudents: studentEmails.size
-            }
+            perStudentSample: perStudentSample.slice(0, 50)
         });
+
     } catch (error) {
-        return Response.json({ error: error.message }, { status: 500 });
+        console.error('Snapshot error:', error);
+        return Response.json({ 
+            error: error.message,
+            stack: error.stack
+        }, { status: 500 });
     }
 });
