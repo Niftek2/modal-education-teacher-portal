@@ -36,7 +36,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => ({
                 quizName: e.contentTitle || 'Unknown Quiz',
                 courseName: e.courseName || 'Unknown Course',
-                level: e.metadata?.level || 'Unknown',
+                level: e.courseName || 'Unknown',
                 score: e.metadata?.grade || 0,
                 maxScore: 100,
                 percentage: e.metadata?.grade || 0,
