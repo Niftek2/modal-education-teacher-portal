@@ -8,6 +8,7 @@ import StudentDetail from '../components/StudentDetail';
 import AddStudentModal from '../components/AddStudentModal';
 import CSVImportModal from '../components/CSVImportModal';
 import QuizImportModal from '../components/QuizImportModal';
+import SnapshotModal from '../components/SnapshotModal';
 import { api } from '@/components/api';
 import { createPageUrl } from '@/utils';
 
