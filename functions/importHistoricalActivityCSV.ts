@@ -44,9 +44,9 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const user = await base44.auth.me();
         
-        // Admin-only
-        if (user?.role !== 'admin') {
-            return Response.json({ error: 'Forbidden: Admin only' }, { status: 403 });
+        // Only nadia.todhh@gmail.com can use CSV import
+        if (user?.email?.toLowerCase() !== 'nadia.todhh@gmail.com') {
+            return Response.json({ error: 'Forbidden: CSV import access denied' }, { status: 403 });
         }
         
         const body = await req.json();
