@@ -22,9 +22,9 @@ async function verifySession(token) {
     }
 }
 
-async function getTeacherGroup(userId) {
+async function getTeacherGroups(userId) {
     try {
-        // Get all groups and find one associated with this teacher
+        // Get all groups where this teacher is a member
         const groupsResponse = await fetch(`https://api.thinkific.com/api/public/v1/groups`, {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -33,18 +33,43 @@ async function getTeacherGroup(userId) {
             }
         });
         
-        const groupsData = await groupsResponse.json();
-        const groups = groupsData.items || [];
-        
-        // Return the first group (teachers typically have one classroom group)
-        if (groups.length > 0) {
-            return groups[0];
+        if (!groupsResponse.ok) {
+            throw new Error(`Failed to fetch groups: ${groupsResponse.status}`);
         }
         
-        return null;
+        const groupsData = await groupsResponse.json();
+        const allGroups = groupsData.items || [];
+        
+        // Filter to groups where userId is a member
+        const teacherGroups = [];
+        for (const group of allGroups) {
+            try {
+                const membersResponse = await fetch(`https://api.thinkific.com/api/public/v1/users?query[group_id]=${group.id}`, {
+                    headers: {
+                        'X-Auth-API-Key': THINKIFIC_API_KEY,
+                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (membersResponse.ok) {
+                    const membersData = await membersResponse.json();
+                    const members = membersData.items || [];
+                    const isMember = members.some(m => String(m.id) === String(userId));
+                    
+                    if (isMember) {
+                        teacherGroups.push(group);
+                    }
+                }
+            } catch (err) {
+                console.error(`Failed to check group membership for ${group.id}:`, err.message);
+            }
+        }
+        
+        return teacherGroups.length > 0 ? teacherGroups[0] : null;
         
     } catch (error) {
-        console.error('getTeacherGroup error:', error.message);
+        console.error('getTeacherGroups error:', error.message);
         return null;
     }
 }
@@ -79,7 +104,7 @@ Deno.serve(async (req) => {
         const user = await getThinkificUser(session.userId);
         
         // Get teacher's group (using their user ID)
-        const group = await getTeacherGroup(session.userId);
+        const group = await getTeacherGroups(session.userId);
         
         return Response.json({
             teacher: {
