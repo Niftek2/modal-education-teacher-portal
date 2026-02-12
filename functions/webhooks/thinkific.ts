@@ -23,10 +23,11 @@ function extractOccurredAt(evt) {
 }
 
 /**
- * Extract student email from webhook payload
+ * Extract student email from webhook payload (normalized: lowercase + trimmed)
  */
 function extractStudentEmail(evt) {
-    return evt?.payload?.user?.email || evt?.payload?.email || null;
+    const email = evt?.payload?.user?.email || evt?.payload?.email || null;
+    return email ? email.trim().toLowerCase() : null;
 }
 
 /**
