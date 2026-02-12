@@ -4,11 +4,12 @@ const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 
 async function queryThinkificGraphQL(query, variables) {
-    const response = await fetch(`https://${THINKIFIC_SUBDOMAIN}.thinkific.com/graphql`, {
+    const response = await fetch(`https://api.thinkific.com/graphql`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-API-KEY': THINKIFIC_API_KEY,
+            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({ query, variables }),
     });
