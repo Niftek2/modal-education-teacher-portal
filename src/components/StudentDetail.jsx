@@ -21,12 +21,31 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
         setLoading(true);
         try {
             const response = await api.call('getStudentActivity', {
-                studentId: student.id,
+                studentEmail: student.email,
                 sessionToken
             }, sessionToken);
             
-            setQuizzes(response.quizzes || []);
-            setLessons(response.lessons || []);
+            const events = response.events || [];
+            
+            // Split into quizzes and lessons
+            setQuizzes(events.filter(e => e.type === 'quiz_attempted').map(e => ({
+                quizName: e.contentTitle,
+                courseName: e.courseName,
+                score: e.score,
+                maxScore: e.metadata?.maxScore || 100,
+                percentage: e.percentage,
+                completedAt: e.occurredAt,
+                attemptNumber: e.metadata?.attemptNumber || 1,
+                timeSpentSeconds: e.metadata?.timeSpentSeconds || 0,
+                source: e.source
+            })));
+
+            setLessons(events.filter(e => e.type === 'lesson_completed' || e.type === 'enrollment_progress').map(e => ({
+                lessonName: e.contentTitle || 'Course Progress',
+                courseName: e.courseName,
+                completedAt: e.occurredAt,
+                source: e.source
+            })));
         } catch (error) {
             console.error('Failed to load data:', error);
             setQuizzes([]);
@@ -116,7 +135,12 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                                         <span className="text-gray-500">({quiz.percentage}%)</span>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-sm">{formatDate(quiz.completedAt)}</TableCell>
+                                                <TableCell className="text-sm">
+                                                    {formatDate(quiz.completedAt)}
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        {quiz.source === 'webhook' ? '📡 Live' : '📦 Backfill'}
+                                                    </div>
+                                                </TableCell>
                                                 <TableCell className="text-sm">
                                                     <div className="flex items-center gap-1 text-gray-600">
                                                         <Clock className="w-4 h-4" />
@@ -147,7 +171,12 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                             <TableRow key={lesson.id}>
                                                 <TableCell className="font-medium">{lesson.lessonName}</TableCell>
                                                 <TableCell className="text-sm text-gray-600">{lesson.courseName}</TableCell>
-                                                <TableCell className="text-sm">{formatDate(lesson.completedAt)}</TableCell>
+                                                <TableCell className="text-sm">
+                                                    {formatDate(lesson.completedAt)}
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        {lesson.source === 'webhook' ? '📡 Live' : '📦 Backfill'}
+                                                    </div>
+                                                </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
