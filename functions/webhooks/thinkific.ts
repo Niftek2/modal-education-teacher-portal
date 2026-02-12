@@ -160,7 +160,18 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     const incorrectCount = payload?.incorrect_count;
     const attempts = payload?.attempts;
 
-    console.log(`[QUIZ WEBHOOK] Processing quiz.attempted: student=${studentEmail}, quiz=${quizId}, resultId=${resultId}`);
+    // Compute scorePercent based on priority
+    let scorePercent = null;
+    if (typeof gradePercent === 'number') {
+        scorePercent = gradePercent;
+    } else if (correctCount !== undefined && incorrectCount !== undefined) {
+        const total = correctCount + incorrectCount;
+        if (total > 0) {
+            scorePercent = Math.round(100 * correctCount / total);
+        }
+    }
+
+    console.log(`[QUIZ WEBHOOK] Processing quiz.attempted: student=${studentEmail}, quiz=${quizId}, resultId=${resultId}, scorePercent=${scorePercent}`);
 
     if (!studentEmail || !quizId) {
         console.error('[QUIZ WEBHOOK] ❌ Missing required fields');
