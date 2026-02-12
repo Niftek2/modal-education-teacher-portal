@@ -10,45 +10,21 @@ async function createDedupeKey(type, userId, contentId, courseId, timestamp) {
 Deno.serve(async (req) => {
     const requestStartTime = Date.now();
     
-    console.log(`[WEBHOOK] ========== NEW REQUEST ==========`);
-    console.log(`[WEBHOOK] Method: ${req.method}`);
-    console.log(`[WEBHOOK] URL: ${req.url}`);
-    console.log(`[WEBHOOK] Headers:`, Object.fromEntries(req.headers.entries()));
-    
     if (req.method !== 'POST') {
         return Response.json({ error: 'Method not allowed' }, { status: 405 });
     }
 
-    let webhookLogId = null;
+    let webhookId = null;
     try {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
         
-        console.log(`[WEBHOOK] Raw body:`, JSON.stringify(body, null, 2));
-        
         const topic = body.topic || req.headers.get('x-thinkific-topic');
-        const webhookId = body.id || crypto.randomUUID();
-        const userId = body.user_id || body.id;
+        webhookId = body.id || crypto.randomUUID();
         
-        console.log(`[WEBHOOK] ====================================`);
-        console.log(`[WEBHOOK] Received: ${topic}`);
-        console.log(`[WEBHOOK] ID: ${webhookId}`);
-        console.log(`[WEBHOOK] User ID: ${userId}`);
-        console.log(`[WEBHOOK] lesson_id: ${body.lesson_id || 'N/A'}`);
-        console.log(`[WEBHOOK] quiz_id: ${body.quiz_id || 'N/A'}`);
-        console.log(`[WEBHOOK] Timestamp: ${new Date().toISOString()}`);
+        console.log(`[WEBHOOK] Event: ${topic}, ID: ${webhookId}`);
 
-        // Store in debug log first
-        const logEntry = await base44.asServiceRole.entities.WebhookEventLog.create({
-            timestamp: new Date().toISOString(),
-            topic: topic || 'unknown',
-            rawPayload: JSON.stringify(body),
-            status: 'ok'
-        });
-        webhookLogId = logEntry.id;
-        console.log(`[WEBHOOK] Log entry created: ${webhookLogId}`);
-
-        // Store raw webhook event (append-only audit log)
+        // Store raw webhook event immediately (append-only)
         await base44.asServiceRole.entities.WebhookEvent.create({
             webhookId: String(webhookId),
             topic: topic,
@@ -56,45 +32,25 @@ Deno.serve(async (req) => {
             payloadJson: JSON.stringify(body)
         });
 
-        // Process based on topic
-        let processingResult;
+        // Process based on topic (async, don't block response)
         switch (topic) {
             case 'lesson.completed':
-                processingResult = await handleLessonCompleted(base44, body);
+                await handleLessonCompleted(base44, body);
                 break;
             case 'quiz.attempted':
-                processingResult = await handleQuizAttempted(base44, body);
+                await handleQuizAttempted(base44, body);
                 break;
             case 'user.signin':
-                processingResult = await handleUserSignin(base44, body);
+                await handleUserSignin(base44, body);
                 break;
             default:
-                console.log(`[WEBHOOK] ⚠️ Unhandled topic: ${topic}`);
-                processingResult = { status: 'unhandled' };
+                console.log(`[WEBHOOK] Unhandled topic: ${topic}`);
         }
 
         const processingTime = Date.now() - requestStartTime;
-        console.log(`[WEBHOOK] ✓ Processed in ${processingTime}ms`);
-        console.log(`[WEBHOOK] Result:`, processingResult);
-        console.log(`[WEBHOOK] ====================================`);
-
-        return Response.json({ success: true, webhookId, processingTime, result: processingResult });
+        return Response.json({ success: true, webhookId, processingTime }, { status: 200 });
     } catch (error) {
-        console.error('[WEBHOOK] Error:', error);
-        
-        // Update log with error
-        if (webhookLogId) {
-            try {
-                const base44 = createClientFromRequest(req);
-                await base44.asServiceRole.entities.WebhookEventLog.update(webhookLogId, {
-                    status: 'error',
-                    errorMessage: error.message
-                });
-            } catch (logError) {
-                console.error('[WEBHOOK] Failed to log error:', logError);
-            }
-        }
-        
+        console.error('[WEBHOOK] Error:', error.message);
         return Response.json({ error: error.message }, { status: 500 });
     }
 });

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import StudentTable from '../components/StudentTable';
 import StudentDetail from '../components/StudentDetail';
 import AddStudentModal from '../components/AddStudentModal';
+import CSVImportModal from '../components/CSVImportModal';
 import { api } from '@/components/api';
 import { createPageUrl } from '@/utils';
 
@@ -20,6 +21,7 @@ export default function Dashboard() {
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [showStudentDetail, setShowStudentDetail] = useState(false);
     const [syncingQuizzes, setSyncingQuizzes] = useState(false);
+    const [showCSVImport, setShowCSVImport] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -237,32 +239,33 @@ export default function Dashboard() {
                             className="pl-10 border-gray-300"
                         />
                     </div>
-                    <div className="flex gap-2">
-                         <Button
-                             onClick={handleSyncQuizzes}
-                             disabled={syncingQuizzes}
-                             variant="outline"
-                             className="border-gray-300"
-                         >
-                             <RefreshCw className={`w-4 h-4 mr-2 ${syncingQuizzes ? 'animate-spin' : ''}`} />
-                             {syncingQuizzes ? 'Syncing...' : 'Sync Activity'}
-                         </Button>
-                         <Button
-                             onClick={exportToCSV}
-                             variant="outline"
-                             className="border-gray-300"
-                         >
-                             <Download className="w-4 h-4 mr-2" />
-                             Export CSV
-                         </Button>
-                         <Button
-                             onClick={() => setShowAddModal(true)}
-                             className="bg-purple-900 hover:bg-purple-800 text-white"
-                         >
-                             <Plus className="w-4 h-4 mr-2" />
-                             Add Students
-                         </Button>
-                     </div>
+                    <div className="flex gap-2 flex-wrap">
+                        {teacher?.role === 'admin' && (
+                            <Button
+                                onClick={() => setShowCSVImport(true)}
+                                variant="outline"
+                                className="border-gray-300"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Import CSV
+                            </Button>
+                        )}
+                        <Button
+                            onClick={exportToCSV}
+                            variant="outline"
+                            className="border-gray-300"
+                        >
+                            <Download className="w-4 h-4 mr-2" />
+                            Export CSV
+                        </Button>
+                        <Button
+                            onClick={() => setShowAddModal(true)}
+                            className="bg-purple-900 hover:bg-purple-800 text-white"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Students
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Student Table */}
@@ -294,6 +297,17 @@ export default function Dashboard() {
                 }}
                 sessionToken={localStorage.getItem('modal_math_session')}
             />
+
+            {/* CSV Import Modal */}
+            {showCSVImport && (
+                <CSVImportModal
+                    onClose={() => setShowCSVImport(false)}
+                    onSuccess={() => {
+                        setShowCSVImport(false);
+                        loadDashboard(localStorage.getItem('modal_math_session'));
+                    }}
+                />
+            )}
         </div>
     );
 }

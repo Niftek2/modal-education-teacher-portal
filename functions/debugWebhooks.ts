@@ -1,40 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.2.0';
-
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
-
-async function verifySession(token) {
-    if (!token) throw new Error('Unauthorized');
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jose.jwtVerify(token, secret);
-    return payload;
-}
 
 Deno.serve(async (req) => {
     try {
-        const { sessionToken } = await req.json();
-        await verifySession(sessionToken);
-
         const base44 = createClientFromRequest(req);
-
-        // Get recent webhook logs
-        const logs = await base44.asServiceRole.entities.WebhookEventLog.list('-timestamp', 50);
-
+        
+        // Fetch last 50 webhook events
+        const webhookEvents = await base44.asServiceRole.entities.WebhookEvent.list('-created_date', 50);
+        
         return Response.json({
-            logs: logs.map(log => ({
-                id: log.id,
-                timestamp: log.timestamp,
-                topic: log.topic,
-                status: log.status,
-                errorMessage: log.errorMessage,
-                rawPayload: log.rawPayload
-            }))
-        });
-
+            logs: webhookEvents
+        }, { status: 200 });
     } catch (error) {
-        console.error('[DEBUG WEBHOOKS] Error:', error);
-        return Response.json({ 
-            error: error.message
-        }, { status: 500 });
+        console.error('[DEBUG] Error:', error);
+        return Response.json({ error: error.message }, { status: 500 });
     }
 });
