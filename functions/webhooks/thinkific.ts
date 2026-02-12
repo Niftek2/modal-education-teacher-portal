@@ -1,5 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
+async function createExternalId(userId, quizId, lessonId, createdAt) {
+    const data = `${userId}-${quizId}-${lessonId || 'none'}-${createdAt}`;
+    const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
+    const hashArray = Array.from(new Uint8Array(buffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+}
+
+async function createLessonExternalId(userId, lessonId, courseId, createdAt) {
+    const data = `${userId}-${lessonId}-${courseId || 'none'}-${createdAt}`;
+    const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
+    const hashArray = Array.from(new Uint8Array(buffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+}
+
 Deno.serve(async (req) => {
     if (req.method !== 'POST') {
         return Response.json({ error: 'Method not allowed' }, { status: 405 });
@@ -114,10 +128,11 @@ async function handleLessonCompleted(base44, payload) {
 async function handleQuizAttempted(base44, payload) {
     const {
         user_id, email, first_name, last_name,
-        quiz_id, quiz_name,
+        quiz_id, quiz_name, lesson_id,
         course_id, course_name,
         score, max_score, percentage_score,
-        attempt_number, completed_at, time_spent_seconds
+        attempt_number, completed_at, time_spent_seconds,
+        quiz_attempt
     } = payload;
 
     if (!user_id || !quiz_id || score === undefined || !max_score) {
@@ -126,13 +141,19 @@ async function handleQuizAttempted(base44, payload) {
     }
 
     const percentage = percentage_score || Math.round((score / max_score) * 100);
+    const occurredAt = completed_at || new Date().toISOString();
 
-    // Check if already exists (idempotency by user+quiz+attempt+time)
+    // Create stable external ID
+    let externalId;
+    if (quiz_attempt?.id) {
+        externalId = `quiz_attempt_${quiz_attempt.id}`;
+    } else {
+        externalId = await createExternalId(user_id, quiz_id, lesson_id, occurredAt);
+    }
+
+    // Check if already exists by externalId
     const existing = await base44.asServiceRole.entities.QuizCompletion.filter({
-        studentId: String(user_id),
-        quizId: String(quiz_id),
-        attemptNumber: attempt_number || 1,
-        completedAt: completed_at
+        externalId
     });
 
     if (existing.length > 0) {
@@ -141,6 +162,7 @@ async function handleQuizAttempted(base44, payload) {
     }
 
     await base44.asServiceRole.entities.QuizCompletion.create({
+        externalId,
         studentId: String(user_id),
         studentEmail: email,
         studentName: `${first_name || ''} ${last_name || ''}`.trim(),
@@ -148,11 +170,11 @@ async function handleQuizAttempted(base44, payload) {
         quizName: quiz_name || 'Unknown Quiz',
         courseId: String(course_id || ''),
         courseName: course_name || '',
-        score: score,
+        score,
         maxScore: max_score,
-        percentage: percentage,
+        percentage,
         attemptNumber: attempt_number || 1,
-        completedAt: completed_at || new Date().toISOString(),
+        completedAt: occurredAt,
         timeSpentSeconds: time_spent_seconds || 0
     });
 
