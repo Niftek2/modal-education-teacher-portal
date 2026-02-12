@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
         // Store in debug log first
         const logEntry = await base44.asServiceRole.entities.WebhookEventLog.create({
             timestamp: new Date().toISOString(),
-            topic: topic,
+            topic: topic || 'unknown',
             rawPayload: JSON.stringify(body),
             status: 'ok'
         });

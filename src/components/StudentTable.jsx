@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
 import { Trash2, AlertTriangle } from 'lucide-react';
+import { api } from './api';
 import { Button } from '@/components/ui/button';
 import {
     Table,
@@ -28,12 +28,11 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
             setRemoving(student.id);
             const sessionToken = localStorage.getItem('modal_math_session');
             
-            await base44.functions.invoke('removeStudent', {
+            await api.call('removeStudent', {
                 studentId: student.id,
-                groupId: groupId
-            }, {
-                headers: { 'Authorization': `Bearer ${sessionToken}` }
-            });
+                groupId: groupId,
+                sessionToken
+            }, sessionToken);
 
             setShowConfirm(null);
             onStudentRemoved();
