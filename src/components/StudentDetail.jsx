@@ -97,13 +97,6 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
         }
     };
 
-    const formatTime = (seconds) => {
-        if (!seconds) return '-';
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}m ${secs}s`;
-    };
-
     const formatDate = (dateString) => {
         if (!dateString) return '-';
         return new Date(dateString).toLocaleDateString() + ' ' + new Date(dateString).toLocaleTimeString();
