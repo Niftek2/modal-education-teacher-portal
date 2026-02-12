@@ -17,28 +17,37 @@ async function graphQLQuery(query, variables) {
 
 Deno.serve(async (req) => {
     try {
-        // Fetch Weston's courses and see what fields are available
-        const result = await graphQLQuery(`
-            query SampleUserCourses($userId: ID!) {
-                user(gid: $userId) {
-                    gid
-                    email
-                    firstName
-                    lastName
-                    courses(first: 3) {
-                        edges {
-                            node {
-                                id
-                                name
-                                title
-                                description
-                            }
-                            cursor
-                        }
+        // Try different user lookup approaches
+        console.log('[SAMPLE] Trying user lookup...');
+        
+        let result;
+        try {
+            result = await graphQLQuery(`
+                query SampleByGid {
+                    user(gid: "236589658") {
+                        gid
+                        email
                     }
                 }
-            }
-        `, { userId: "236589658" });
+            `);
+            console.log('[SAMPLE] GID lookup result:', result);
+        } catch (e) {
+            console.log('[SAMPLE] GID lookup failed:', e.message);
+        }
+        
+        try {
+            result = await graphQLQuery(`
+                query SampleByUserEmail {
+                    userByEmail(email: "weston@runningtech.net") {
+                        gid
+                        email
+                    }
+                }
+            `);
+            console.log('[SAMPLE] Email lookup result:', result);
+        } catch (e) {
+            console.log('[SAMPLE] Email lookup failed:', e.message);
+        }
         
         return Response.json(result, { status: 200 });
     } catch (error) {
