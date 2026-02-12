@@ -1,8 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import * as jose from 'npm:jose@5.2.0';
+import * as thinkific from './lib/thinkificClient.js';
 
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
 async function verifySession(token) {
@@ -12,40 +11,19 @@ async function verifySession(token) {
 }
 
 async function getTeacherStudentEmails(teacherId) {
-    // Get all groups where teacher is a member
-    const groupsResponse = await fetch(`https://api.thinkific.com/api/public/v1/groups`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-    
-    const groupsData = await groupsResponse.json();
-    const allGroups = groupsData.items || [];
-    
+    // Get all groups where teacher is a member using Thinkific SDK
+    const allGroups = await thinkific.listGroups();
     const studentEmails = new Set();
     
     for (const group of allGroups) {
-        const membersResponse = await fetch(`https://api.thinkific.com/api/public/v1/users?query[group_id]=${group.id}`, {
-            headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                'Content-Type': 'application/json'
-            }
-        });
+        const groupUsers = await thinkific.listGroupUsers(group.id);
+        const isMember = groupUsers.some(u => String(u.id) === String(teacherId));
         
-        if (!membersResponse.ok) continue;
-        
-        const membersData = await membersResponse.json();
-        const members = membersData.items || [];
-        
-        const isMember = members.some(m => String(m.id) === String(teacherId));
         if (isMember) {
-            // Include all members in teacher's groups, not just modalmath.com
-            members.forEach(m => {
-                if (m.email) {
-                    studentEmails.add(m.email.toLowerCase());
+            // Include all members in teacher's groups
+            groupUsers.forEach(user => {
+                if (user.email) {
+                    studentEmails.add(user.email.toLowerCase());
                 }
             });
         }
