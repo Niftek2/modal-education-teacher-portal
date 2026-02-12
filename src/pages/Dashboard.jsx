@@ -293,6 +293,7 @@ export default function Dashboard() {
                     onStudentRemoved={handleStudentsAdded}
                     sessionToken={localStorage.getItem('modal_math_session')}
                     onStudentSelected={handleStudentSelected}
+                    activities={studentActivities}
                 />
             </main>
 
