@@ -2,36 +2,45 @@
  * Thinkific SDK Contract
  * 
  * Single point of contact for all Thinkific API calls.
- * Restricts to only documented endpoints in Thinkific Admin API.
- * Uses API Access Token (Bearer) authentication.
+ * Uses api.thinkific.com base URLs only.
+ * Auth: Bearer token with THINKIFIC_API_ACCESS_TOKEN
+ * 
+ * Allowlisted REST paths:
+ *   GET /users?query[email]=<email>
+ *   GET /users/{id}
+ *   GET /groups
+ *   GET /group_users?query[group_id]=<groupId>
+ *   GET /enrollments?query[user_id]=<userId>
+ *   GET /enrollments?query[user_id]=<userId>&query[course_id]=<courseId>
+ *   GET /courses/{id}
  */
 
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
+const THINKIFIC_API_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
+const REST_BASE = "https://api.thinkific.com/api/public/v1";
+const GRAPHQL_ENDPOINT = "https://api.thinkific.com/stable/graphql";
 
-// Whitelist of allowed REST endpoint prefixes (documented in Thinkific Admin API)
-const ALLOWED_ENDPOINTS = [
-    '/users',
-    '/groups',
-    '/group_users',
-    '/group_analysts',
-    '/enrollments',
-    '/courses',
-    '/chapters',
-    '/contents'
+// Allowlist: match exact endpoint patterns
+const ALLOWED_REST_PATTERNS = [
+    /^\/users(\?|$)/,           // /users or /users?...
+    /^\/users\/\d+(\?|$)/,      // /users/{id} or /users/{id}?...
+    /^\/groups(\?|$)/,          // /groups or /groups?...
+    /^\/group_users(\?|$)/,     // /group_users or /group_users?...
+    /^\/enrollments(\?|$)/,     // /enrollments or /enrollments?...
+    /^\/courses\/\d+(\?|$)/     // /courses/{id} or /courses/{id}?...
 ];
 
 function validateRestPath(path) {
-    const allowed = ALLOWED_ENDPOINTS.some(prefix => path.startsWith(prefix));
+    const pathOnly = path.split('?')[0];
+    const allowed = ALLOWED_REST_PATTERNS.some(pattern => pattern.test(pathOnly));
     if (!allowed) {
-        throw new Error(`Endpoint not allowed by SDK contract: ${path}. Allowed: ${ALLOWED_ENDPOINTS.join(', ')}`);
+        throw new Error(`Endpoint not allowlisted: ${pathOnly}`);
     }
 }
 
 export async function requestRest(path, method = 'GET', query = null, body = null) {
     validateRestPath(path);
     
-    const url = new URL(path, `https://${THINKIFIC_SUBDOMAIN}.thinkific.com/api/public/v1`);
+    const url = new URL(path, REST_BASE);
     
     if (query) {
         Object.entries(query).forEach(([k, v]) => {
@@ -42,7 +51,7 @@ export async function requestRest(path, method = 'GET', query = null, body = nul
     const options = {
         method,
         headers: {
-            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
+            'Authorization': `Bearer ${THINKIFIC_API_TOKEN}`,
             'Content-Type': 'application/json'
         }
     };
@@ -62,12 +71,10 @@ export async function requestRest(path, method = 'GET', query = null, body = nul
 }
 
 export async function requestGraphQL(query, variables = {}) {
-    const url = `https://${THINKIFIC_SUBDOMAIN}.thinkific.com/graphql`;
-    
-    const response = await fetch(url, {
+    const response = await fetch(GRAPHQL_ENDPOINT, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
+            'Authorization': `Bearer ${THINKIFIC_API_TOKEN}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -151,4 +158,15 @@ export async function checkEndpoint(path, method = 'GET') {
     } catch (error) {
         return { available: false, error: error.message };
     }
+}
+
+/**
+ * Get Thinkific config info (for diagnostics)
+ */
+export function getConfig() {
+    return {
+        restBase: REST_BASE,
+        graphqlEndpoint: GRAPHQL_ENDPOINT,
+        allowedRestPatterns: ALLOWED_REST_PATTERNS.map(p => p.source)
+    };
 }
