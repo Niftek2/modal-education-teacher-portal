@@ -45,12 +45,16 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                 incorrectCount: e.metadata?.incorrectCount
             })));
 
-            setLessons(studentEvents.filter(e => e.eventType === 'lesson.completed').map(e => ({
-                lessonName: e.contentTitle || 'Unknown Lesson',
-                courseName: e.courseName || 'Unknown Course',
-                completedAt: e.occurredAt,
-                source: e.source
-            })));
+            const lessonEvents = studentEvents
+                .filter(e => e.eventType === 'lesson.completed')
+                .map(e => ({
+                    lessonName: e.contentTitle || 'Unknown Lesson',
+                    courseName: e.courseName || 'Unknown Course',
+                    completedAt: e.occurredAt,
+                    source: e.source
+                }))
+                .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+            setLessons(lessonEvents);
         } catch (error) {
             console.error('Failed to load data:', error);
             setQuizzes([]);
