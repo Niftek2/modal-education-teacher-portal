@@ -25,7 +25,7 @@ async function getGroupStudents(groupId) {
 
 async function getQuizAttempts(userId) {
     // Thinkific doesn't have a quiz_attempts endpoint in the REST API
-    // Quiz data must be retrieved through webhooks (quiz.completed, quiz.failed)
+    // Quiz data must be retrieved through webhooks (quiz.attempted)
     // For historical data, we need to rely on what's already been captured via webhooks
     console.log(`Note: Quiz attempts for user ${userId} must come from webhooks - no REST endpoint available`);
     return [];
@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
             success: true,
             synced: existingQuizzes.length,
             message: `Found ${existingQuizzes.length} quiz completions already captured via webhooks. Thinkific API doesn't provide historical quiz data - only real-time via webhooks.`,
-            note: 'To capture future quiz completions, ensure quiz.completed and quiz.failed webhooks are properly configured'
+            note: 'To capture future quiz completions, ensure quiz.attempted webhook is properly configured in Thinkific'
         });
     } catch (error) {
         console.error('Sync historical quizzes error:', error);
