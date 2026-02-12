@@ -165,7 +165,7 @@ async function handleQuizAttempted(base44, evt, webhookId) {
 
     const occurredAt = extractOccurredAt(evt);
     const occurredAtIso = occurredAt.toISOString();
-    const dedupeKey = resultId || webhookId;
+    const dedupeKey = String(resultId || webhookId);
 
     // Check if already exists
     const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: webhookId });
@@ -193,7 +193,7 @@ async function handleQuizAttempted(base44, evt, webhookId) {
                 grade: grade || null,
                 correctCount: correctCount || 0,
                 incorrectCount: incorrectCount || 0,
-                resultId: resultId || null
+                resultId: String(resultId || '')
             }
         });
 
