@@ -36,7 +36,7 @@ export default function Home() {
         setLoading(true);
 
         try {
-            const response = await api.call('authRequestLink', { email }, '');
+            const response = await api.call('authRequestLink', { email });
             
             if (response.success) {
                 setSent(true);

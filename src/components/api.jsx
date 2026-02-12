@@ -4,12 +4,17 @@ const BASE_URL = `/api/apps/${APP_ID}/functions`;
 
 export const api = {
     async call(functionName, payload, sessionToken) {
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        if (sessionToken) {
+            headers['Authorization'] = `Bearer ${sessionToken}`;
+        }
+        
         const response = await fetch(`${BASE_URL}/${functionName}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionToken || ''}`
-            },
+            headers,
             body: JSON.stringify(payload)
         });
 
