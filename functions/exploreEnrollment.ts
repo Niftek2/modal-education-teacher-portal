@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
         for (const typeName of types) {
             try {
                 const result = await graphQLQuery(`
-                    query Explore {
+                    query ExploreType {
                         __type(name: "${typeName}") {
                             name
                             fields(includeDeprecated: false) {
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
         
         // Also check what User fields relate to courses
         const userFields = await graphQLQuery(`
-            query {
+            query UserFields {
                 __type(name: "User") {
                     fields(includeDeprecated: false) {
                         name
