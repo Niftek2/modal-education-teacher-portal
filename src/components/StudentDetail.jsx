@@ -187,8 +187,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {getSortedQuizzes().map((quiz) => (
-                                            <TableRow key={`${quiz.id}-${quiz.attemptNumber}`}>
+                                        {getSortedQuizzes().map((quiz, idx) => (
+                                            <TableRow key={`${quiz.quizName}-${quiz.completedAt}-${idx}`}>
                                                 <TableCell className="font-medium">{quiz.quizName}</TableCell>
                                                 <TableCell className="text-sm text-gray-600">{quiz.level}</TableCell>
                                                 <TableCell className="text-center">{quiz.attemptNumber}</TableCell>
@@ -258,8 +258,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {getSortedLessons().map((lesson) => (
-                                                <TableRow key={lesson.id}>
+                                            {getSortedLessons().map((lesson, idx) => (
+                                                <TableRow key={`${lesson.lessonName}-${lesson.completedAt}-${idx}`}>
                                                     <TableCell className="font-medium">{lesson.lessonName}</TableCell>
                                                     <TableCell className="text-sm text-gray-600">{lesson.courseName}</TableCell>
                                                     <TableCell className="text-sm">
