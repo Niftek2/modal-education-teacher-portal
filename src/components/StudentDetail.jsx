@@ -33,26 +33,50 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const studentEvents = events.filter(e => e.studentEmail?.toLowerCase() === student.email?.toLowerCase());
             
             // Split into quizzes and lessons
-            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => {
-                const scorePercent = e.metadata?.scorePercent;
-                return {
-                    quizName: e.contentTitle || 'Unknown Quiz',
-                    courseName: e.courseName || 'Unknown Course',
-                    level: e.courseName || 'Unknown',
-                    score: scorePercent,
-                    maxScore: 100,
-                    percentage: scorePercent,
-                    completedAt: e.occurredAt,
-                    attemptNumber: 1,
-                    timeSpentSeconds: 0,
-                    correctCount: e.metadata?.correctCount,
-                    incorrectCount: e.metadata?.incorrectCount,
-                    gradePercent: e.metadata?.gradePercent,
-                    attempts: e.metadata?.attempts,
-                    resultId: e.metadata?.resultId
-                };
+            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => ({
+                quizName: e.contentTitle || 'Unknown Quiz',
+                quizId: e.contentId || null,
+                courseName: e.courseName || 'Unknown Course',
+                level: e.courseName || 'Unknown',
+                percentage: e.metadata?.scorePercent,
+                completedAt: e.occurredAt,
+                attempts: e.metadata?.attempts,
+                correctCount: e.metadata?.correctCount,
+                incorrectCount: e.metadata?.incorrectCount
+            }));
+
+            // Group quizzes by quizId or normalized title
+            const groupedQuizzes = {};
+            quizList.forEach(quiz => {
+                const groupKey = quiz.quizId || quiz.quizName.toLowerCase();
+                if (!groupedQuizzes[groupKey]) {
+                    groupedQuizzes[groupKey] = [];
+                }
+                groupedQuizzes[groupKey].push(quiz);
             });
-            setQuizzes(quizList.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt)));
+
+            // Build flattened structure with group info
+            const flatQuizzes = [];
+            Object.values(groupedQuizzes).forEach(group => {
+                const sortedGroup = group.sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
+                const scores = sortedGroup.map(q => q.percentage).filter(s => s !== null && s !== undefined);
+                const bestScore = scores.length > 0 ? Math.max(...scores) : null;
+                const latestAttempt = sortedGroup[sortedGroup.length - 1];
+                
+                sortedGroup.forEach((quiz, idx) => {
+                    flatQuizzes.push({
+                        ...quiz,
+                        attemptIndex: idx + 1,
+                        groupSize: sortedGroup.length,
+                        groupBest: bestScore,
+                        groupLatestScore: latestAttempt.percentage,
+                        groupLatestDate: latestAttempt.completedAt,
+                        isFirstInGroup: idx === 0
+                    });
+                });
+            });
+
+            setQuizzes(flatQuizzes);
 
             const lessonEvents = studentEvents
                 .filter(e => e.eventType === 'lesson_completed')
