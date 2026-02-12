@@ -7,6 +7,56 @@ async function createDedupeKey(type, userId, contentId, courseId, timestamp) {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
 }
 
+/**
+ * Extract ISO timestamp from webhook payload
+ * Handles: seconds (10 digits), milliseconds (13 digits), ISO strings
+ */
+function extractOccurredAt(payload, receivedAt) {
+    // Try each possible timestamp field
+    const candidates = [
+        payload.occurred_at,
+        payload.completed_at,
+        payload.created_at,
+        payload.timestamp
+    ];
+    
+    for (const candidate of candidates) {
+        if (!candidate) continue;
+        
+        // If it's a string that looks like ISO
+        if (typeof candidate === 'string') {
+            const isoMatch = candidate.match(/^\d{4}-\d{2}-\d{2}/);
+            if (isoMatch) {
+                const date = new Date(candidate);
+                if (!isNaN(date.getTime())) {
+                    return date.toISOString();
+                }
+            }
+        }
+        
+        // If it's a number (epoch)
+        if (typeof candidate === 'number') {
+            // 10 digits = seconds
+            if (String(candidate).length === 10) {
+                const date = new Date(candidate * 1000);
+                if (!isNaN(date.getTime())) {
+                    return date.toISOString();
+                }
+            }
+            // 13 digits = milliseconds
+            if (String(candidate).length === 13) {
+                const date = new Date(candidate);
+                if (!isNaN(date.getTime())) {
+                    return date.toISOString();
+                }
+            }
+        }
+    }
+    
+    // Fallback to receivedAt
+    return receivedAt;
+}
+
 Deno.serve(async (req) => {
     const requestStartTime = Date.now();
     
@@ -15,6 +65,7 @@ Deno.serve(async (req) => {
     }
 
     let webhookId = null;
+    const receivedAt = new Date().toISOString();
     try {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
@@ -22,26 +73,26 @@ Deno.serve(async (req) => {
         const topic = body.topic || req.headers.get('x-thinkific-topic');
         webhookId = body.id || crypto.randomUUID();
         
-        console.log(`[WEBHOOK] Event: ${topic}, ID: ${webhookId}`);
+        console.log(`[WEBHOOK] Event: ${topic}, ID: ${webhookId}, received: ${receivedAt}`);
 
         // Store raw webhook event immediately (append-only)
         await base44.asServiceRole.entities.WebhookEvent.create({
             webhookId: String(webhookId),
             topic: topic,
-            receivedAt: new Date().toISOString(),
+            receivedAt: receivedAt,
             payloadJson: JSON.stringify(body)
         });
 
         // Process based on topic (async, don't block response)
         switch (topic) {
             case 'lesson.completed':
-                await handleLessonCompleted(base44, body);
+                await handleLessonCompleted(base44, body, receivedAt);
                 break;
             case 'quiz.attempted':
-                await handleQuizAttempted(base44, body);
+                await handleQuizAttempted(base44, body, receivedAt);
                 break;
             case 'user.signin':
-                await handleUserSignin(base44, body);
+                await handleUserSignin(base44, body, receivedAt);
                 break;
             default:
                 console.log(`[WEBHOOK] Unhandled topic: ${topic}`);
@@ -55,13 +106,12 @@ Deno.serve(async (req) => {
     }
 });
 
-async function handleLessonCompleted(base44, payload) {
+async function handleLessonCompleted(base44, payload, receivedAt) {
     const {
         id: webhook_id,
         user_id, email, first_name, last_name,
         lesson_id, lesson_name,
-        course_id, course_name,
-        completed_at
+        course_id, course_name
     } = payload;
 
     console.log(`[WEBHOOK] Processing lesson.completed for user ${user_id}, lesson ${lesson_id}`);
@@ -71,7 +121,7 @@ async function handleLessonCompleted(base44, payload) {
         return { status: 'error', reason: 'missing_fields' };
     }
 
-    const occurredAt = completed_at || new Date().toISOString();
+    const occurredAt = extractOccurredAt(payload, receivedAt);
     const dedupeKey = await createDedupeKey('lesson', user_id, lesson_id, course_id, occurredAt);
 
     // Check if already exists
@@ -108,7 +158,7 @@ async function handleLessonCompleted(base44, payload) {
     }
 }
 
-async function handleQuizAttempted(base44, payload) {
+async function handleQuizAttempted(base44, payload, receivedAt) {
     console.log(`[QUIZ WEBHOOK] ========== QUIZ.ATTEMPTED ==========`);
     console.log(`[QUIZ WEBHOOK] Full payload:`, JSON.stringify(payload, null, 2));
     
@@ -118,7 +168,7 @@ async function handleQuizAttempted(base44, payload) {
         quiz_id, quiz_name, lesson_id,
         course_id, course_name,
         score, max_score, percentage_score,
-        attempt_number, completed_at, time_spent_seconds,
+        attempt_number, time_spent_seconds,
         quiz_attempt
     } = payload;
 
@@ -128,7 +178,7 @@ async function handleQuizAttempted(base44, payload) {
     }
 
     const percentage = percentage_score || Math.round((score / max_score) * 100);
-    const occurredAt = completed_at || new Date().toISOString();
+    const occurredAt = extractOccurredAt(payload, receivedAt);
     const dedupeKey = await createDedupeKey('quiz', user_id, quiz_id, course_id, occurredAt);
 
     // Check if already exists
@@ -171,8 +221,8 @@ async function handleQuizAttempted(base44, payload) {
     }
 }
 
-async function handleUserSignin(base44, payload) {
-    const { id: webhook_id, user_id, email, first_name, last_name, occurred_at } = payload;
+async function handleUserSignin(base44, payload, receivedAt) {
+    const { id: webhook_id, user_id, email, first_name, last_name } = payload;
 
     console.log(`[WEBHOOK] Processing user.signin for user ${user_id}, email ${email}`);
 
@@ -181,7 +231,7 @@ async function handleUserSignin(base44, payload) {
         return { status: 'error', reason: 'missing_fields' };
     }
 
-    const occurredAt = occurred_at || new Date().toISOString();
+    const occurredAt = extractOccurredAt(payload, receivedAt);
     const dedupeKey = await createDedupeKey('signin', user_id, null, null, occurredAt);
 
     // Check if already exists
