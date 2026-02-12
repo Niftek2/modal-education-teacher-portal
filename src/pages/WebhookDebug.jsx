@@ -23,8 +23,8 @@ export default function WebhookDebug() {
             const logsResponse = await api.call('debugWebhooks', { sessionToken }, sessionToken);
             setWebhookLogs(logsResponse.logs || []);
             
-            // Load activity events
-            const eventsResponse = await api.call('getRecentActivity', { limit: 50, sessionToken }, sessionToken);
+            // Load activity events scoped to teacher's roster
+            const eventsResponse = await api.call('getStudentActivityForTeacher', { limit: 50, sessionToken }, sessionToken);
             setActivityEvents(eventsResponse.events || []);
             
         } catch (error) {
