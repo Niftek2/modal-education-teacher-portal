@@ -52,22 +52,36 @@ export default function Dashboard() {
             setLoading(true);
             console.log('Loading dashboard with token:', sessionToken ? 'Yes' : 'No');
 
-            // Get teacher data
+            // Get teacher data (now returns groups array)
             const teacherResponse = await api.call('getTeacherData', { sessionToken }, sessionToken);
 
             console.log('Teacher response:', teacherResponse);
             setTeacher(teacherResponse.teacher);
-            setGroup(teacherResponse.group);
+            
+            // Use first group or show "no groups" message
+            const primaryGroup = teacherResponse.groups && teacherResponse.groups.length > 0 
+                ? teacherResponse.groups[0] 
+                : null;
+            setGroup(primaryGroup);
 
-            // Get students if group exists
-            if (teacherResponse.group) {
-                const studentsResponse = await api.call('getStudents', {
-                    groupId: teacherResponse.group.id,
+            // Get students only from roster-based activity filtering
+            if (primaryGroup) {
+                // Get students via teacher's roster (group membership union)
+                const activityResponse = await api.call('getStudentActivityForTeacher', {
                     sessionToken
                 }, sessionToken);
 
-                setStudents(studentsResponse.students);
-                setFilteredStudents(studentsResponse.students);
+                // Build student list from roster emails
+                const rosterStudents = activityResponse.studentEmails.map(email => ({
+                    email,
+                    firstName: email.split('@')[0],
+                    lastName: '',
+                    percentage: 0,
+                    completedLessons: 0
+                }));
+
+                setStudents(rosterStudents);
+                setFilteredStudents(rosterStudents);
             }
         } catch (error) {
             console.error('Dashboard error:', error);
