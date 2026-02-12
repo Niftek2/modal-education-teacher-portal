@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Plus, Search, Download, AlertCircle, RefreshCw, Bug } from 'lucide-react';
+import { LogOut, Plus, Search, Download, AlertCircle, RefreshCw, Bug, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import StudentTable from '../components/StudentTable';
@@ -25,6 +25,7 @@ export default function Dashboard() {
     const [syncingQuizzes, setSyncingQuizzes] = useState(false);
     const [showCSVImport, setShowCSVImport] = useState(false);
     const [showQuizImport, setShowQuizImport] = useState(false);
+    const [showSnapshot, setShowSnapshot] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -198,6 +199,16 @@ export default function Dashboard() {
                         </p>
                     </div>
                     <div className="flex gap-2">
+                        {teacher?.role === 'admin' && (
+                            <Button
+                                onClick={() => setShowSnapshot(true)}
+                                variant="ghost"
+                                className="text-gray-600 hover:text-black"
+                            >
+                                <Settings className="w-4 h-4 mr-2" />
+                                Diagnostics
+                            </Button>
+                        )}
                         <Button
                             onClick={handleLogout}
                             variant="ghost"
@@ -340,6 +351,14 @@ export default function Dashboard() {
                         setShowQuizImport(false);
                         loadDashboard(localStorage.getItem('modal_math_session'));
                     }}
+                />
+            )}
+
+            {/* Snapshot Modal */}
+            {showSnapshot && (
+                <SnapshotModal
+                    sessionToken={localStorage.getItem('modal_math_session')}
+                    onClose={() => setShowSnapshot(false)}
                 />
             )}
         </div>
