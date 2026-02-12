@@ -92,7 +92,7 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
                                     {student.email}
                                 </TableCell>
                                 <TableCell className="text-gray-600 text-sm">
-                                    {formatLastLogin(student.lastActivity)}
+                                    {formatLastLogin(student.lastLogin)}
                                 </TableCell>
                                 <TableCell>
                                     <Button

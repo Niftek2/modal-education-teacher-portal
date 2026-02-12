@@ -36,6 +36,36 @@ async function getGroupMembers(groupId) {
     return data.items || [];
 }
 
+async function getLastSignIn(userId) {
+    const response = await fetch(`https://api.thinkific.com/api/public/v1/events?query[user_id]=${userId}&query[name]=user.sign_in`, {
+        headers: {
+            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Content-Type': 'application/json'
+        }
+    });
+
+    if (!response.ok) {
+        return null;
+    }
+
+    const data = await response.json();
+    const signInEvents = data.items || [];
+    
+    if (signInEvents.length === 0) {
+        return null;
+    }
+
+    // Get the most recent sign-in event
+    const latestSignIn = signInEvents
+        .map(e => e.occurred_at)
+        .filter(Boolean)
+        .sort()
+        .reverse()[0];
+
+    return latestSignIn;
+}
+
 async function getUserProgress(userId) {
     const response = await fetch(`https://api.thinkific.com/api/public/v1/course_progresses?query[user_id]=${userId}`, {
         headers: {
@@ -66,7 +96,6 @@ async function getUserProgress(userId) {
     return {
         percentage: Math.round(avgProgress),
         lastActivity: latestActivity,
-        lastLogin: latestActivity,
         completedLessons: progresses.reduce((sum, p) => sum + (p.completed_chapters || 0), 0)
     };
 }
@@ -87,16 +116,20 @@ Deno.serve(async (req) => {
         const students = groupUsers
             .filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
 
-        // Get progress for each student
+        // Get progress and last sign-in for each student
         const studentsWithProgress = await Promise.all(
             students.map(async (student) => {
-                const progress = await getUserProgress(student.id);
+                const [progress, lastSignIn] = await Promise.all([
+                    getUserProgress(student.id),
+                    getLastSignIn(student.id)
+                ]);
                 return {
                     id: student.id,
                     firstName: student.first_name,
                     lastName: student.last_name,
                     email: student.email,
-                    ...progress
+                    ...progress,
+                    lastLogin: lastSignIn
                 };
             })
         );
