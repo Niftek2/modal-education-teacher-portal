@@ -108,7 +108,7 @@ async function handleLessonCompleted(base44, evt, webhookId) {
 
     const occurredAt = extractOccurredAt(evt);
     const occurredAtIso = occurredAt.toISOString();
-    const dedupeKey = enrollmentId && lessonId ? `${enrollmentId}-${lessonId}` : webhookId;
+    const dedupeKey = String(enrollmentId && lessonId ? `${enrollmentId}-${lessonId}` : webhookId);
 
     // Check if already exists
     const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: webhookId });
