@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { ThinkificGraphQL } from './lib/thinkificGraphQL.js';
 import * as jose from 'npm:jose@5.2.0';
 
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
