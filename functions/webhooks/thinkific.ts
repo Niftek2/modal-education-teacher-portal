@@ -205,10 +205,12 @@ async function handleQuizAttempted(base44, evt, webhookId) {
             rawPayload: JSON.stringify(payload),
             dedupeKey: dedupeKey,
             metadata: {
-                grade: grade || null,
-                correctCount: correctCount || 0,
-                incorrectCount: incorrectCount || 0,
-                resultId: String(resultId || '')
+                gradePercent: gradePercent || null,
+                correctCount: correctCount !== undefined ? correctCount : null,
+                incorrectCount: incorrectCount !== undefined ? incorrectCount : null,
+                attempts: attempts || null,
+                resultId: String(resultId || ''),
+                scorePercent: scorePercent
             }
         });
 
