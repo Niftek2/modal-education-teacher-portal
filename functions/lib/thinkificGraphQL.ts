@@ -1,147 +1,197 @@
 // Thinkific GraphQL Client for historical data backfill
 // Uses API Access Token Authorization (required for GraphQL)
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
+const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const GRAPHQL_URL = "https://api.thinkific.com/stable/graphql";
 
 async function graphqlRequest(query, variables = {}) {
     const requestId = crypto.randomUUID();
-    console.log(`[GraphQL ${requestId}] Executing query`);
+    console.log(`[GraphQL ${requestId}] Query:`, query.substring(0, 200));
+    console.log(`[GraphQL ${requestId}] Variables:`, JSON.stringify(variables));
     
     const response = await fetch(GRAPHQL_URL, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         },
         body: JSON.stringify({ query, variables })
     });
 
+    const text = await response.text();
+    console.log(`[GraphQL ${requestId}] Status: ${response.status}`);
+    console.log(`[GraphQL ${requestId}] Response body (first 500 chars):`, text.substring(0, 500));
+
     if (!response.ok) {
-        const text = await response.text();
-        console.error(`[GraphQL ${requestId}] Error ${response.status}:`, text);
-        throw new Error(`GraphQL request failed: ${response.status} ${text}`);
+        console.error(`[GraphQL ${requestId}] Full error response:`, text);
+        throw new Error(`GraphQL request failed: ${response.status} - ${text.substring(0, 200)}`);
     }
 
-    const result = await response.json();
+    const result = JSON.parse(text);
     
     if (result.errors) {
-        console.error(`[GraphQL ${requestId}] GraphQL errors:`, result.errors);
+        console.error(`[GraphQL ${requestId}] GraphQL errors:`, JSON.stringify(result.errors, null, 2));
         throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
     }
 
-    console.log(`[GraphQL ${requestId}] Success`);
+    console.log(`[GraphQL ${requestId}] Success - data keys:`, Object.keys(result.data || {}));
     return result.data;
 }
 
 export const ThinkificGraphQL = {
-    // Get all enrollments for a user
+    // Get all enrollments for a user with pagination
     async getUserEnrollments(userId) {
-        const query = `
-            query GetUserEnrollments($userId: ID!) {
-                user(id: $userId) {
-                    id
-                    email
-                    firstName
-                    lastName
-                    enrollments {
-                        edges {
-                            node {
-                                id
-                                activatedAt
-                                completedAt
-                                expiresAt
-                                percentageCompleted
-                                course {
+        const allEnrollments = [];
+        let hasNextPage = true;
+        let endCursor = null;
+
+        while (hasNextPage) {
+            const query = `
+                query GetUserEnrollments($userId: ID!, $after: String) {
+                    user(id: $userId) {
+                        id
+                        email
+                        firstName
+                        lastName
+                        enrollments(first: 50, after: $after) {
+                            edges {
+                                node {
                                     id
-                                    name
+                                    activatedAt
+                                    completedAt
+                                    expiresAt
+                                    percentageCompleted
+                                    course {
+                                        id
+                                        name
+                                    }
                                 }
+                                cursor
+                            }
+                            pageInfo {
+                                hasNextPage
+                                endCursor
                             }
                         }
                     }
                 }
-            }
-        `;
+            `;
 
-        const data = await graphqlRequest(query, { userId: String(userId) });
-        return data.user?.enrollments?.edges?.map(edge => edge.node) || [];
+            const variables = { userId: String(userId) };
+            if (endCursor) {
+                variables.after = endCursor;
+            }
+
+            const data = await graphqlRequest(query, variables);
+            
+            if (!data.user) {
+                console.log(`[GraphQL] User ${userId} not found`);
+                break;
+            }
+
+            const enrollments = data.user.enrollments?.edges?.map(edge => edge.node) || [];
+            allEnrollments.push(...enrollments);
+
+            hasNextPage = data.user.enrollments?.pageInfo?.hasNextPage || false;
+            endCursor = data.user.enrollments?.pageInfo?.endCursor;
+
+            console.log(`[GraphQL] Fetched ${enrollments.length} enrollments (total: ${allEnrollments.length}, hasNext: ${hasNextPage})`);
+        }
+
+        return allEnrollments;
     },
 
-    // Get course contents with completion status for a user
-    async getCourseContentsWithProgress(userId, courseId) {
-        const query = `
-            query GetCourseProgress($userId: ID!, $courseId: ID!) {
-                user(id: $userId) {
-                    id
-                    enrollment(courseId: $courseId) {
+    // Get completed contents for a user's enrollment with pagination
+    async getCompletedContents(userId, courseId) {
+        const allCompleted = [];
+        let hasNextPage = true;
+        let endCursor = null;
+
+        while (hasNextPage) {
+            const query = `
+                query GetCompletedContents($userId: ID!, $courseId: ID!, $after: String) {
+                    enrollment(userId: $userId, courseId: $courseId) {
                         id
                         course {
                             id
                             name
-                            chapters {
+                        }
+                        progress {
+                            completedContents(first: 100, after: $after) {
                                 edges {
                                     node {
                                         id
                                         name
-                                        contents {
-                                            edges {
-                                                node {
-                                                    id
-                                                    name
-                                                    contentType
-                                                    ... on Lesson {
-                                                        id
-                                                        name
-                                                    }
-                                                    ... on Quiz {
-                                                        id
-                                                        name
-                                                    }
-                                                }
-                                            }
-                                        }
+                                        type
+                                        completedAt
                                     }
+                                    cursor
                                 }
-                            }
-                        }
-                        completedContents {
-                            edges {
-                                node {
-                                    id
-                                    name
-                                    contentType
-                                    completedAt
+                                pageInfo {
+                                    hasNextPage
+                                    endCursor
                                 }
                             }
                         }
                     }
                 }
+            `;
+
+            const variables = { 
+                userId: String(userId), 
+                courseId: String(courseId)
+            };
+            if (endCursor) {
+                variables.after = endCursor;
             }
-        `;
 
-        const data = await graphqlRequest(query, { 
-            userId: String(userId), 
-            courseId: String(courseId) 
-        });
+            try {
+                const data = await graphqlRequest(query, variables);
+                
+                if (!data.enrollment) {
+                    console.log(`[GraphQL] No enrollment found for user ${userId} in course ${courseId}`);
+                    break;
+                }
 
-        return {
-            courseName: data.user?.enrollment?.course?.name || 'Unknown Course',
-            completedContents: data.user?.enrollment?.completedContents?.edges?.map(edge => edge.node) || []
-        };
+                const courseName = data.enrollment.course?.name || 'Unknown Course';
+                const contents = data.enrollment.progress?.completedContents?.edges?.map(edge => ({
+                    ...edge.node,
+                    courseName
+                })) || [];
+
+                allCompleted.push(...contents);
+
+                hasNextPage = data.enrollment.progress?.completedContents?.pageInfo?.hasNextPage || false;
+                endCursor = data.enrollment.progress?.completedContents?.pageInfo?.endCursor;
+
+                console.log(`[GraphQL] Fetched ${contents.length} completed contents (total: ${allCompleted.length}, hasNext: ${hasNextPage})`);
+            } catch (error) {
+                console.error(`[GraphQL] Error fetching completed contents:`, error.message);
+                break;
+            }
+        }
+
+        return allCompleted;
     },
 
-    // Get quiz attempts for a user in a course
+    // Get quiz attempts for a user in a course with pagination
     async getQuizAttempts(userId, courseId) {
-        const query = `
-            query GetQuizAttempts($userId: ID!, $courseId: ID!) {
-                user(id: $userId) {
-                    id
-                    enrollment(courseId: $courseId) {
+        const allAttempts = [];
+        let hasNextPage = true;
+        let endCursor = null;
+
+        while (hasNextPage) {
+            const query = `
+                query GetQuizAttempts($userId: ID!, $courseId: ID!, $after: String) {
+                    enrollment(userId: $userId, courseId: $courseId) {
                         id
                         course {
+                            id
                             name
                         }
-                        quizAttempts {
+                        quizAttempts(first: 100, after: $after) {
                             edges {
                                 node {
                                     id
@@ -156,30 +206,52 @@ export const ThinkificGraphQL = {
                                         name
                                     }
                                 }
+                                cursor
+                            }
+                            pageInfo {
+                                hasNextPage
+                                endCursor
                             }
                         }
                     }
                 }
-            }
-        `;
+            `;
 
-        try {
-            const data = await graphqlRequest(query, { 
+            const variables = { 
                 userId: String(userId), 
-                courseId: String(courseId) 
-            });
+                courseId: String(courseId)
+            };
+            if (endCursor) {
+                variables.after = endCursor;
+            }
 
-            const courseName = data.user?.enrollment?.course?.name || 'Unknown Course';
-            const attempts = data.user?.enrollment?.quizAttempts?.edges?.map(edge => ({
-                ...edge.node,
-                courseName
-            })) || [];
+            try {
+                const data = await graphqlRequest(query, variables);
+                
+                if (!data.enrollment) {
+                    console.log(`[GraphQL] No enrollment found for user ${userId} in course ${courseId}`);
+                    break;
+                }
 
-            return attempts;
-        } catch (error) {
-            console.log(`No quiz attempts found for user ${userId} in course ${courseId}:`, error.message);
-            return [];
+                const courseName = data.enrollment.course?.name || 'Unknown Course';
+                const attempts = data.enrollment.quizAttempts?.edges?.map(edge => ({
+                    ...edge.node,
+                    courseName
+                })) || [];
+
+                allAttempts.push(...attempts);
+
+                hasNextPage = data.enrollment.quizAttempts?.pageInfo?.hasNextPage || false;
+                endCursor = data.enrollment.quizAttempts?.pageInfo?.endCursor;
+
+                console.log(`[GraphQL] Fetched ${attempts.length} quiz attempts (total: ${allAttempts.length}, hasNext: ${hasNextPage})`);
+            } catch (error) {
+                console.error(`[GraphQL] Error fetching quiz attempts:`, error.message);
+                break;
+            }
         }
+
+        return allAttempts;
     },
 
     // Test GraphQL connection

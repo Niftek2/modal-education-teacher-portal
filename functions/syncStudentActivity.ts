@@ -61,14 +61,16 @@ Deno.serve(async (req) => {
                     console.log(`[SYNC] Processing enrollment in course: ${courseName} (${courseId})`);
 
                     // Get completed contents (lessons) using GraphQL
-                    const { completedContents } = await ThinkificGraphQL.getCourseContentsWithProgress(
+                    const completedContents = await ThinkificGraphQL.getCompletedContents(
                         student.id,
                         courseId
                     );
 
+                    console.log(`[SYNC] Found ${completedContents.length} completed contents for ${courseName}`);
+
                     // Process lesson completions
                     for (const content of completedContents) {
-                        if (content.contentType === 'Lesson' && content.completedAt) {
+                        if (content.type === 'Lesson' && content.completedAt) {
                             const externalId = await createExternalId(
                                 student.id,
                                 content.id,
@@ -108,6 +110,8 @@ Deno.serve(async (req) => {
 
                     // Get quiz attempts using GraphQL
                     const quizAttempts = await ThinkificGraphQL.getQuizAttempts(student.id, courseId);
+                    
+                    console.log(`[SYNC] Found ${quizAttempts.length} quiz attempts for ${courseName}`);
 
                     for (const attempt of quizAttempts) {
                         if (attempt.submittedAt) {
