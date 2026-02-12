@@ -14,8 +14,9 @@ async function findThinkificUser(email) {
 async function isThinkificAdmin(userId) {
     // Check if user is a Thinkific admin
     try {
-        const user = await thinkific.getUser(userId);
-        console.log('User role:', user.role);
+        const result = await thinkific.getUser(userId);
+        const user = result.user || result;
+        console.log('User role check:', { userId, role: user.role, isAdmin: user.role === 'admin' });
         return user.role === 'admin';
     } catch (error) {
         console.log('Could not fetch user role:', error.message);
