@@ -66,7 +66,7 @@ async function getTeacherGroups(userId) {
             }
         }
         
-        return teacherGroups.length > 0 ? teacherGroups[0] : null;
+        return teacherGroups;
         
     } catch (error) {
         console.error('getTeacherGroups error:', error.message);
@@ -103,8 +103,8 @@ Deno.serve(async (req) => {
         // Get teacher user details
         const user = await getThinkificUser(session.userId);
         
-        // Get teacher's group (using their user ID)
-        const group = await getTeacherGroups(session.userId);
+        // Get teacher's groups (plural - all groups, not filtered to one)
+        const groups = await getTeacherGroups(session.userId);
         
         return Response.json({
             teacher: {
@@ -113,10 +113,10 @@ Deno.serve(async (req) => {
                 lastName: user.last_name,
                 email: user.email
             },
-            group: group ? {
-                id: group.id,
-                name: group.name
-            } : null
+            groups: groups.map(g => ({
+                id: g.id,
+                name: g.name
+            }))
         });
 
     } catch (error) {
