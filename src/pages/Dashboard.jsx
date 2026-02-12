@@ -199,14 +199,6 @@ export default function Dashboard() {
                     </div>
                     <div className="flex gap-2">
                         <Button
-                            onClick={() => navigate(createPageUrl('WebhookDebug'))}
-                            variant="ghost"
-                            className="text-gray-600 hover:text-black"
-                        >
-                            <Bug className="w-4 h-4 mr-2" />
-                            Webhooks
-                        </Button>
-                        <Button
                             onClick={handleLogout}
                             variant="ghost"
                             className="text-gray-600 hover:text-black"
