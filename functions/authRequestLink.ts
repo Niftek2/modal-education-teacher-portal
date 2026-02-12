@@ -8,23 +8,7 @@ const MAGIC_LINK_SECRET = Deno.env.get("MAGIC_LINK_SECRET");
 
 async function findThinkificUser(email) {
     console.log('Looking up user:', email);
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(email)}`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-    
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Thinkific API error:', response.status, errorText);
-        throw new Error(`Thinkific API returned ${response.status}: ${errorText}`);
-    }
-    
-    const data = await response.json();
-    console.log('Found user:', data.items?.[0] ? `ID ${data.items[0].id}` : 'none');
-    return data.items?.[0];
+    return await thinkific.findUserByEmail(email);
 }
 
 async function verifyClassroomEnrollment(userId) {
