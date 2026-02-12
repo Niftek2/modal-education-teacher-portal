@@ -34,20 +34,20 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             
             // Split into quizzes and lessons
             const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => {
-                let grade = e.metadata?.grade;
-                if (!grade && e.rawPayload) {
+                let percentage = e.metadata?.percentage;
+                if (!percentage && e.rawPayload) {
                     try {
                         const payload = JSON.parse(e.rawPayload);
-                        grade = payload?.grade;
+                        percentage = payload?.percentage || payload?.score || e.metadata?.grade;
                     } catch {}
                 }
                 return {
                     quizName: e.contentTitle || 'Unknown Quiz',
                     courseName: e.courseName || 'Unknown Course',
                     level: e.courseName || 'Unknown',
-                    score: grade || 0,
+                    score: percentage || 0,
                     maxScore: 100,
-                    percentage: grade || 0,
+                    percentage: percentage || 0,
                     completedAt: e.occurredAt,
                     attemptNumber: 1,
                     timeSpentSeconds: 0,
