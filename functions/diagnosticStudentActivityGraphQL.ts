@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
                         courses(first: 20, after: $after) {
                             edges {
                                 node {
-                                    gid
+                                    id
                                     enrolledAt
                                     completedAt
                                     percentageCompleted
@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
         const enrollmentDetails = [];
 
         for (const enrollment of enrollments) {
-            const enrollmentId = enrollment.gid;
+            const enrollmentId = enrollment.id;
             const courseId = enrollment.course.id;
             const courseName = enrollment.course.name;
             
@@ -166,12 +166,11 @@ Deno.serve(async (req) => {
                                 edges {
                                     node {
                                         id
-                                        gid
                                         progress {
                                             completedContents(first: 20, after: $after) {
                                                 edges {
                                                     node {
-                                                        gid
+                                                        id
                                                         name
                                                         completedAt
                                                     }
@@ -218,7 +217,7 @@ Deno.serve(async (req) => {
             // Collect first 5 samples
             detail.completedContents.slice(0, 5).forEach(item => {
                 allCompletedSamples.push({
-                    contentId: item.gid,
+                    contentId: item.id,
                     contentTitle: item.name,
                     completedAt: item.completedAt,
                     course: courseName
@@ -239,11 +238,10 @@ Deno.serve(async (req) => {
                                 edges {
                                     node {
                                         id
-                                        gid
                                         quizAttempts(first: 20, after: $after) {
                                             edges {
                                                 node {
-                                                    gid
+                                                    id
                                                     score
                                                     maxScore
                                                     percentageScore
@@ -297,6 +295,7 @@ Deno.serve(async (req) => {
             // Collect first 5 samples
             detail.quizAttempts.slice(0, 5).forEach(item => {
                 allQuizSamples.push({
+                    quizAttemptId: item.id,
                     quizId: item.quiz?.id,
                     quizName: item.quiz?.name,
                     score: item.score,
