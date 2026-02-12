@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
 import { X, Clock, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { api } from './api';
 
 export default function StudentDetail({ student, isOpen, onClose, sessionToken }) {
     const [quizzes, setQuizzes] = useState([]);
@@ -20,16 +20,13 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const loadData = async () => {
         setLoading(true);
         try {
-            const [quizData, lessonData] = await Promise.all([
-                base44.entities.QuizCompletion.filter({ 
-                    studentId: student.id 
-                }, '-completedAt'),
-                base44.entities.LessonCompletion.filter({ 
-                    studentId: student.id 
-                }, '-completedAt')
-            ]);
-            setQuizzes(quizData);
-            setLessons(lessonData);
+            const response = await api.call('getStudentActivity', {
+                studentId: student.id,
+                sessionToken
+            }, sessionToken);
+            
+            setQuizzes(response.quizzes || []);
+            setLessons(response.lessons || []);
         } catch (error) {
             console.error('Failed to load data:', error);
             setQuizzes([]);
