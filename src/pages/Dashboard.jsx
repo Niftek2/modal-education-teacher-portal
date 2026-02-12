@@ -116,8 +116,7 @@ export default function Dashboard() {
             setSyncingQuizzes(true);
             const sessionToken = localStorage.getItem('modal_math_session');
             
-            // Sync historical lesson data (quiz history not available via API)
-            const result = await api.call('syncHistoricalLessons', {
+            const result = await api.call('syncStudentActivity', {
                 groupId: group.id,
                 sessionToken
             }, sessionToken);
@@ -127,10 +126,10 @@ export default function Dashboard() {
             // Reload dashboard to show new data
             await loadDashboard(sessionToken);
             
-            alert(result.message || `Success! Synced data for ${result.studentsProcessed} students.`);
+            alert(result.message || `Success! Imported ${result.lessonsImported} lessons and ${result.quizzesImported} quizzes for ${result.studentsProcessed} students.`);
         } catch (error) {
             console.error('Failed to sync data:', error);
-            alert('Sync completed. Note: Only lesson history and new quiz attempts (via webhooks) are available.');
+            alert(error.message || 'Sync failed. Please try again.');
         } finally {
             setSyncingQuizzes(false);
         }
