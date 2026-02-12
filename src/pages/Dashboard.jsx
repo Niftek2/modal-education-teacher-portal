@@ -115,18 +115,22 @@ export default function Dashboard() {
         try {
             setSyncingQuizzes(true);
             const sessionToken = localStorage.getItem('modal_math_session');
-            await Promise.all([
-                base44.functions.invoke('syncHistoricalQuizzes', {
-                    groupId: group.id,
-                    sessionToken
-                }),
-                base44.functions.invoke('syncHistoricalLessons', {
-                    groupId: group.id,
-                    sessionToken
-                })
-            ]);
+            
+            // Use GraphQL backfill for quiz history
+            const result = await base44.functions.invoke('backfillQuizHistoryGraphQL', {
+                groupId: group.id,
+                sessionToken
+            });
+            
+            console.log('Backfill result:', result.data);
+            
+            // Reload dashboard to show new data
+            await loadDashboard(sessionToken);
+            
+            alert(`Success! Added ${result.data.quizzesAdded} quiz attempts for ${result.data.studentsProcessed} students.`);
         } catch (error) {
             console.error('Failed to sync data:', error);
+            alert('Failed to sync quiz data. Check console for details.');
         } finally {
             setSyncingQuizzes(false);
         }

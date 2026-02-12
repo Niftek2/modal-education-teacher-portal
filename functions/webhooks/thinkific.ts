@@ -15,6 +15,8 @@ async function createLessonExternalId(userId, lessonId, courseId, createdAt) {
 }
 
 Deno.serve(async (req) => {
+    const requestStartTime = Date.now();
+    
     if (req.method !== 'POST') {
         return Response.json({ error: 'Method not allowed' }, { status: 405 });
     }
@@ -26,8 +28,13 @@ Deno.serve(async (req) => {
         
         const topic = body.topic || req.headers.get('x-thinkific-topic');
         const webhookId = body.id || crypto.randomUUID();
+        const userId = body.user_id || body.id;
         
-        console.log(`[WEBHOOK] Received: ${topic} (ID: ${webhookId})`);
+        console.log(`[WEBHOOK] ====================================`);
+        console.log(`[WEBHOOK] Received: ${topic}`);
+        console.log(`[WEBHOOK] ID: ${webhookId}`);
+        console.log(`[WEBHOOK] User ID: ${userId}`);
+        console.log(`[WEBHOOK] Timestamp: ${new Date().toISOString()}`);
         console.log(`[WEBHOOK] Payload:`, JSON.stringify(body).substring(0, 500));
 
         // Store in debug log first
@@ -38,6 +45,7 @@ Deno.serve(async (req) => {
             status: 'ok'
         });
         webhookLogId = logEntry.id;
+        console.log(`[WEBHOOK] Log entry created: ${webhookLogId}`);
 
         // Store raw webhook event (append-only audit log)
         await base44.asServiceRole.entities.WebhookEvent.create({
@@ -48,21 +56,28 @@ Deno.serve(async (req) => {
         });
 
         // Process based on topic
+        let processingResult;
         switch (topic) {
             case 'lesson.completed':
-                await handleLessonCompleted(base44, body);
+                processingResult = await handleLessonCompleted(base44, body);
                 break;
             case 'quiz.attempted':
-                await handleQuizAttempted(base44, body);
+                processingResult = await handleQuizAttempted(base44, body);
                 break;
             case 'user.signin':
-                await handleUserSignin(base44, body);
+                processingResult = await handleUserSignin(base44, body);
                 break;
             default:
-                console.log(`[WEBHOOK] Unhandled topic: ${topic}`);
+                console.log(`[WEBHOOK] ⚠️ Unhandled topic: ${topic}`);
+                processingResult = { status: 'unhandled' };
         }
 
-        return Response.json({ success: true, webhookId });
+        const processingTime = Date.now() - requestStartTime;
+        console.log(`[WEBHOOK] ✓ Processed in ${processingTime}ms`);
+        console.log(`[WEBHOOK] Result:`, processingResult);
+        console.log(`[WEBHOOK] ====================================`);
+
+        return Response.json({ success: true, webhookId, processingTime, result: processingResult });
     } catch (error) {
         console.error('[WEBHOOK] Error:', error);
         
@@ -91,9 +106,11 @@ async function handleLessonCompleted(base44, payload) {
         completed_at
     } = payload;
 
+    console.log(`[WEBHOOK] Processing lesson.completed for user ${user_id}, lesson ${lesson_id}`);
+
     if (!user_id || !lesson_id) {
-        console.error('[WEBHOOK] Missing required fields for lesson.completed');
-        return;
+        console.error('[WEBHOOK] ❌ Missing required fields for lesson.completed');
+        return { status: 'error', reason: 'missing_fields' };
     }
 
     const occurredAt = completed_at || new Date().toISOString();
@@ -107,23 +124,29 @@ async function handleLessonCompleted(base44, payload) {
     });
 
     if (existing.length > 0) {
-        console.log('[WEBHOOK] Lesson completion already exists, skipping');
-        return;
+        console.log('[WEBHOOK] ⚠️ Lesson completion already exists, skipping (duplicate)');
+        return { status: 'duplicate', externalId };
     }
 
-    await base44.asServiceRole.entities.LessonCompletion.create({
-        externalId,
-        studentId: String(user_id),
-        studentEmail: email,
-        studentName: `${first_name || ''} ${last_name || ''}`.trim(),
-        lessonId: String(lesson_id),
-        lessonName: lesson_name || 'Unknown Lesson',
-        courseId: String(course_id || ''),
-        courseName: course_name || '',
-        completedAt: occurredAt
-    });
+    try {
+        const created = await base44.asServiceRole.entities.LessonCompletion.create({
+            externalId,
+            studentId: String(user_id),
+            studentEmail: email,
+            studentName: `${first_name || ''} ${last_name || ''}`.trim(),
+            lessonId: String(lesson_id),
+            lessonName: lesson_name || 'Unknown Lesson',
+            courseId: String(course_id || ''),
+            courseName: course_name || '',
+            completedAt: occurredAt
+        });
 
-    console.log(`[WEBHOOK] ✓ Lesson completion recorded: user=${user_id}, lesson=${lesson_id}, course=${course_id}`);
+        console.log(`[WEBHOOK] ✓ Lesson completion saved: DB ID=${created.id}, externalId=${externalId}`);
+        return { status: 'created', id: created.id, externalId };
+    } catch (error) {
+        console.error(`[WEBHOOK] ❌ Failed to save lesson completion:`, error);
+        throw error;
+    }
 }
 
 async function handleQuizAttempted(base44, payload) {
@@ -136,9 +159,11 @@ async function handleQuizAttempted(base44, payload) {
         quiz_attempt
     } = payload;
 
+    console.log(`[WEBHOOK] Processing quiz.attempted for user ${user_id}, quiz ${quiz_id}, score ${score}/${max_score}`);
+
     if (!user_id || !quiz_id || score === undefined || !max_score) {
-        console.error('[WEBHOOK] Missing required fields for quiz.attempted');
-        return;
+        console.error('[WEBHOOK] ❌ Missing required fields for quiz.attempted');
+        return { status: 'error', reason: 'missing_fields' };
     }
 
     const percentage = percentage_score || Math.round((score / max_score) * 100);
@@ -158,39 +183,48 @@ async function handleQuizAttempted(base44, payload) {
     });
 
     if (existing.length > 0) {
-        console.log('[WEBHOOK] Quiz attempt already exists, skipping');
-        return;
+        console.log('[WEBHOOK] ⚠️ Quiz attempt already exists, skipping (duplicate)');
+        return { status: 'duplicate', externalId };
     }
 
-    await base44.asServiceRole.entities.QuizCompletion.create({
-        externalId,
-        studentId: String(user_id),
-        studentEmail: email,
-        studentName: `${first_name || ''} ${last_name || ''}`.trim(),
-        quizId: String(quiz_id),
-        quizName: quiz_name || 'Unknown Quiz',
-        courseId: String(course_id || ''),
-        courseName: course_name || '',
-        score,
-        maxScore: max_score,
-        percentage,
-        attemptNumber: attempt_number || 1,
-        completedAt: occurredAt,
-        timeSpentSeconds: time_spent_seconds || 0
-    });
+    try {
+        const created = await base44.asServiceRole.entities.QuizCompletion.create({
+            externalId,
+            studentId: String(user_id),
+            studentEmail: email,
+            studentName: `${first_name || ''} ${last_name || ''}`.trim(),
+            quizId: String(quiz_id),
+            quizName: quiz_name || 'Unknown Quiz',
+            courseId: String(course_id || ''),
+            courseName: course_name || '',
+            score,
+            maxScore: max_score,
+            percentage,
+            attemptNumber: attempt_number || 1,
+            completedAt: occurredAt,
+            timeSpentSeconds: time_spent_seconds || 0
+        });
 
-    console.log(`[WEBHOOK] ✓ Quiz attempt recorded: user=${user_id}, quiz=${quiz_id}, course=${course_id}, score=${percentage}%`);
+        console.log(`[WEBHOOK] ✓ Quiz attempt saved: DB ID=${created.id}, externalId=${externalId}, score=${percentage}%`);
+        return { status: 'created', id: created.id, externalId, score: percentage };
+    } catch (error) {
+        console.error(`[WEBHOOK] ❌ Failed to save quiz attempt:`, error);
+        throw error;
+    }
 }
 
 async function handleUserSignin(base44, payload) {
     const { user_id, email, occurred_at } = payload;
 
+    console.log(`[WEBHOOK] Processing user.signin for user ${user_id}, email ${email}`);
+
     if (!user_id || !email) {
-        console.error('[WEBHOOK] Missing required fields for user.signin');
-        return;
+        console.error('[WEBHOOK] ❌ Missing required fields for user.signin');
+        return { status: 'error', reason: 'missing_fields' };
     }
 
-    console.log(`[WEBHOOK] ✓ User signin: user=${user_id}, email=${email}, time=${occurred_at}`);
+    console.log(`[WEBHOOK] ✓ User signin tracked: user=${user_id}, email=${email}, time=${occurred_at}`);
     
     // Login tracking handled by getStudents function via Thinkific API
+    return { status: 'logged', userId: user_id, email };
 }
