@@ -202,11 +202,11 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                                     <div className="flex flex-col gap-1">
                                                         <div className="flex items-center gap-2">
                                                             <Target className="w-4 h-4 text-gray-400" />
-                                                            <span className="font-semibold">{Math.round(quiz.percentage)}%</span>
+                                                            <span className="font-semibold">{quiz.percentage !== null && quiz.percentage !== undefined ? `${Math.round(quiz.percentage)}%` : '—'}</span>
                                                         </div>
-                                                        {quiz.correctCount !== undefined && (
+                                                        {quiz.correctCount !== undefined && quiz.correctCount !== null && (
                                                             <div className="text-xs text-gray-500">
-                                                                ✓ {quiz.correctCount} {quiz.incorrectCount !== undefined && `✗ ${quiz.incorrectCount}`}
+                                                                ✓ {quiz.correctCount} {quiz.incorrectCount !== undefined && quiz.incorrectCount !== null && `✗ ${quiz.incorrectCount}`}
                                                             </div>
                                                         )}
                                                     </div>
