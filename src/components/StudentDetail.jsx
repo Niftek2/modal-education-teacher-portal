@@ -20,15 +20,18 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const loadData = async () => {
         setLoading(true);
         try {
-            const response = await api.call('getStudentActivity', {
-                studentEmail: student.email,
+            // Use teacher-scoped activity endpoint
+            const response = await api.call('getStudentActivityForTeacher', {
                 sessionToken
             }, sessionToken);
             
             const events = response.events || [];
             
+            // Filter to this specific student's events by email
+            const studentEvents = events.filter(e => e.studentEmail?.toLowerCase() === student.email?.toLowerCase());
+            
             // Split into quizzes and lessons
-            setQuizzes(events.filter(e => e.type === 'quiz_attempted').map(e => ({
+            setQuizzes(studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => ({
                 quizName: e.contentTitle,
                 courseName: e.courseName,
                 score: e.score,
@@ -40,7 +43,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                 source: e.source
             })));
 
-            setLessons(events.filter(e => e.type === 'lesson_completed' || e.type === 'enrollment_progress').map(e => ({
+            setLessons(studentEvents.filter(e => e.eventType === 'lesson_completed').map(e => ({
                 lessonName: e.contentTitle || 'Course Progress',
                 courseName: e.courseName,
                 completedAt: e.occurredAt,
