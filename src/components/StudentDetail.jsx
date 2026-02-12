@@ -137,7 +137,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Quiz</TableHead>
-                                            <TableHead>Course</TableHead>
+                                            <TableHead>Level</TableHead>
                                             <TableHead>Attempt</TableHead>
                                             <TableHead>Score</TableHead>
                                             <TableHead>Date & Time</TableHead>
