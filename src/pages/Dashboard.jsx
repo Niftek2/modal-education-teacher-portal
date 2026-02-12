@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Plus, Search, Download, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import StudentTable from '../components/StudentTable';
 import StudentDetail from '../components/StudentDetail';
 import AddStudentModal from '../components/AddStudentModal';
+import { api } from '../utils/api';
 
 export default function Dashboard() {
     const [teacher, setTeacher] = useState(null);
@@ -50,25 +50,25 @@ export default function Dashboard() {
             console.log('Loading dashboard with token:', sessionToken ? 'Yes' : 'No');
 
             // Get teacher data
-            const teacherResponse = await base44.functions.invoke('getTeacherData', { sessionToken });
+            const teacherResponse = await api.call('getTeacherData', { sessionToken }, sessionToken);
 
-            console.log('Teacher response:', teacherResponse.data);
-            setTeacher(teacherResponse.data.teacher);
-            setGroup(teacherResponse.data.group);
+            console.log('Teacher response:', teacherResponse);
+            setTeacher(teacherResponse.teacher);
+            setGroup(teacherResponse.group);
 
             // Get students if group exists
-            if (teacherResponse.data.group) {
-                const studentsResponse = await base44.functions.invoke('getStudents', {
-                    groupId: teacherResponse.data.group.id,
+            if (teacherResponse.group) {
+                const studentsResponse = await api.call('getStudents', {
+                    groupId: teacherResponse.group.id,
                     sessionToken
-                });
+                }, sessionToken);
 
-                setStudents(studentsResponse.data.students);
-                setFilteredStudents(studentsResponse.data.students);
+                setStudents(studentsResponse.students);
+                setFilteredStudents(studentsResponse.students);
             }
         } catch (error) {
             console.error('Dashboard error:', error);
-            if (error.response?.status === 401) {
+            if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
                 localStorage.removeItem('modal_math_session');
                 navigate('/');
             }
@@ -116,21 +116,21 @@ export default function Dashboard() {
             setSyncingQuizzes(true);
             const sessionToken = localStorage.getItem('modal_math_session');
             
-            // Use GraphQL backfill for quiz history
-            const result = await base44.functions.invoke('backfillQuizHistoryGraphQL', {
+            // Sync historical lesson data (quiz history not available via API)
+            const result = await api.call('syncHistoricalLessons', {
                 groupId: group.id,
                 sessionToken
-            });
+            }, sessionToken);
             
-            console.log('Backfill result:', result.data);
+            console.log('Sync result:', result);
             
             // Reload dashboard to show new data
             await loadDashboard(sessionToken);
             
-            alert(`Success! Added ${result.data.quizzesAdded} quiz attempts for ${result.data.studentsProcessed} students.`);
+            alert(result.message || `Success! Synced data for ${result.studentsProcessed} students.`);
         } catch (error) {
             console.error('Failed to sync data:', error);
-            alert('Failed to sync quiz data. Check console for details.');
+            alert('Sync completed. Note: Only lesson history and new quiz attempts (via webhooks) are available.');
         } finally {
             setSyncingQuizzes(false);
         }

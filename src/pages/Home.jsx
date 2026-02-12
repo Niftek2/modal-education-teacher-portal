@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
 import { useNavigate } from 'react-router-dom';
 import { Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { api } from '../utils/api';
 
 export default function Home() {
     const [email, setEmail] = useState('');
@@ -36,13 +36,13 @@ export default function Home() {
         setLoading(true);
 
         try {
-            const response = await base44.functions.invoke('authRequestLink', { email });
+            const response = await api.call('authRequestLink', { email }, '');
             
-            if (response.data.success) {
+            if (response.success) {
                 setSent(true);
             }
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to send login link');
+            setError(err.message || 'Failed to send login link');
         } finally {
             setLoading(false);
         }
