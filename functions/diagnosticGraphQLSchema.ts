@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
         // Step A: Get root Query fields
         console.log(`[SCHEMA] Step A: Fetching root Query fields...`);
         const rootQueryFields = await graphQLQuery(`
-            query {
+            query IntrospectRootQuery {
                 __schema {
                     queryType {
                         fields {
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
                 
                 // Get the field's return type name
                 const fieldInfoQuery = `
-                    query {
+                    query GetFieldInfo {
                         __type(name: "Query") {
                             fields(includeDeprecated: false) {
                                 name
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
 
                         // Now introspect that type
                         const detailedQuery = `
-                            query {
+                            query GetTypeDetail {
                                 __type(name: "${typeName}") {
                                     name
                                     kind
