@@ -149,7 +149,8 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
                                     </Button>
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        );
+                        })}
                     </TableBody>
                 </Table>
             </div>
