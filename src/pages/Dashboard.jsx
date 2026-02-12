@@ -7,6 +7,7 @@ import StudentTable from '../components/StudentTable';
 import StudentDetail from '../components/StudentDetail';
 import AddStudentModal from '../components/AddStudentModal';
 import CSVImportModal from '../components/CSVImportModal';
+import QuizImportModal from '../components/QuizImportModal';
 import { api } from '@/components/api';
 import { createPageUrl } from '@/utils';
 
