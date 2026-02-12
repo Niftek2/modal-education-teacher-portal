@@ -24,6 +24,7 @@ async function verifySession(token) {
 
 async function getTeacherGroup(userId) {
     try {
+        console.log('Fetching group memberships for user:', userId);
         const membershipsResponse = await fetch(`https://api.thinkific.com/api/public/v1/group_memberships?query[user_id]=${userId}`, {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -32,14 +33,20 @@ async function getTeacherGroup(userId) {
             }
         });
         
+        console.log('Group memberships response status:', membershipsResponse.status);
         const membershipsData = await membershipsResponse.json();
+        console.log('Group memberships data:', JSON.stringify(membershipsData, null, 2));
+        
         const memberships = membershipsData.items || [];
+        console.log('Found memberships count:', memberships.length);
         
         // Get the first group the teacher is in
         if (memberships.length > 0) {
+            console.log('Returning group:', memberships[0].group);
             return memberships[0].group;
         }
         
+        console.log('No group found, returning null');
         return null;
         
     } catch (error) {
