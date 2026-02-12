@@ -197,49 +197,60 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                             Sort by Level
                                         </button>
                                     </div>
-                                    <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Quiz</TableHead>
-                                            <TableHead>Level</TableHead>
-                                            <TableHead>Attempt</TableHead>
-                                            <TableHead>Score</TableHead>
-                                            <TableHead>Date & Time</TableHead>
-                                            <TableHead>Duration</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {getSortedQuizzes().map((quiz, idx) => (
-                                            <TableRow key={`${quiz.quizName}-${quiz.completedAt}-${idx}`}>
-                                                <TableCell className="font-medium">{quiz.quizName}</TableCell>
-                                                <TableCell className="text-sm text-gray-600">{quiz.level}</TableCell>
-                                                <TableCell className="text-center">{quiz.attemptNumber}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex flex-col gap-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <Target className="w-4 h-4 text-gray-400" />
-                                                            <span className="font-semibold">{quiz.percentage !== null && quiz.percentage !== undefined ? `${Math.round(quiz.percentage)}%` : '—'}</span>
-                                                        </div>
-                                                        {quiz.correctCount !== undefined && quiz.correctCount !== null && (
-                                                            <div className="text-xs text-gray-500">
-                                                                ✓ {quiz.correctCount} {quiz.incorrectCount !== undefined && quiz.incorrectCount !== null && `✗ ${quiz.incorrectCount}`}
-                                                            </div>
-                                                        )}
+                                    <div className="space-y-3">
+                                        {getSortedQuizzes().reduce((groups, quiz, idx) => {
+                                            const lastGroup = groups[groups.length - 1];
+                                            if (quiz.isFirstInGroup) {
+                                                groups.push({ attempts: [quiz] });
+                                            } else if (lastGroup) {
+                                                lastGroup.attempts.push(quiz);
+                                            }
+                                            return groups;
+                                        }, []).map((group, groupIdx) => (
+                                            <div key={groupIdx} className="border border-gray-200 rounded-lg overflow-hidden">
+                                                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                                                    <div className="font-medium text-sm">{group.attempts[0].quizName}</div>
+                                                    <div className="text-xs text-gray-600 mt-1">
+                                                        Attempts: {group.attempts[0].groupSize} | Best: {group.attempts[0].groupBest !== null ? `${Math.round(group.attempts[0].groupBest)}%` : '—'} | Latest: {group.attempts[0].groupLatestScore !== null ? `${Math.round(group.attempts[0].groupLatestScore)}%` : '—'} at {formatDate(group.attempts[0].groupLatestDate)}
                                                     </div>
-                                                </TableCell>
-                                                <TableCell className="text-sm">
-                                                    {formatDate(quiz.completedAt)}
-                                                </TableCell>
-                                                <TableCell className="text-sm">
-                                                    <div className="flex items-center gap-1 text-gray-600">
-                                                        <Clock className="w-4 h-4" />
-                                                        {formatTime(quiz.timeSpentSeconds)}
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
+                                                </div>
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow className="bg-white">
+                                                            <TableHead className="text-xs">Level</TableHead>
+                                                            <TableHead className="text-xs">Attempt</TableHead>
+                                                            <TableHead className="text-xs">Score</TableHead>
+                                                            <TableHead className="text-xs">Date & Time</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {group.attempts.map((quiz, idx) => (
+                                                            <TableRow key={`${quiz.quizName}-${quiz.completedAt}-${idx}`} className="hover:bg-gray-50">
+                                                                <TableCell className="text-sm text-gray-600">{quiz.level}</TableCell>
+                                                                <TableCell className="text-center text-sm">{quiz.attemptIndex}</TableCell>
+                                                                <TableCell>
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Target className="w-4 h-4 text-gray-400" />
+                                                                            <span className="font-semibold text-sm">{quiz.percentage !== null && quiz.percentage !== undefined ? `${Math.round(quiz.percentage)}%` : '—'}</span>
+                                                                        </div>
+                                                                        {quiz.correctCount !== undefined && quiz.correctCount !== null && (
+                                                                            <div className="text-xs text-gray-500">
+                                                                                ✓ {quiz.correctCount} {quiz.incorrectCount !== undefined && quiz.incorrectCount !== null && `✗ ${quiz.incorrectCount}`}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="text-sm">
+                                                                    {formatDate(quiz.completedAt)}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
                                         ))}
-                                    </TableBody>
-                                </Table>
+                                    </div>
                                 </div>
                             )
                         ) : (
