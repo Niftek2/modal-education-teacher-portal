@@ -55,14 +55,14 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'No account found with this email' }, { status: 404 });
         }
 
-        // Verify user has Classroom course enrollment OR is a Thinkific admin
-        const isAdmin = await isThinkificAdmin(user.id);
-        const hasAccess = isAdmin || await verifyClassroomEnrollment(user.id);
+        // Verify user has Classroom course enrollment OR is on the allowlist
+        const isPortalAdminUser = isPortalAdmin(user.email);
+        const hasAccess = isPortalAdminUser || await verifyClassroomEnrollment(user.id);
         if (!hasAccess) {
             return Response.json({ error: 'No active enrollment in "your classroom" course' }, { status: 403 });
         }
         
-        console.log('User access granted:', { isAdmin, hasAccess });
+        console.log('User access granted:', { email: user.email, isPortalAdmin: isPortalAdminUser });
 
         // Generate magic link token
         const secret = new TextEncoder().encode(MAGIC_LINK_SECRET);
