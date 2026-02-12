@@ -1,8 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import * as jose from 'npm:jose@5.2.0';
 
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
+import * as thinkific from './lib/thinkificClient.js';
+
 const CLASSROOM_PRODUCT_ID = Deno.env.get("CLASSROOM_PRODUCT_ID");
 const MAGIC_LINK_SECRET = Deno.env.get("MAGIC_LINK_SECRET");
 
@@ -28,25 +28,11 @@ async function findThinkificUser(email) {
 }
 
 async function verifyClassroomEnrollment(userId) {
-    // Check if teacher is enrolled in the "your classroom" course
-    const url = `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[course_id]=${CLASSROOM_PRODUCT_ID}`;
-    
-    const response = await fetch(url, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
+    // Check if teacher is enrolled in the "your classroom" course using SDK
+    const enrollments = await thinkific.listEnrollments({
+        'query[user_id]': userId,
+        'query[course_id]': CLASSROOM_PRODUCT_ID
     });
-    
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Enrollment check failed:', response.status, errorText);
-        throw new Error(`Failed to check enrollment: ${response.status} - ${errorText}`);
-    }
-    
-    const data = await response.json();
-    const enrollments = data.items || [];
     
     console.log('Enrollments found for course:', enrollments.length);
     
