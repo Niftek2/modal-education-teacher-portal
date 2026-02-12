@@ -34,6 +34,15 @@ export default function WebhookDebug() {
         }
     };
 
+    const createTestEvent = async () => {
+        try {
+            await api.call('createTestActivityEvent', {}, localStorage.getItem('modal_math_session'));
+            loadData();
+        } catch (error) {
+            console.error('Failed to create test event:', error);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center">
@@ -57,10 +66,15 @@ export default function WebhookDebug() {
                         </Button>
                         <h1 className="text-2xl font-bold text-black">Webhook Debug</h1>
                     </div>
-                    <Button onClick={loadData} variant="outline">
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Refresh
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button onClick={createTestEvent} variant="outline">
+                            Create Test Event
+                        </Button>
+                        <Button onClick={loadData} variant="outline">
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Refresh
+                        </Button>
+                    </div>
                 </div>
             </header>
 
@@ -74,6 +88,18 @@ export default function WebhookDebug() {
                     <p className="text-sm text-gray-600 mt-2">
                         Configure this in Thinkific Admin → Settings → Webhooks
                     </p>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-4 mb-8">
+                    <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                        <div className="text-sm text-gray-600">Webhook Events (24h)</div>
+                        <div className="text-2xl font-bold text-purple-900">{webhookLogs.length}</div>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                        <div className="text-sm text-gray-600">Activity Events (24h)</div>
+                        <div className="text-2xl font-bold text-blue-900">{activityEvents.length}</div>
+                    </div>
                 </div>
 
                 {/* Recent Webhook Logs */}
@@ -111,7 +137,7 @@ export default function WebhookDebug() {
                                         <summary className="cursor-pointer text-gray-600 hover:text-black">
                                             View payload
                                         </summary>
-                                        <pre className="mt-2 bg-gray-50 rounded p-3 overflow-x-auto text-xs">
+                                        <pre className="mt-2 bg-gray-50 rounded p-3 overflow-x-auto text-xs max-h-64">
                                             {log.rawPayload}
                                         </pre>
                                     </details>
