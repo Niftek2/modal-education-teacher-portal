@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Trash2, AlertTriangle } from 'lucide-react';
-import { api } from './api';
+import { api } from '@/components/api';
 import { Button } from '@/components/ui/button';
 import {
     Table,

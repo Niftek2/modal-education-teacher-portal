@@ -3,7 +3,7 @@ import { X, Clock, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { api } from './api';
+import { api } from '@/components/api';
 
 export default function StudentDetail({ student, isOpen, onClose, sessionToken }) {
     const [quizzes, setQuizzes] = useState([]);

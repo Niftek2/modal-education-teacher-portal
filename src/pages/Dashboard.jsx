@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import StudentTable from '../components/StudentTable';
 import StudentDetail from '../components/StudentDetail';
 import AddStudentModal from '../components/AddStudentModal';
-import { api } from '../components/api';
+import { api } from '@/components/api';
 
 export default function Dashboard() {
     const [teacher, setTeacher] = useState(null);

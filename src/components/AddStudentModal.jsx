@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Plus, Trash2, CheckCircle2, Copy } from 'lucide-react';
-import { api } from './api';
+import { api } from '@/components/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
