@@ -1,7 +1,6 @@
-import { graphQLQuery } from './lib/thinkificGraphQLClient.js';
-
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
+const API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 
 async function restRequest(endpoint) {
     const url = `https://api.thinkific.com/api/public/v1/${endpoint}`;
@@ -22,6 +21,40 @@ async function restRequest(endpoint) {
     }
 
     return await response.json();
+}
+
+async function graphQLQuery(query, variables = {}) {
+    if (!API_ACCESS_TOKEN) {
+        throw new Error('THINKIFIC_API_ACCESS_TOKEN not configured');
+    }
+
+    const url = `https://${THINKIFIC_SUBDOMAIN}.thinkific.com/graphql`;
+    
+    console.log(`[DIAG] GraphQL POST ${url}`);
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${API_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+        },
+        body: JSON.stringify({
+            query,
+            variables
+        })
+    });
+
+    const status = response.status;
+    const body = await response.json();
+
+    console.log(`[DIAG] GraphQL response status: ${status}`);
+
+    if (body.errors) {
+        console.error(`[DIAG] GraphQL errors:`, JSON.stringify(body.errors, null, 2));
+    }
+
+    return { status, data: body.data, errors: body.errors };
 }
 
 Deno.serve(async (req) => {
@@ -140,99 +173,105 @@ Deno.serve(async (req) => {
         console.log(`\n[DIAG] Step 3: GraphQL schema exploration\n`);
 
         const graphqlResults = {
+            tokenConfigured: !!API_ACCESS_TOKEN,
             legacyLessonCompletionsAvailable: false,
             legacyLessonCompletionsSchema: null,
             hasCompletedAtField: false,
             error: null
         };
 
-        try {
-            // First, try the introspection query to see if legacyLessonCompletions exists
-            const introspectionQuery = `
-              query {
-                __type(name: "Query") {
-                  fields {
-                    name
-                  }
-                }
-              }
-            `;
-
-            console.log(`[DIAG] Testing GraphQL: Introspection query for Query fields`);
-            const introspectResult = await graphQLQuery(introspectionQuery, {});
-            
-            const fields = introspectResult.data?.__type?.fields || [];
-            const fieldNames = fields.map(f => f.name);
-            console.log(`[DIAG] Available Query fields:`, fieldNames.slice(0, 20).join(', ') + (fieldNames.length > 20 ? '...' : ''));
-
-            const hasLessonCompletions = fieldNames.includes('legacyLessonCompletions');
-            console.log(`[DIAG] legacyLessonCompletions available: ${hasLessonCompletions ? 'YES' : 'NO'}`);
-
-            graphqlResults.legacyLessonCompletionsAvailable = hasLessonCompletions;
-
-            if (hasLessonCompletions) {
-                // Now try to actually query it
-                console.log(`[DIAG] Testing GraphQL: legacyLessonCompletions query with sample data\n`);
-
-                const lessonQuery = `
-                  query GetLessonCompletions($userId: Int!, $courseId: Int!) {
-                    legacyLessonCompletions(userId: $userId, courseId: $courseId, first: 1) {
-                      edges {
-                        node {
-                          id
-                          userId
-                          lessonId
-                          completedAt
-                          createdAt
-                          updatedAt
-                          lesson {
-                            id
-                            name
-                          }
-                        }
+        if (!API_ACCESS_TOKEN) {
+            console.log(`[DIAG] GraphQL: THINKIFIC_API_ACCESS_TOKEN not configured. Skipping GraphQL tests.`);
+            graphqlResults.error = 'THINKIFIC_API_ACCESS_TOKEN not configured';
+        } else {
+            try {
+                // First, try the introspection query to see if legacyLessonCompletions exists
+                const introspectionQuery = `
+                  query {
+                    __type(name: "Query") {
+                      fields {
+                        name
                       }
                     }
                   }
                 `;
 
-                const firstEnroll = enrollments[0];
-                const lessonResult = await graphQLQuery(lessonQuery, {
-                    userId,
-                    courseId: firstEnroll.course_id
-                });
+                console.log(`[DIAG] Testing GraphQL: Introspection query for Query fields`);
+                const introspectResult = await graphQLQuery(introspectionQuery, {});
+                
+                const fields = introspectResult.data?.__type?.fields || [];
+                const fieldNames = fields.map(f => f.name);
+                console.log(`[DIAG] Available Query fields (first 20):`, fieldNames.slice(0, 20).join(', ') + (fieldNames.length > 20 ? '...' : ''));
 
-                if (lessonResult.errors) {
-                    console.log(`[DIAG] GraphQL errors:`, JSON.stringify(lessonResult.errors, null, 2));
-                    graphqlResults.error = lessonResult.errors[0]?.message;
-                } else {
-                    const edges = lessonResult.data?.legacyLessonCompletions?.edges || [];
-                    console.log(`[DIAG] legacyLessonCompletions query returned ${edges.length} items`);
+                const hasLessonCompletions = fieldNames.includes('legacyLessonCompletions');
+                console.log(`[DIAG] legacyLessonCompletions available: ${hasLessonCompletions ? 'YES' : 'NO'}`);
 
-                    if (edges.length > 0) {
-                        const sample = edges[0].node;
-                        console.log(`[DIAG] Sample node:`, JSON.stringify(sample, null, 2));
-                        
-                        graphqlResults.hasCompletedAtField = sample.completedAt ? true : false;
-                        graphqlResults.legacyLessonCompletionsSchema = {
-                            fieldsReturned: Object.keys(sample),
-                            hasCompletedAt: sample.completedAt ? true : false,
-                            completedAtValue: sample.completedAt,
-                            hasCreatedAt: sample.createdAt ? true : false,
-                            hasUpdatedAt: sample.updatedAt ? true : false
-                        };
+                graphqlResults.legacyLessonCompletionsAvailable = hasLessonCompletions;
+
+                if (hasLessonCompletions) {
+                    // Now try to actually query it
+                    console.log(`[DIAG] Testing GraphQL: legacyLessonCompletions query with sample data\n`);
+
+                    const lessonQuery = `
+                      query GetLessonCompletions($userId: Int!, $courseId: Int!) {
+                        legacyLessonCompletions(userId: $userId, courseId: $courseId, first: 1) {
+                          edges {
+                            node {
+                              id
+                              userId
+                              lessonId
+                              completedAt
+                              createdAt
+                              updatedAt
+                              lesson {
+                                id
+                                name
+                              }
+                            }
+                          }
+                        }
+                      }
+                    `;
+
+                    const firstEnroll = enrollments[0];
+                    const lessonResult = await graphQLQuery(lessonQuery, {
+                        userId,
+                        courseId: firstEnroll.course_id
+                    });
+
+                    if (lessonResult.errors) {
+                        console.log(`[DIAG] GraphQL errors:`, JSON.stringify(lessonResult.errors, null, 2));
+                        graphqlResults.error = lessonResult.errors[0]?.message;
                     } else {
-                        console.log(`[DIAG] No lesson completions returned (student may not have any)`);
-                        graphqlResults.legacyLessonCompletionsSchema = {
-                            note: 'Query executed but no data returned (student may not have lesson completions)',
-                            fieldsAvailable: ['id', 'userId', 'lessonId', 'completedAt', 'createdAt', 'updatedAt', 'lesson']
-                        };
+                        const edges = lessonResult.data?.legacyLessonCompletions?.edges || [];
+                        console.log(`[DIAG] legacyLessonCompletions query returned ${edges.length} items`);
+
+                        if (edges.length > 0) {
+                            const sample = edges[0].node;
+                            console.log(`[DIAG] Sample node:`, JSON.stringify(sample, null, 2));
+                            
+                            graphqlResults.hasCompletedAtField = sample.completedAt ? true : false;
+                            graphqlResults.legacyLessonCompletionsSchema = {
+                                fieldsReturned: Object.keys(sample),
+                                hasCompletedAt: sample.completedAt ? true : false,
+                                completedAtValue: sample.completedAt,
+                                hasCreatedAt: sample.createdAt ? true : false,
+                                hasUpdatedAt: sample.updatedAt ? true : false
+                            };
+                        } else {
+                            console.log(`[DIAG] No lesson completions returned (student may not have any)`);
+                            graphqlResults.legacyLessonCompletionsSchema = {
+                                note: 'Query executed but no data returned (student may not have lesson completions)',
+                                fieldsAvailable: ['id', 'userId', 'lessonId', 'completedAt', 'createdAt', 'updatedAt', 'lesson']
+                            };
+                        }
                     }
                 }
-            }
 
-        } catch (error) {
-            console.error(`[DIAG] GraphQL error:`, error.message);
-            graphqlResults.error = error.message;
+            } catch (error) {
+                console.error(`[DIAG] GraphQL error:`, error.message);
+                graphqlResults.error = error.message;
+            }
         }
 
         console.log(`\n[DIAG] ========== SUMMARY ==========\n`);
@@ -247,8 +286,10 @@ Deno.serve(async (req) => {
                 restHasTimestamps: restResults.lessonCompletionsViaRest?.hasTiming === 'YES',
                 graphqlHasLessonCompletions: graphqlResults.legacyLessonCompletionsAvailable,
                 graphqlHasTimestamps: graphqlResults.hasCompletedAtField,
-                nextStep: graphqlResults.legacyLessonCompletionsAvailable && graphqlResults.hasCompletedAtField 
-                    ? 'REST insufficient, proceed with GraphQL (need Thinkific API Access Token)'
+                nextStep: !graphqlResults.tokenConfigured
+                    ? 'Need to set THINKIFIC_API_ACCESS_TOKEN to test GraphQL'
+                    : graphqlResults.legacyLessonCompletionsAvailable && graphqlResults.hasCompletedAtField 
+                    ? 'REST insufficient, proceed with GraphQL (token configured)'
                     : restResults.lessonCompletionsViaRest?.hasTiming === 'YES'
                     ? 'REST endpoint exists with timestamps, no GraphQL needed'
                     : 'No lesson completion timestamps available in either REST or GraphQL'
@@ -258,8 +299,7 @@ Deno.serve(async (req) => {
     } catch (error) {
         console.error('[DIAG] Fatal error:', error);
         return Response.json({ 
-            error: error.message,
-            stack: error.stack
+            error: error.message
         }, { status: 500 });
     }
 });
