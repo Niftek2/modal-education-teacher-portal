@@ -1,23 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.2.0';
 
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
-
-async function verifySession(token) {
-    if (!token) {
-        throw new Error('Unauthorized');
-    }
-
-    try {
-        const secret = new TextEncoder().encode(JWT_SECRET);
-        const { payload } = await jose.jwtVerify(token, secret);
-        return payload;
-    } catch (error) {
-        throw new Error('Invalid session token');
-    }
-}
 
 async function queryThinkificGraphQL(query, variables) {
     const response = await fetch(`https://api.thinkific.com/graphql`, {
@@ -113,19 +97,10 @@ Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
-        const { groupId, sessionToken } = body;
+        const { groupId } = body;
         
         if (!groupId) {
             return Response.json({ error: 'Group ID required' }, { status: 400 });
-        }
-
-        // Session token verification is optional - sync can work without it
-        try {
-            if (sessionToken) {
-                await verifySession(sessionToken);
-            }
-        } catch (tokenError) {
-            console.warn('Session token verification failed, continuing without auth:', tokenError.message);
         }
 
         // Get all students in group
