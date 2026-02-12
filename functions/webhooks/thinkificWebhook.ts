@@ -15,8 +15,6 @@ async function createDedupeKey(type, userId, contentId, courseId, timestamp) {
 }
 
 Deno.serve(async (req) => {
-    const requestStartTime = Date.now();
-    
     if (req.method !== 'POST') {
         return Response.json({ error: 'Method not allowed' }, { status: 405 });
     }
@@ -29,37 +27,36 @@ Deno.serve(async (req) => {
         const topic = body.topic || req.headers.get('x-thinkific-topic');
         webhookId = body.id || crypto.randomUUID();
         
-        console.log(`[WEBHOOK] Event: ${topic}, ID: ${webhookId}`);
+        console.log(`[WEBHOOK] Received ${topic}, ID: ${webhookId}`);
 
-        // Store raw webhook event immediately (append-only for debugging)
-        await base44.asServiceRole.entities.WebhookEvent.create({
-            webhookId: String(webhookId),
-            topic: topic,
-            receivedAt: new Date().toISOString(),
-            payloadJson: JSON.stringify(body)
-        });
+        // Return 200 immediately, process async
+        setTimeout(async () => {
+            try {
+                // Store raw event
+                await base44.asServiceRole.entities.WebhookEvent.create({
+                    webhookId: String(webhookId),
+                    topic: topic,
+                    receivedAt: new Date().toISOString(),
+                    payloadJson: JSON.stringify(body)
+                });
 
-        // Process based on topic (async, don't block response)
-        let processed = false;
-        
-        if (topic === 'lesson.completed') {
-            await handleLessonCompleted(base44, body);
-            processed = true;
-        } else if (topic === 'quiz.attempted') {
-            await handleQuizAttempted(base44, body);
-            processed = true;
-        } else if (topic === 'user.signin') {
-            await handleUserSignin(base44, body);
-            processed = true;
-        } else {
-            console.log(`[WEBHOOK] Unhandled topic: ${topic}`);
-        }
+                // Route to handler
+                if (topic === 'lesson.completed') {
+                    await handleLessonCompleted(base44, body);
+                } else if (topic === 'quiz.attempted') {
+                    await handleQuizAttempted(base44, body);
+                } else if (topic === 'user.signin') {
+                    await handleUserSignin(base44, body);
+                }
+            } catch (err) {
+                console.error(`[WEBHOOK] Async error (${topic}):`, err.message);
+            }
+        }, 0);
 
-        const processingTime = Date.now() - requestStartTime;
-        return Response.json({ success: true, webhookId, processed, processingTime }, { status: 200 });
+        return Response.json({ success: true, webhookId }, { status: 200 });
     } catch (error) {
-        console.error('[WEBHOOK] Error:', error.message);
-        return Response.json({ error: error.message }, { status: 500 });
+        console.error('[WEBHOOK] Parse error:', error.message);
+        return Response.json({ success: true }, { status: 200 }); // Still return 200 to prevent Thinkific retries
     }
 });
 
