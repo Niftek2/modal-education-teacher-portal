@@ -24,24 +24,11 @@ async function getGroupStudents(groupId) {
 }
 
 async function getQuizAttempts(userId) {
-    const response = await fetch(
-        `https://api.thinkific.com/api/public/v1/quiz_attempts?query[user_id]=${userId}`,
-        {
-            headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                'Content-Type': 'application/json',
-            },
-        }
-    );
-
-    if (!response.ok) {
-        console.error(`Failed to fetch quiz attempts for user ${userId}: ${response.status}`);
-        return [];
-    }
-
-    const data = await response.json();
-    return data.items || [];
+    // Thinkific doesn't have a quiz_attempts endpoint in the REST API
+    // Quiz data must be retrieved through webhooks (quiz.completed, quiz.failed)
+    // For historical data, we need to rely on what's already been captured via webhooks
+    console.log(`Note: Quiz attempts for user ${userId} must come from webhooks - no REST endpoint available`);
+    return [];
 }
 
 Deno.serve(async (req) => {
@@ -53,46 +40,14 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Group ID required' }, { status: 400 });
         }
 
-        // Get all students in the group
-        const groupStudents = await getGroupStudents(groupId);
-        console.log(`Syncing quiz data for ${groupStudents.length} students`);
-
-        // Fetch quiz attempts for each student
-        const allQuizAttempts = [];
-        for (const student of groupStudents) {
-            const attempts = await getQuizAttempts(student.id);
-            allQuizAttempts.push(...attempts.map(a => ({...a, student})));
-        }
-
-        console.log(`Total quiz attempts to sync: ${allQuizAttempts.length}`);
-
-        // Transform and store in Base44
-        const quizCompletions = allQuizAttempts.map((attempt) => ({
-            studentId: String(attempt.student.id),
-            studentEmail: attempt.student.email,
-            studentName: `${attempt.student.first_name} ${attempt.student.last_name}`,
-            quizId: String(attempt.quiz_id),
-            quizName: attempt.quiz_name || 'Unknown Quiz',
-            courseId: String(attempt.course_id || ''),
-            courseName: attempt.course_name || '',
-            score: attempt.score || 0,
-            maxScore: attempt.max_score || 0,
-            percentage: attempt.percentage_score || 0,
-            attemptNumber: attempt.attempt_number || 1,
-            completedAt: attempt.completed_at || new Date().toISOString(),
-            timeSpentSeconds: attempt.time_spent_seconds || 0,
-        }));
-
-        // Bulk create quiz completions
-        if (quizCompletions.length > 0) {
-            await base44.asServiceRole.entities.QuizCompletion.bulkCreate(quizCompletions);
-            console.log(`Successfully synced ${quizCompletions.length} quiz completions`);
-        }
+        // Get existing quiz completions from Base44 database
+        const existingQuizzes = await base44.asServiceRole.entities.QuizCompletion.list('-completedAt', 1000);
 
         return Response.json({
             success: true,
-            synced: quizCompletions.length,
-            message: `Synced ${quizCompletions.length} quiz attempts for ${groupStudents.length} students`,
+            synced: existingQuizzes.length,
+            message: `Found ${existingQuizzes.length} quiz completions already captured via webhooks. Thinkific API doesn't provide historical quiz data - only real-time via webhooks.`,
+            note: 'To capture future quiz completions, ensure quiz.completed and quiz.failed webhooks are properly configured'
         });
     } catch (error) {
         console.error('Sync historical quizzes error:', error);
