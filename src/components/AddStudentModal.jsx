@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
 import { X, Plus, Trash2, CheckCircle2, Copy } from 'lucide-react';
+import { api } from './api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -44,13 +44,13 @@ export default function AddStudentModal({ groupId, onClose, onSuccess }) {
             setLoading(true);
             const sessionToken = localStorage.getItem('modal_math_session');
             
-            const response = await base44.functions.invoke('addStudents', {
+            const response = await api.call('addStudents', {
                 students: valid,
                 groupId: groupId,
                 sessionToken
-            });
+            }, sessionToken);
 
-            setResults(response.data.results);
+            setResults(response.results);
         } catch (error) {
             console.error('Add students error:', error);
             alert('Failed to add students');
