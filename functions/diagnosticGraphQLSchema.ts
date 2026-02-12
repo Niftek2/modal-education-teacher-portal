@@ -1,17 +1,7 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-
 const API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
-const GRAPHQL_URL = "https://api.thinkific.com/stable/graphql";
 
 async function graphQLQuery(query, variables = {}) {
-    if (!API_ACCESS_TOKEN) {
-        throw new Error('THINKIFIC_API_ACCESS_TOKEN not configured');
-    }
-
-    console.log(`[SCHEMA] POST ${GRAPHQL_URL}`);
-    console.log(`[SCHEMA] Query:`, query.substring(0, 150));
-
-    const response = await fetch(GRAPHQL_URL, {
+    const response = await fetch("https://api.thinkific.com/stable/graphql", {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${API_ACCESS_TOKEN}`,
@@ -21,163 +11,120 @@ async function graphQLQuery(query, variables = {}) {
         body: JSON.stringify({ query, variables })
     });
 
-    const status = response.status;
-    const text = await response.text();
-    console.log(`[SCHEMA] Status: ${status}, response length: ${text.length}`);
-
-    if (status >= 400) {
-        console.error(`[SCHEMA] Error response:`, text.substring(0, 500));
-        throw new Error(`GraphQL HTTP ${status}: ${text.substring(0, 200)}`);
+    const data = await response.json();
+    
+    if (!response.ok || data.errors) {
+        console.error('[SCHEMA] GraphQL Error:', JSON.stringify(data.errors, null, 2));
+        throw new Error(`GraphQL HTTP ${response.status}`);
     }
+    
+    return data.data;
+}
 
-    let body;
-    try {
-        body = JSON.parse(text);
-    } catch (e) {
-        console.error(`[SCHEMA] Failed to parse JSON:`, text.substring(0, 500));
-        throw new Error(`Invalid JSON response: ${text.substring(0, 100)}`);
-    }
-
-    if (body.errors) {
-        console.error(`[SCHEMA] GraphQL errors:`, JSON.stringify(body.errors, null, 2));
-        throw new Error(`GraphQL errors: ${JSON.stringify(body.errors)}`);
-    }
-
-    return body.data;
+async function introspectType(typeName) {
+    const query = `
+        query IntrospectType($name: String!) {
+            __type(name: $name) {
+                name
+                kind
+                fields(includeDeprecated: false) {
+                    name
+                    type {
+                        kind
+                        name
+                        ofType {
+                            kind
+                            name
+                            ofType {
+                                kind
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    `;
+    
+    return graphQLQuery(query, { name: typeName });
 }
 
 Deno.serve(async (req) => {
     try {
-        if (req.method !== 'POST') {
-            return Response.json({ error: 'POST required' }, { status: 405 });
-        }
-
-        console.log(`\n[SCHEMA] ========== INTROSPECTION START ==========\n`);
-
-        // Step A: Get root Query fields
-        console.log(`[SCHEMA] Step A: Fetching root Query fields...`);
-        const rootQueryFields = await graphQLQuery(`
-            query IntrospectRootQuery {
+        console.log('[SCHEMA] ========== SCHEMA INTROSPECTION ==========');
+        
+        // Step 1: Get root query fields
+        console.log('[SCHEMA] Fetching root query fields...');
+        const rootQuery = await graphQLQuery(`
+            query {
                 __schema {
                     queryType {
-                        fields {
+                        fields(includeDeprecated: false) {
                             name
                         }
                     }
                 }
             }
         `);
-
-        const fieldNames = rootQueryFields?.__schema?.queryType?.fields?.map(f => f.name) || [];
-        console.log(`[SCHEMA] Root fields count: ${fieldNames.length}`);
-        console.log(`[SCHEMA] Fields:`, fieldNames.join(', '));
-
-        // Step B: Identify activity-related types
-        const activityKeywords = ['user', 'enrollment', 'course', 'progress', 'completed', 'completion', 'content', 'quiz', 'attempt', 'assessment'];
-        const relevantFields = fieldNames.filter(name => 
+        
+        const rootFields = rootQuery.__schema.queryType.fields.map(f => f.name);
+        console.log('[SCHEMA] Root fields found:', rootFields);
+        
+        // Step 2: Identify activity-related types
+        const activityKeywords = ['user', 'enrollment', 'course', 'progress', 'completed', 'content', 'quiz', 'attempt', 'assessment'];
+        const relevantFields = rootFields.filter(name => 
             activityKeywords.some(keyword => name.toLowerCase().includes(keyword))
         );
-
-        console.log(`[SCHEMA] Step B: Relevant fields for activity:`, relevantFields.join(', '));
-
-        // Step C: Introspect each relevant type
-        const typeSchemas = {};
+        
+        console.log('[SCHEMA] Activity-related root fields:', relevantFields);
+        
+        // Step 3: Introspect each relevant type
+        const schemas = {};
         for (const fieldName of relevantFields) {
+            // Convert field name to type name (e.g., "user" -> "User", "users" -> "User")
+            const typeName = fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/s$/, '');
+            
             try {
-                console.log(`[SCHEMA] Introspecting type from field: ${fieldName}`);
+                console.log(`[SCHEMA] Introspecting type: ${typeName}`);
+                const typeSchema = await introspectType(typeName);
                 
-                // Get the field's return type name
-                const fieldInfoQuery = `
-                    query GetFieldInfo {
-                        __type(name: "Query") {
-                            fields(includeDeprecated: false) {
-                                name
-                                type {
-                                    kind
-                                    name
-                                    ofType {
-                                        kind
-                                        name
-                                        ofType {
-                                            kind
-                                            name
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                `;
-
-                const typeInfo = await graphQLQuery(fieldInfoQuery);
-                const field = typeInfo?.__type?.fields?.find(f => f.name === fieldName);
-                
-                if (field) {
-                    // Extract the actual type name
-                    let typeName = field.type.name;
-                    if (!typeName && field.type.ofType) {
-                        typeName = field.type.ofType.name;
-                    }
-                    if (!typeName && field.type.ofType?.ofType) {
-                        typeName = field.type.ofType.ofType.name;
-                    }
-
-                    if (typeName) {
-                        console.log(`[SCHEMA] Field ${fieldName} returns type: ${typeName}`);
-
-                        // Now introspect that type
-                        const detailedQuery = `
-                            query GetTypeDetail {
-                                __type(name: "${typeName}") {
-                                    name
-                                    kind
-                                    fields(includeDeprecated: false) {
-                                        name
-                                        type {
-                                            kind
-                                            name
-                                            ofType {
-                                                kind
-                                                name
-                                                ofType {
-                                                    kind
-                                                    name
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        `;
-
-                        const typeDetails = await graphQLQuery(detailedQuery);
-                        typeSchemas[fieldName] = {
-                            typeName,
-                            type: typeDetails?.__type
-                        };
-                        console.log(`[SCHEMA]   ✓ Introspected ${typeName}`);
-                    }
+                if (typeSchema.__type) {
+                    schemas[typeName] = typeSchema.__type;
+                    console.log(`[SCHEMA] ✓ Type found: ${typeName}`);
+                } else {
+                    console.log(`[SCHEMA] ✗ Type not found: ${typeName}`);
                 }
-            } catch (err) {
-                console.error(`[SCHEMA] Error introspecting ${fieldName}:`, err.message);
-                typeSchemas[fieldName] = { error: err.message };
+            } catch (error) {
+                console.error(`[SCHEMA] Failed to introspect ${typeName}:`, error.message);
             }
         }
-
-        console.log(`\n[SCHEMA] ========== INTROSPECTION COMPLETE ==========\n`);
-
+        
+        // Also try some common related types
+        const commonTypes = ['UserCourseEnrollment', 'Progress', 'CompletedContent', 'QuizAttempt', 'Quiz', 'Lesson'];
+        console.log('[SCHEMA] Checking common related types...');
+        
+        for (const typeName of commonTypes) {
+            try {
+                const typeSchema = await introspectType(typeName);
+                if (typeSchema.__type) {
+                    schemas[typeName] = typeSchema.__type;
+                    console.log(`[SCHEMA] ✓ Type found: ${typeName}`);
+                }
+            } catch (error) {
+                // Silently skip
+            }
+        }
+        
+        console.log('[SCHEMA] ========== INTROSPECTION COMPLETE ==========');
+        
         return Response.json({
-            rootQueryFields: fieldNames,
+            rootFields,
             relevantFields,
-            typeSchemas,
-            timestamp: new Date().toISOString()
-        });
-
+            schemas
+        }, { status: 200 });
+        
     } catch (error) {
-        console.error('[SCHEMA] Fatal error:', error);
-        return Response.json({
-            error: error.message,
-            stack: error.stack
-        }, { status: 500 });
+        console.error('[SCHEMA] Error:', error);
+        return Response.json({ error: error.message }, { status: 500 });
     }
 });

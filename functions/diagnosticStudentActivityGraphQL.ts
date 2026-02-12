@@ -1,16 +1,8 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-
-const API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
+const API_ACCESS_TOKEN = Deno.env.env.get("THINKIFIC_API_ACCESS_TOKEN");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-const GRAPHQL_URL = "https://api.thinkific.com/stable/graphql";
 
 async function graphQLQuery(query, variables = {}) {
-    if (!API_ACCESS_TOKEN) {
-        throw new Error('THINKIFIC_API_ACCESS_TOKEN not configured');
-    }
-
-    const response = await fetch(GRAPHQL_URL, {
+    const response = await fetch("https://api.thinkific.com/stable/graphql", {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${API_ACCESS_TOKEN}`,
@@ -20,93 +12,71 @@ async function graphQLQuery(query, variables = {}) {
         body: JSON.stringify({ query, variables })
     });
 
-    const status = response.status;
     const text = await response.text();
-
-    if (status >= 400) {
-        console.error(`[ACTIVITY] HTTP ${status}:`, text.substring(0, 300));
-        throw new Error(`GraphQL HTTP ${status}`);
-    }
-
-    let body;
+    let data;
     try {
-        body = JSON.parse(text);
+        data = JSON.parse(text);
     } catch (e) {
-        console.error(`[ACTIVITY] Failed to parse:`, text.substring(0, 300));
-        throw new Error(`Invalid JSON response`);
+        console.error('[ACTIVITY] Failed to parse response:', text.substring(0, 500));
+        throw new Error('Invalid JSON response from GraphQL');
     }
-
-    if (body.errors) {
-        console.error(`[ACTIVITY] GraphQL errors:`, JSON.stringify(body.errors));
-        throw new Error(`GraphQL errors: ${body.errors[0]?.message}`);
+    
+    if (data.errors) {
+        console.error('[ACTIVITY] GraphQL Error:', JSON.stringify(data.errors, null, 2));
+        throw new Error(`GraphQL Error: ${data.errors[0]?.message || 'Unknown error'}`);
     }
-
-    return body.data;
-}
-
-async function restRequest(endpoint) {
-    const url = `https://api.thinkific.com/api/public/v1/${endpoint}`;
-    const response = await fetch(url, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-
+    
     if (!response.ok) {
-        throw new Error(`REST ${response.status}`);
+        throw new Error(`GraphQL HTTP ${response.status}`);
     }
-
-    return await response.json();
+    
+    return data.data;
 }
 
 async function findUserByEmail(email) {
-    try {
-        const resp = await restRequest(`users?query[email]=${encodeURIComponent(email)}`);
-        return resp.items?.[0];
-    } catch (err) {
-        console.error(`[ACTIVITY] Error finding user by email:`, err.message);
-        return null;
-    }
+    const response = await fetch(`https://${THINKIFIC_SUBDOMAIN}.thinkific.com/api/v1/users?email=${encodeURIComponent(email)}`, {
+        headers: {
+            'X-API-KEY': Deno.env.get("THINKIFIC_API_KEY"),
+            'Accept': 'application/json'
+        }
+    });
+    
+    const data = await response.json();
+    const users = data.users || [];
+    return users.length > 0 ? users[0].id : null;
 }
 
 Deno.serve(async (req) => {
     try {
-        if (req.method !== 'POST') {
-            return Response.json({ error: 'POST required' }, { status: 405 });
-        }
-
         const body = await req.json();
         const { thinkificUserId, studentEmail } = body;
-
+        
+        console.log('[ACTIVITY] ========== STUDENT ACTIVITY SAMPLE ==========');
+        console.log('[ACTIVITY] Time:', new Date().toISOString());
+        console.log('[ACTIVITY] User ID:', thinkificUserId, 'Email:', studentEmail);
+        
+        // Resolve user ID
         let userId = thinkificUserId;
-
-        // If email provided, resolve to userId first
         if (!userId && studentEmail) {
-            console.log(`[ACTIVITY] Resolving email: ${studentEmail}`);
-            const user = await findUserByEmail(studentEmail);
-            if (!user) {
-                return Response.json({ error: `User not found: ${studentEmail}` }, { status: 404 });
+            console.log('[ACTIVITY] Looking up user by email...');
+            userId = await findUserByEmail(studentEmail);
+            if (!userId) {
+                return Response.json({ error: 'User not found' }, { status: 404 });
             }
-            userId = user.id;
-            console.log(`[ACTIVITY] Resolved to userId: ${userId}`);
         }
-
+        
         if (!userId) {
-            return Response.json({ error: 'thinkificUserId or studentEmail required' }, { status: 400 });
+            return Response.json({ error: 'No user ID or email provided' }, { status: 400 });
         }
-
-        console.log(`\n[ACTIVITY] ========== STUDENT ACTIVITY SAMPLE ==========`);
-        console.log(`[ACTIVITY] User ID: ${userId}`);
-        console.log(`[ACTIVITY] Time: ${new Date().toISOString()}\n`);
-
-        // Fetch enrollments with pagination
+        
+        console.log('[ACTIVITY] Resolved user ID:', userId);
+        
+        // ===== FETCH ENROLLMENTS =====
+        console.log('[ACTIVITY] Fetching enrollments...');
         const enrollments = [];
-        let hasMoreEnrollments = true;
         let enrollmentCursor = null;
-
-        console.log(`[ACTIVITY] Fetching enrollments...`);
+        let hasMoreEnrollments = true;
+        
         while (hasMoreEnrollments) {
             const query = `
                 query GetEnrollments($userId: ID!, $after: String) {
@@ -144,201 +114,209 @@ Deno.serve(async (req) => {
             const data = await graphQLQuery(query, variables);
 
             if (!data.user) {
-                console.error(`[ACTIVITY] User not found in GraphQL`);
+                console.error('[ACTIVITY] User not found in GraphQL');
                 return Response.json({ error: 'User not found' }, { status: 404 });
             }
 
             const edges = data.user.courses?.edges || [];
+            console.log(`[ACTIVITY] Found ${edges.length} course edges`);
             enrollments.push(...edges.map(e => e.node));
 
             hasMoreEnrollments = data.user.courses?.pageInfo?.hasNextPage || false;
             enrollmentCursor = data.user.courses?.pageInfo?.endCursor;
-
-            console.log(`[ACTIVITY] Fetched ${edges.length} enrollments (total: ${enrollments.length}, hasNext: ${hasMoreEnrollments})`);
         }
 
-        console.log(`[ACTIVITY] Total enrollments: ${enrollments.length}\n`);
-
-        // For each enrollment, fetch completed contents and quiz attempts
-        const enrollmentDetails = [];
+        console.log(`[ACTIVITY] Total enrollments: ${enrollments.length}`);
+        
+        // ===== FETCH ACTIVITY PER ENROLLMENT =====
         const allCompletedSamples = [];
         const allQuizSamples = [];
+        const enrollmentDetails = [];
 
         for (const enrollment of enrollments) {
             const enrollmentId = enrollment.gid;
             const courseId = enrollment.course.gid;
             const courseName = enrollment.course.name;
-
-            console.log(`[ACTIVITY] Processing enrollment ${enrollmentId} (${courseName})...`);
-
+            
+            console.log(`[ACTIVITY] Processing enrollment: ${courseName} (${courseId})`);
+            
             const detail = {
-                enrollmentId,
                 courseId,
                 courseName,
+                enrolledAt: enrollment.enrolledAt,
+                completedAt: enrollment.completedAt,
                 percentageCompleted: enrollment.percentageCompleted,
                 completedContentsCount: 0,
-                quizAttemptsCount: 0,
                 completedContents: [],
+                quizAttemptsCount: 0,
                 quizAttempts: []
             };
 
-            // Fetch completed contents with pagination
-            try {
-                let hasMoreContents = true;
-                let contentsCursor = null;
+            // ===== FETCH COMPLETED CONTENTS =====
+            console.log(`[ACTIVITY] Fetching completed contents for ${courseName}...`);
+            let hasMoreContents = true;
+            let contentsCursor = null;
 
-                while (hasMoreContents) {
-                    const query = `
-                        query GetCompletedContents($userId: ID!, $courseId: ID!, $after: String) {
-                            userCourseEnrollment(userGid: $userId, courseGid: $courseId) {
-                                gid
-                                progress {
-                                    completedContents(first: 20, after: $after) {
-                                        edges {
-                                            node {
-                                                gid
-                                                name
-                                                type
-                                                completedAt
+            while (hasMoreContents) {
+                const query = `
+                    query GetCompletedContents($userId: ID!, $courseId: ID!, $after: String) {
+                        user(gid: $userId) {
+                            gid
+                            courses(filter: { gid: $courseId }) {
+                                edges {
+                                    node {
+                                        gid
+                                        progress {
+                                            completedContents(first: 20, after: $after) {
+                                                edges {
+                                                    node {
+                                                        gid
+                                                        name
+                                                        completedAt
+                                                    }
+                                                    cursor
+                                                }
+                                                pageInfo {
+                                                    hasNextPage
+                                                    endCursor
+                                                }
                                             }
-                                            cursor
-                                        }
-                                        pageInfo {
-                                            hasNextPage
-                                            endCursor
                                         }
                                     }
                                 }
                             }
                         }
-                    `;
+                    }
+                `;
 
-                    const variables = {
-                        userId: String(userId),
-                        courseId: String(courseId)
-                    };
-                    if (contentsCursor) variables.after = contentsCursor;
+                const variables = {
+                    userId: String(userId),
+                    courseId: String(courseId)
+                };
+                if (contentsCursor) variables.after = contentsCursor;
 
+                try {
                     const data = await graphQLQuery(query, variables);
-
-                    const edges = data.userCourseEnrollment?.progress?.completedContents?.edges || [];
+                    const courseNode = data.user?.courses?.edges?.[0]?.node;
+                    const edges = courseNode?.progress?.completedContents?.edges || [];
+                    
+                    console.log(`[ACTIVITY] Found ${edges.length} completed content items`);
                     detail.completedContents.push(...edges.map(e => e.node));
                     detail.completedContentsCount += edges.length;
 
-                    hasMoreContents = data.userCourseEnrollment?.progress?.completedContents?.pageInfo?.hasNextPage || false;
-                    contentsCursor = data.userCourseEnrollment?.progress?.completedContents?.pageInfo?.endCursor;
-
-                    console.log(`[ACTIVITY]   Completed contents: ${detail.completedContents.length} (hasNext: ${hasMoreContents})`);
+                    hasMoreContents = courseNode?.progress?.completedContents?.pageInfo?.hasNextPage || false;
+                    contentsCursor = courseNode?.progress?.completedContents?.pageInfo?.endCursor;
+                } catch (error) {
+                    console.log(`[ACTIVITY] Could not fetch completed contents (may not be available):`, error.message);
+                    hasMoreContents = false;
                 }
-
-                // Collect first 5 samples
-                detail.completedContents.slice(0, 5).forEach(item => {
-                    allCompletedSamples.push({
-                        contentId: item.gid,
-                        contentTitle: item.name,
-                        contentType: item.type,
-                        completedAt: item.completedAt,
-                        course: courseName
-                    });
-                });
-
-            } catch (err) {
-                console.error(`[ACTIVITY]   Error fetching completed contents:`, err.message);
             }
 
-            // Fetch quiz attempts with pagination
-            try {
-                let hasMoreQuizzes = true;
-                let quizCursor = null;
+            // Collect first 5 samples
+            detail.completedContents.slice(0, 5).forEach(item => {
+                allCompletedSamples.push({
+                    contentId: item.gid,
+                    contentTitle: item.name,
+                    completedAt: item.completedAt,
+                    course: courseName
+                });
+            });
 
-                while (hasMoreQuizzes) {
-                    const query = `
-                        query GetQuizAttempts($userId: ID!, $courseId: ID!, $after: String) {
-                            userCourseEnrollment(userGid: $userId, courseGid: $courseId) {
-                                gid
-                                quizAttempts(first: 20, after: $after) {
-                                    edges {
-                                        node {
-                                            gid
-                                            score
-                                            maxScore
-                                            percentageScore
-                                            attemptNumber
-                                            submittedAt
-                                            timeSpentSeconds
-                                            quiz {
-                                                gid
-                                                name
+            // ===== FETCH QUIZ ATTEMPTS =====
+            console.log(`[ACTIVITY] Fetching quiz attempts for ${courseName}...`);
+            let hasMoreQuizzes = true;
+            let quizCursor = null;
+
+            while (hasMoreQuizzes) {
+                const query = `
+                    query GetQuizAttempts($userId: ID!, $courseId: ID!, $after: String) {
+                        user(gid: $userId) {
+                            gid
+                            courses(filter: { gid: $courseId }) {
+                                edges {
+                                    node {
+                                        gid
+                                        quizAttempts(first: 20, after: $after) {
+                                            edges {
+                                                node {
+                                                    gid
+                                                    score
+                                                    maxScore
+                                                    percentageScore
+                                                    attemptNumber
+                                                    submittedAt
+                                                    timeSpentSeconds
+                                                    quiz {
+                                                        gid
+                                                        name
+                                                    }
+                                                }
+                                                cursor
+                                            }
+                                            pageInfo {
+                                                hasNextPage
+                                                endCursor
                                             }
                                         }
-                                        cursor
-                                    }
-                                    pageInfo {
-                                        hasNextPage
-                                        endCursor
                                     }
                                 }
                             }
                         }
-                    `;
+                    }
+                `;
 
-                    const variables = {
-                        userId: String(userId),
-                        courseId: String(courseId)
-                    };
-                    if (quizCursor) variables.after = quizCursor;
+                const variables = {
+                    userId: String(userId),
+                    courseId: String(courseId)
+                };
+                if (quizCursor) variables.after = quizCursor;
 
+                try {
                     const data = await graphQLQuery(query, variables);
-
-                    const edges = data.userCourseEnrollment?.quizAttempts?.edges || [];
+                    const courseNode = data.user?.courses?.edges?.[0]?.node;
+                    const edges = courseNode?.quizAttempts?.edges || [];
+                    
+                    console.log(`[ACTIVITY] Found ${edges.length} quiz attempts`);
                     detail.quizAttempts.push(...edges.map(e => e.node));
                     detail.quizAttemptsCount += edges.length;
 
-                    hasMoreQuizzes = data.userCourseEnrollment?.quizAttempts?.pageInfo?.hasNextPage || false;
-                    quizCursor = data.userCourseEnrollment?.quizAttempts?.pageInfo?.endCursor;
-
-                    console.log(`[ACTIVITY]   Quiz attempts: ${detail.quizAttempts.length} (hasNext: ${hasMoreQuizzes})`);
+                    hasMoreQuizzes = courseNode?.quizAttempts?.pageInfo?.hasNextPage || false;
+                    quizCursor = courseNode?.quizAttempts?.pageInfo?.endCursor;
+                } catch (error) {
+                    console.log(`[ACTIVITY] Could not fetch quiz attempts:`, error.message);
+                    hasMoreQuizzes = false;
                 }
-
-                // Collect first 5 samples
-                detail.quizAttempts.slice(0, 5).forEach(item => {
-                    allQuizSamples.push({
-                        quizId: item.quiz?.gid,
-                        quizName: item.quiz?.name,
-                        score: item.score,
-                        maxScore: item.maxScore,
-                        percentage: item.percentageScore,
-                        attemptNumber: item.attemptNumber,
-                        submittedAt: item.submittedAt,
-                        course: courseName
-                    });
-                });
-
-            } catch (err) {
-                console.error(`[ACTIVITY]   Error fetching quiz attempts:`, err.message);
             }
+
+            // Collect first 5 samples
+            detail.quizAttempts.slice(0, 5).forEach(item => {
+                allQuizSamples.push({
+                    quizId: item.quiz?.gid,
+                    quizName: item.quiz?.name,
+                    score: item.score,
+                    maxScore: item.maxScore,
+                    percentage: item.percentageScore,
+                    attemptNumber: item.attemptNumber,
+                    submittedAt: item.submittedAt,
+                    course: courseName
+                });
+            });
 
             enrollmentDetails.push(detail);
         }
 
-        console.log(`\n[ACTIVITY] ========== SUMMARY ==========\n`);
-
+        console.log('[ACTIVITY] ========== SAMPLE COMPLETE ==========');
+        
         return Response.json({
             userId,
             enrollmentsFound: enrollments.length,
             enrollmentDetails,
-            completedContentsSamples: allCompletedSamples.slice(0, 5),
-            quizAttemptsSamples: allQuizSamples.slice(0, 5),
-            totalCompletedContents: enrollmentDetails.reduce((sum, e) => sum + e.completedContentsCount, 0),
-            totalQuizAttempts: enrollmentDetails.reduce((sum, e) => sum + e.quizAttemptsCount, 0),
-            timestamp: new Date().toISOString()
-        });
+            completedContentsSamples: allCompletedSamples,
+            quizAttemptsSamples: allQuizSamples
+        }, { status: 200 });
 
     } catch (error) {
         console.error('[ACTIVITY] Error:', error);
-        return Response.json({
-            error: error.message,
-            stack: error.stack
-        }, { status: 500 });
+        return Response.json({ error: error.message, stack: error.stack }, { status: 500 });
     }
 });
