@@ -227,22 +227,30 @@ export default function Dashboard() {
                         <p className="text-3xl font-bold text-black">{students.length}</p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                        <p className="text-sm text-gray-600 mb-1">Average Progress</p>
+                        <p className="text-sm text-gray-600 mb-1">Average Class Quiz Score</p>
                         <p className="text-3xl font-bold text-black">
-                            {students.length > 0 
-                                ? Math.round(students.reduce((sum, s) => sum + (s.percentage || 0), 0) / students.length)
-                                : 0}%
+                            {(() => {
+                                if (studentActivities.length === 0) return 0;
+                                const quizzes = studentActivities.filter(e => e.eventType === 'quiz_attempted' && e.metadata?.grade !== undefined);
+                                if (quizzes.length === 0) return 0;
+                                const avgScore = Math.round(quizzes.reduce((sum, q) => sum + (q.metadata.grade || 0), 0) / quizzes.length);
+                                return avgScore;
+                            })()}%
                         </p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                         <p className="text-sm text-gray-600 mb-1">Active This Week</p>
                         <p className="text-3xl font-bold text-black">
-                            {students.filter(s => {
-                                if (!s.lastActivity) return false;
+                            {(() => {
                                 const weekAgo = new Date();
                                 weekAgo.setDate(weekAgo.getDate() - 7);
-                                return new Date(s.lastActivity) > weekAgo;
-                            }).length}
+                                const activeEmails = new Set(
+                                    studentActivities
+                                        .filter(e => new Date(e.occurredAt) > weekAgo)
+                                        .map(e => e.studentEmail)
+                                );
+                                return activeEmails.size;
+                            })()}
                         </p>
                     </div>
                 </div>
