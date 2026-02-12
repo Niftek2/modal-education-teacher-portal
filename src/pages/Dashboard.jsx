@@ -24,6 +24,7 @@ export default function Dashboard() {
     const [showStudentDetail, setShowStudentDetail] = useState(false);
     const [syncingQuizzes, setSyncingQuizzes] = useState(false);
     const [showCSVImport, setShowCSVImport] = useState(false);
+    const [showQuizImport, setShowQuizImport] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
