@@ -1,5 +1,4 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { ThinkificClient } from './lib/thinkificClient.js';
 import * as jose from 'npm:jose@5.2.0';
 
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
@@ -25,14 +24,19 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Student ID required' }, { status: 400 });
         }
 
-        console.log(`[QUIZ HISTORY] Fetching from DB for student: ${studentId}`);
+        console.log(`[QUIZ HISTORY] ========== FETCHING QUIZ DATA ==========`);
+        console.log(`[QUIZ HISTORY] Student ID: ${studentId}`);
 
-        // Fetch all quizzes from DB for this student (populated by webhooks + backfill)
+        // ONLY read from DB - populated by webhooks
         const allQuizzes = await base44.asServiceRole.entities.QuizCompletion.filter({
             studentId: String(studentId)
         }, '-completedAt', 1000);
 
         console.log(`[QUIZ HISTORY] Found ${allQuizzes.length} quiz completions in DB`);
+        
+        if (allQuizzes.length > 0) {
+            console.log(`[QUIZ HISTORY] Sample quiz:`, JSON.stringify(allQuizzes[0], null, 2));
+        }
 
         // Format for UI
         const enrichedQuizzes = allQuizzes.map(quiz => ({
@@ -48,13 +52,12 @@ Deno.serve(async (req) => {
             timeSpentSeconds: quiz.timeSpentSeconds
         }));
 
-        // Get user data for lastLogin
-        const userData = await ThinkificClient.getUserById(studentId);
+        console.log(`[QUIZ HISTORY] Returning ${enrichedQuizzes.length} quiz attempts`);
 
         return Response.json({ 
             quizzes: enrichedQuizzes,
-            lastLogin: userData?.last_login_at || null,
-            accountCreated: userData?.created_at || null
+            lastLogin: null,
+            accountCreated: null
         });
 
     } catch (error) {

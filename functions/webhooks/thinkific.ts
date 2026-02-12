@@ -17,6 +17,11 @@ async function createLessonExternalId(userId, lessonId, courseId, createdAt) {
 Deno.serve(async (req) => {
     const requestStartTime = Date.now();
     
+    console.log(`[WEBHOOK] ========== NEW REQUEST ==========`);
+    console.log(`[WEBHOOK] Method: ${req.method}`);
+    console.log(`[WEBHOOK] URL: ${req.url}`);
+    console.log(`[WEBHOOK] Headers:`, Object.fromEntries(req.headers.entries()));
+    
     if (req.method !== 'POST') {
         return Response.json({ error: 'Method not allowed' }, { status: 405 });
     }
@@ -26,6 +31,8 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
         
+        console.log(`[WEBHOOK] Raw body:`, JSON.stringify(body, null, 2));
+        
         const topic = body.topic || req.headers.get('x-thinkific-topic');
         const webhookId = body.id || crypto.randomUUID();
         const userId = body.user_id || body.id;
@@ -34,8 +41,9 @@ Deno.serve(async (req) => {
         console.log(`[WEBHOOK] Received: ${topic}`);
         console.log(`[WEBHOOK] ID: ${webhookId}`);
         console.log(`[WEBHOOK] User ID: ${userId}`);
+        console.log(`[WEBHOOK] lesson_id: ${body.lesson_id || 'N/A'}`);
+        console.log(`[WEBHOOK] quiz_id: ${body.quiz_id || 'N/A'}`);
         console.log(`[WEBHOOK] Timestamp: ${new Date().toISOString()}`);
-        console.log(`[WEBHOOK] Payload:`, JSON.stringify(body).substring(0, 500));
 
         // Store in debug log first
         const logEntry = await base44.asServiceRole.entities.WebhookEventLog.create({
@@ -150,6 +158,9 @@ async function handleLessonCompleted(base44, payload) {
 }
 
 async function handleQuizAttempted(base44, payload) {
+    console.log(`[QUIZ WEBHOOK] ========== QUIZ.ATTEMPTED ==========`);
+    console.log(`[QUIZ WEBHOOK] Full payload:`, JSON.stringify(payload, null, 2));
+    
     const {
         user_id, email, first_name, last_name,
         quiz_id, quiz_name, lesson_id,
@@ -159,10 +170,21 @@ async function handleQuizAttempted(base44, payload) {
         quiz_attempt
     } = payload;
 
-    console.log(`[WEBHOOK] Processing quiz.attempted for user ${user_id}, quiz ${quiz_id}, score ${score}/${max_score}`);
+    console.log(`[QUIZ WEBHOOK] Extracted fields:`);
+    console.log(`[QUIZ WEBHOOK]   user_id: ${user_id}`);
+    console.log(`[QUIZ WEBHOOK]   email: ${email}`);
+    console.log(`[QUIZ WEBHOOK]   quiz_id: ${quiz_id}`);
+    console.log(`[QUIZ WEBHOOK]   quiz_name: ${quiz_name}`);
+    console.log(`[QUIZ WEBHOOK]   score: ${score}`);
+    console.log(`[QUIZ WEBHOOK]   max_score: ${max_score}`);
+    console.log(`[QUIZ WEBHOOK]   lesson_id: ${lesson_id}`);
 
     if (!user_id || !quiz_id || score === undefined || !max_score) {
-        console.error('[WEBHOOK] ❌ Missing required fields for quiz.attempted');
+        console.error('[QUIZ WEBHOOK] ❌ VALIDATION FAILED - Missing required fields');
+        console.error(`[QUIZ WEBHOOK]   user_id present: ${!!user_id}`);
+        console.error(`[QUIZ WEBHOOK]   quiz_id present: ${!!quiz_id}`);
+        console.error(`[QUIZ WEBHOOK]   score present: ${score !== undefined}`);
+        console.error(`[QUIZ WEBHOOK]   max_score present: ${!!max_score}`);
         return { status: 'error', reason: 'missing_fields' };
     }
 
@@ -187,28 +209,38 @@ async function handleQuizAttempted(base44, payload) {
         return { status: 'duplicate', externalId };
     }
 
+    const recordToCreate = {
+        externalId,
+        studentId: String(user_id),
+        studentEmail: email,
+        studentName: `${first_name || ''} ${last_name || ''}`.trim(),
+        quizId: String(quiz_id),
+        quizName: quiz_name || 'Unknown Quiz',
+        courseId: String(course_id || ''),
+        courseName: course_name || '',
+        score,
+        maxScore: max_score,
+        percentage,
+        attemptNumber: attempt_number || 1,
+        completedAt: occurredAt,
+        timeSpentSeconds: time_spent_seconds || 0
+    };
+    
+    console.log(`[QUIZ WEBHOOK] About to create DB record:`, JSON.stringify(recordToCreate, null, 2));
+    
     try {
-        const created = await base44.asServiceRole.entities.QuizCompletion.create({
-            externalId,
-            studentId: String(user_id),
-            studentEmail: email,
-            studentName: `${first_name || ''} ${last_name || ''}`.trim(),
-            quizId: String(quiz_id),
-            quizName: quiz_name || 'Unknown Quiz',
-            courseId: String(course_id || ''),
-            courseName: course_name || '',
-            score,
-            maxScore: max_score,
-            percentage,
-            attemptNumber: attempt_number || 1,
-            completedAt: occurredAt,
-            timeSpentSeconds: time_spent_seconds || 0
-        });
+        const created = await base44.asServiceRole.entities.QuizCompletion.create(recordToCreate);
 
-        console.log(`[WEBHOOK] ✓ Quiz attempt saved: DB ID=${created.id}, externalId=${externalId}, score=${percentage}%`);
+        console.log(`[QUIZ WEBHOOK] ✓✓✓ SUCCESS - Quiz attempt saved to DB`);
+        console.log(`[QUIZ WEBHOOK]   DB ID: ${created.id}`);
+        console.log(`[QUIZ WEBHOOK]   externalId: ${externalId}`);
+        console.log(`[QUIZ WEBHOOK]   score: ${percentage}%`);
+        console.log(`[QUIZ WEBHOOK] ==========================================`);
         return { status: 'created', id: created.id, externalId, score: percentage };
     } catch (error) {
-        console.error(`[WEBHOOK] ❌ Failed to save quiz attempt:`, error);
+        console.error(`[QUIZ WEBHOOK] ❌❌❌ FATAL ERROR - Failed to save quiz attempt:`, error);
+        console.error(`[QUIZ WEBHOOK] Error details:`, error.message);
+        console.error(`[QUIZ WEBHOOK] Error stack:`, error.stack);
         throw error;
     }
 }
