@@ -35,74 +35,137 @@ Deno.serve(async (req) => {
         
         const result = {
             timestamp: new Date().toISOString(),
+            config: {
+                restBase: 'https://api.thinkific.com/api/public/v1',
+                graphqlEndpoint: 'https://api.thinkific.com/stable/graphql'
+            },
             teacher: {
                 email: teacherEmail,
                 thinkificUserId: String(teacherId)
             },
+            httpCalls: [],
             entitlement: {
                 courseId: CLASSROOM_PRODUCT_ID,
                 enrolled: false,
-                enrollmentFound: null
+                httpStatus: null
             },
-            groups: [],
+            groupDiscovery: {
+                httpStatus: null,
+                groupsFound: 0
+            },
+            groupUserCalls: [],
             rosterStudents: [],
             activitySummary: {}
         };
         
-        // 1. Check entitlement
-        console.log(`[DIAG] Checking entitlement for user ${teacherId}...`);
+        // 1. Check entitlement (enrollments call)
+        console.log(`[DIAG] Calling GET /enrollments?query[user_id]=${teacherId}&query[course_id]=${CLASSROOM_PRODUCT_ID}`);
         try {
             const enrollments = await thinkific.listEnrollments({
                 'query[user_id]': String(teacherId),
                 'query[course_id]': CLASSROOM_PRODUCT_ID
             });
             
+            result.entitlement.httpStatus = 200;
+            result.httpCalls.push({
+                method: 'GET',
+                path: '/enrollments',
+                query: `user_id=${teacherId}&course_id=${CLASSROOM_PRODUCT_ID}`,
+                status: 200,
+                resultCount: enrollments.length
+            });
+            
             if (enrollments.length > 0) {
                 result.entitlement.enrolled = true;
-                result.entitlement.enrollmentFound = enrollments[0];
+                result.entitlement.enrollmentFound = {
+                    id: enrollments[0].id,
+                    activatedAt: enrollments[0].activated_at,
+                    expired: enrollments[0].expired
+                };
             }
         } catch (err) {
-            console.error('[DIAG] Entitlement check error:', err.message);
+            result.entitlement.httpStatus = 'ERROR';
             result.entitlement.error = err.message;
+            result.httpCalls.push({
+                method: 'GET',
+                path: '/enrollments',
+                query: `user_id=${teacherId}&course_id=${CLASSROOM_PRODUCT_ID}`,
+                status: 'ERROR',
+                error: err.message
+            });
         }
         
-        // 2. Discover groups
-        console.log(`[DIAG] Discovering groups...`);
+        // 2. List groups
+        console.log(`[DIAG] Calling GET /groups`);
         try {
             const allGroups = await thinkific.listGroups();
             
+            result.groupDiscovery.httpStatus = 200;
+            result.groupDiscovery.groupsFound = allGroups.length;
+            result.httpCalls.push({
+                method: 'GET',
+                path: '/groups',
+                status: 200,
+                resultCount: allGroups.length
+            });
+            
+            // 3. For each group, get members
             for (const group of allGroups) {
-                const groupUsers = await thinkific.listGroupUsers(group.id);
-                const isTeacherMember = groupUsers.some(u => String(u.id) === String(teacherId));
-                
-                if (isTeacherMember) {
-                    result.groups.push({
-                        id: String(group.id),
-                        name: group.name,
-                        memberCount: groupUsers.length
+                console.log(`[DIAG] Calling GET /group_users?query[group_id]=${group.id}`);
+                try {
+                    const groupUsers = await thinkific.listGroupUsers(group.id);
+                    const isTeacherMember = groupUsers.some(u => String(u.id) === String(teacherId));
+                    
+                    result.groupUserCalls.push({
+                        groupId: String(group.id),
+                        groupName: group.name,
+                        method: 'GET',
+                        path: '/users',
+                        query: `group_id=${group.id}`,
+                        status: 200,
+                        memberCount: groupUsers.length,
+                        teacherIsMember: isTeacherMember
                     });
                     
-                    // Collect student emails
-                    for (const user of groupUsers) {
-                        if (user.email && user.email.toLowerCase().endsWith('@modalmath.com')) {
-                            if (!result.rosterStudents.find(s => s.email.toLowerCase() === user.email.toLowerCase())) {
-                                result.rosterStudents.push({
-                                    thinkificUserId: String(user.id),
-                                    email: user.email,
-                                    firstName: user.first_name || '',
-                                    lastName: user.last_name || ''
-                                });
+                    if (isTeacherMember) {
+                        // Collect student emails
+                        for (const user of groupUsers) {
+                            if (user.email && user.email.toLowerCase().endsWith('@modalmath.com')) {
+                                if (!result.rosterStudents.find(s => s.email.toLowerCase() === user.email.toLowerCase())) {
+                                    result.rosterStudents.push({
+                                        thinkificUserId: String(user.id),
+                                        email: user.email,
+                                        firstName: user.first_name || '',
+                                        lastName: user.last_name || ''
+                                    });
+                                }
                             }
                         }
                     }
+                } catch (err) {
+                    result.groupUserCalls.push({
+                        groupId: String(group.id),
+                        groupName: group.name,
+                        method: 'GET',
+                        path: '/users',
+                        query: `group_id=${group.id}`,
+                        status: 'ERROR',
+                        error: err.message
+                    });
                 }
             }
         } catch (err) {
-            console.error('[DIAG] Group discovery error:', err.message);
-            result.groupError = err.message;
+            result.groupDiscovery.httpStatus = 'ERROR';
+            result.groupDiscovery.error = err.message;
+            result.httpCalls.push({
+                method: 'GET',
+                path: '/groups',
+                status: 'ERROR',
+                error: err.message
+            });
         }
         
-        // 3. Get activity for each student
+        // 4. Get activity for each student
         console.log(`[DIAG] Fetching activity for ${result.rosterStudents.length} students...`);
         for (const student of result.rosterStudents) {
             try {
@@ -129,6 +192,6 @@ Deno.serve(async (req) => {
         return Response.json(result, { status: 200 });
     } catch (error) {
         console.error('[DIAG] Error:', error.message);
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message, stack: error.stack }, { status: 500 });
     }
 });
