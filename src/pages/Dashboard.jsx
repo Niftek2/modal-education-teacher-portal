@@ -83,6 +83,9 @@ export default function Dashboard() {
 
                 setStudents(rosterStudents);
                 setFilteredStudents(rosterStudents);
+                
+                // Store activities for last active tracking
+                setStudentActivities(activityResponse.events || []);
             }
         } catch (error) {
             console.error('Dashboard error:', error);
