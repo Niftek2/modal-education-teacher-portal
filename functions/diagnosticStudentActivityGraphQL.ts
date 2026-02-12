@@ -1,4 +1,4 @@
-const API_ACCESS_TOKEN = Deno.env.env.get("THINKIFIC_API_ACCESS_TOKEN");
+const API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 
 async function graphQLQuery(query, variables = {}) {
