@@ -50,8 +50,8 @@ Deno.serve(async (req) => {
         const evt = await req.json();
         
         // Thinkific sends: resource, action, created_at, timestamp, payload, id
-        const resource = evt.resource || 'unknown';
-        const action = evt.action || 'unknown';
+        const resource = String(evt.resource || 'unknown');
+        const action = String(evt.action || 'unknown');
         const eventType = `${resource}.${action}`;
         webhookId = evt.id || crypto.randomUUID();
         
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
         // Store raw webhook event immediately (append-only)
         await base44.asServiceRole.entities.WebhookEvent.create({
             webhookId: String(webhookId),
-            topic: eventType,
+            topic: String(eventType),
             receivedAt: receivedAt,
             payloadJson: JSON.stringify(evt)
         });
