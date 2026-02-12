@@ -18,7 +18,7 @@ async function graphQLQuery(query) {
 Deno.serve(async (req) => {
     try {
         const result = await graphQLQuery(`
-            query {
+            query ExploreCourse {
                 __type(name: "Course") {
                     fields(includeDeprecated: false) {
                         name
