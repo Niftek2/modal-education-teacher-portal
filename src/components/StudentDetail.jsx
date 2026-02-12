@@ -33,19 +33,28 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const studentEvents = events.filter(e => e.studentEmail?.toLowerCase() === student.email?.toLowerCase());
             
             // Split into quizzes and lessons
-            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => ({
-                quizName: e.contentTitle || 'Unknown Quiz',
-                courseName: e.courseName || 'Unknown Course',
-                level: e.courseName || 'Unknown',
-                score: e.metadata?.grade || 0,
-                maxScore: 100,
-                percentage: e.metadata?.grade || 0,
-                completedAt: e.occurredAt,
-                attemptNumber: 1,
-                timeSpentSeconds: 0,
-                correctCount: e.metadata?.correctCount,
-                incorrectCount: e.metadata?.incorrectCount
-            }));
+            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => {
+                let grade = e.metadata?.grade;
+                if (!grade && e.rawPayload) {
+                    try {
+                        const payload = JSON.parse(e.rawPayload);
+                        grade = payload?.grade;
+                    } catch {}
+                }
+                return {
+                    quizName: e.contentTitle || 'Unknown Quiz',
+                    courseName: e.courseName || 'Unknown Course',
+                    level: e.courseName || 'Unknown',
+                    score: grade || 0,
+                    maxScore: 100,
+                    percentage: grade || 0,
+                    completedAt: e.occurredAt,
+                    attemptNumber: 1,
+                    timeSpentSeconds: 0,
+                    correctCount: e.metadata?.correctCount,
+                    incorrectCount: e.metadata?.incorrectCount
+                };
+            });
             setQuizzes(quizList.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt)));
 
             const lessonEvents = studentEvents
