@@ -152,6 +152,8 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     const quizId = payload?.quiz?.id;
     const quizName = payload?.quiz?.name;
     const lessonId = payload?.lesson?.id;
+    const courseId = payload?.course?.id;
+    const courseName = payload?.course?.name;
     const resultId = payload?.result_id;
     const grade = payload?.grade;
     const correctCount = payload?.correct_count;
