@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
             type: 'magic-link'
         })
             .setProtectedHeader({ alg: 'HS256' })
-            .setExpirationTime('15m')
+            .setExpirationTime('45m')
             .setIssuedAt()
             .sign(secret);
 
@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
             '<h2>Welcome to Modal Math Teacher Portal</h2>',
             '<p>Click the link below to access your dashboard:</p>',
             `<p><a href="${magicLink}" style="background: #4B2865; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Login to Portal</a></p>`,
-            '<p>This link expires in 15 minutes.</p>',
+            '<p>This link expires in 45 minutes.</p>',
             '<p>If you didn\'t request this, please ignore this email.</p>'
         ].join('\r\n');
         
