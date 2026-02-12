@@ -1,114 +1,81 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-
-async function getGroupStudents(groupId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/users?query[group_id]=${groupId}`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch group students: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.items || [];
-}
-
-async function getEnrollments(userId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-
-    if (!response.ok) {
-        console.error(`Failed to fetch enrollments for user ${userId}: ${response.status}`);
-        return [];
-    }
-
-    const data = await response.json();
-    return data.items || [];
-}
-
-async function getCourseProgress(userId, courseId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/course_progress?query[user_id]=${userId}&query[course_id]=${courseId}`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-
-    if (!response.ok) {
-        return null;
-    }
-
-    const data = await response.json();
-    return data.items?.[0] || null;
-}
+import { ThinkificClient } from './lib/thinkificClient.js';
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const body = await req.json();
-        const { groupId } = body;
+        const { groupId } = await req.json();
         
         if (!groupId) {
             return Response.json({ error: 'Group ID required' }, { status: 400 });
         }
 
-        console.log('Fetching students for group:', groupId);
-        const students = await getGroupStudents(groupId);
-        console.log('Found students:', students.length);
+        console.log(`[BACKFILL] Starting lesson sync for group ${groupId}`);
+        
+        // Get all students in group (filtered by @modalmath.com)
+        const allUsers = await ThinkificClient.getGroupUsers(groupId);
+        const students = allUsers.filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
+        
+        console.log(`[BACKFILL] Found ${students.length} students (${allUsers.length} total users)`);
         
         const lessonCompletions = [];
+        let processedCount = 0;
 
-        // For each student, get their enrollments and lesson completions
         for (const student of students) {
-            const enrollments = await getEnrollments(student.id);
+            processedCount++;
+            console.log(`[BACKFILL] Processing student ${processedCount}/${students.length}: ${student.email}`);
+            
+            // Get all enrollments for this student
+            const enrollments = await ThinkificClient.getEnrollmentsByUser(student.id);
             
             for (const enrollment of enrollments) {
-                const progress = await getCourseProgress(student.id, enrollment.course_id);
+                // Get course progress
+                const progress = await ThinkificClient.getCourseProgress(student.id, enrollment.course_id);
                 
-                if (progress?.completed_chapter_ids) {
-                    // Note: Thinkific REST API doesn't provide detailed lesson completion data
-                    // We can only track chapter/section completions
-                    progress.completed_chapter_ids.forEach((chapterId) => {
-                        lessonCompletions.push({
-                            studentId: String(student.id),
-                            studentEmail: student.email,
-                            studentName: `${student.first_name} ${student.last_name}`,
-                            lessonId: String(chapterId),
-                            lessonName: `Chapter ${chapterId}`,
-                            courseId: String(enrollment.course_id),
-                            courseName: enrollment.course_name || 'Unknown Course',
-                            completedAt: new Date().toISOString()
-                        });
-                    });
+                if (progress) {
+                    // Track completed chapters as lessons
+                    if (progress.completed_chapter_ids?.length > 0) {
+                        for (const chapterId of progress.completed_chapter_ids) {
+                            // Check if already exists to avoid duplicates
+                            const existing = await base44.asServiceRole.entities.LessonCompletion.filter({
+                                studentId: String(student.id),
+                                lessonId: String(chapterId),
+                                courseId: String(enrollment.course_id)
+                            });
+
+                            if (existing.length === 0) {
+                                lessonCompletions.push({
+                                    studentId: String(student.id),
+                                    studentEmail: student.email,
+                                    studentName: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+                                    lessonId: String(chapterId),
+                                    lessonName: `Chapter ${chapterId}`,
+                                    courseId: String(enrollment.course_id),
+                                    courseName: enrollment.course_name || 'Unknown Course',
+                                    completedAt: progress.updated_at || new Date().toISOString()
+                                });
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        // Bulk create lesson completions
+        // Bulk create new lesson completions
         if (lessonCompletions.length > 0) {
             await base44.asServiceRole.entities.LessonCompletion.bulkCreate(lessonCompletions);
         }
 
+        console.log(`[BACKFILL] Complete: ${lessonCompletions.length} new lesson completions added`);
+
         return Response.json({ 
             success: true, 
             lessonsImported: lessonCompletions.length,
+            studentsProcessed: students.length,
             message: `Imported ${lessonCompletions.length} lesson completions for ${students.length} students`
         });
     } catch (error) {
-        console.error('Sync historical lessons error:', error);
+        console.error('[BACKFILL] Error:', error);
         return Response.json({ error: error.message }, { status: 500 });
     }
 });
