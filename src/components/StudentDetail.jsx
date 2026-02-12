@@ -80,9 +80,18 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>
-                        {student?.firstName} {student?.lastName} - Quiz History
-                    </DialogTitle>
+                    <div className="flex items-center justify-between">
+                        <DialogTitle>
+                            {student?.firstName} {student?.lastName} - Activity Report
+                        </DialogTitle>
+                        <button
+                            onClick={handlePrint}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors print:hidden"
+                            title="Print report"
+                        >
+                            <Printer className="w-4 h-4 text-gray-600" />
+                        </button>
+                    </div>
                 </DialogHeader>
 
                 {loading ? (
