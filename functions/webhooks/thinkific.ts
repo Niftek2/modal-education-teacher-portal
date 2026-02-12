@@ -28,6 +28,7 @@ Deno.serve(async (req) => {
         const webhookId = body.id || crypto.randomUUID();
         
         console.log(`[WEBHOOK] Received: ${topic} (ID: ${webhookId})`);
+        console.log(`[WEBHOOK] Payload:`, JSON.stringify(body).substring(0, 500));
 
         // Store in debug log first
         const logEntry = await base44.asServiceRole.entities.WebhookEventLog.create({
@@ -122,7 +123,7 @@ async function handleLessonCompleted(base44, payload) {
         completedAt: occurredAt
     });
 
-    console.log(`[WEBHOOK] Lesson completion recorded: ${lesson_name}`);
+    console.log(`[WEBHOOK] ✓ Lesson completion recorded: user=${user_id}, lesson=${lesson_id}, course=${course_id}`);
 }
 
 async function handleQuizAttempted(base44, payload) {
@@ -178,7 +179,7 @@ async function handleQuizAttempted(base44, payload) {
         timeSpentSeconds: time_spent_seconds || 0
     });
 
-    console.log(`[WEBHOOK] Quiz attempt recorded: ${quiz_name} - ${percentage}%`);
+    console.log(`[WEBHOOK] ✓ Quiz attempt recorded: user=${user_id}, quiz=${quiz_id}, course=${course_id}, score=${percentage}%`);
 }
 
 async function handleUserSignin(base44, payload) {
@@ -189,9 +190,7 @@ async function handleUserSignin(base44, payload) {
         return;
     }
 
-    // Update last login tracking (could be in a separate entity or User entity)
-    console.log(`[WEBHOOK] User signin: ${email} at ${occurred_at}`);
+    console.log(`[WEBHOOK] ✓ User signin: user=${user_id}, email=${email}, time=${occurred_at}`);
     
-    // For now, we'll rely on the getStudents function fetching this via API
-    // Alternatively, create a UserSignin entity to track all logins
+    // Login tracking handled by getStudents function via Thinkific API
 }

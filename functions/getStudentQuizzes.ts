@@ -14,13 +14,6 @@ async function verifySession(token) {
     return payload;
 }
 
-async function createExternalId(userId, quizId, lessonId, createdAt) {
-    const data = `${userId}-${quizId}-${lessonId || 'none'}-${createdAt}`;
-    const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
-    const hashArray = Array.from(new Uint8Array(buffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
-}
-
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
@@ -32,76 +25,14 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Student ID required' }, { status: 400 });
         }
 
-        console.log(`[QUIZ HISTORY] Fetching for student: ${studentId}`);
+        console.log(`[QUIZ HISTORY] Fetching from DB for student: ${studentId}`);
 
-        // Fetch quiz.attempted events from Thinkific
-        const quizEvents = await ThinkificClient.getUserEvents(studentId, 'quiz.attempted');
-        
-        console.log(`[QUIZ HISTORY] Found ${quizEvents.length} quiz events`);
-
-        // Check which already exist in DB
-        const existingQuizzes = await base44.asServiceRole.entities.QuizCompletion.filter({
-            studentId: String(studentId)
-        });
-
-        const existingExternalIds = new Set(existingQuizzes.map(q => q.externalId));
-        
-        // Convert events to QuizCompletion format and store new ones
-        const newQuizzes = [];
-        
-        for (const event of quizEvents) {
-            const payload = event.payload || {};
-            
-            // Create stable external ID for deduplication
-            let externalId;
-            if (payload.quiz_attempt?.id) {
-                externalId = `quiz_attempt_${payload.quiz_attempt.id}`;
-            } else {
-                externalId = await createExternalId(
-                    studentId,
-                    payload.quiz_id || event.object_id,
-                    payload.lesson_id,
-                    event.occurred_at
-                );
-            }
-
-            // Skip if already exists
-            if (existingExternalIds.has(externalId)) {
-                continue;
-            }
-
-            const score = payload.score ?? payload.quiz_attempt?.score ?? 0;
-            const maxScore = payload.max_score ?? payload.quiz_attempt?.max_score ?? 100;
-            const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-
-            newQuizzes.push({
-                externalId,
-                studentId: String(studentId),
-                studentEmail: payload.email || '',
-                studentName: `${payload.first_name || ''} ${payload.last_name || ''}`.trim(),
-                quizId: String(payload.quiz_id || event.object_id || ''),
-                quizName: payload.quiz_name || 'Unknown Quiz',
-                courseId: String(payload.course_id || ''),
-                courseName: payload.course_name || '',
-                score,
-                maxScore,
-                percentage,
-                attemptNumber: payload.attempt_number || 1,
-                completedAt: event.occurred_at || new Date().toISOString(),
-                timeSpentSeconds: payload.time_spent_seconds || 0
-            });
-        }
-
-        // Store new quiz completions
-        if (newQuizzes.length > 0) {
-            await base44.asServiceRole.entities.QuizCompletion.bulkCreate(newQuizzes);
-            console.log(`[QUIZ HISTORY] Stored ${newQuizzes.length} new quiz completions`);
-        }
-
-        // Fetch all quizzes from DB for this student
+        // Fetch all quizzes from DB for this student (populated by webhooks + backfill)
         const allQuizzes = await base44.asServiceRole.entities.QuizCompletion.filter({
             studentId: String(studentId)
         }, '-completedAt', 1000);
+
+        console.log(`[QUIZ HISTORY] Found ${allQuizzes.length} quiz completions in DB`);
 
         // Format for UI
         const enrichedQuizzes = allQuizzes.map(quiz => ({
