@@ -47,34 +47,37 @@ Deno.serve(async (req) => {
     const receivedAt = new Date().toISOString();
     try {
         const base44 = createClientFromRequest(req);
-        const body = await req.json();
+        const evt = await req.json();
         
-        const topic = body.topic || req.headers.get('x-thinkific-topic');
-        webhookId = body.id || crypto.randomUUID();
+        // Thinkific sends: resource, action, created_at, timestamp, payload, id
+        const resource = evt.resource || 'unknown';
+        const action = evt.action || 'unknown';
+        const eventType = `${resource}.${action}`;
+        webhookId = evt.id || crypto.randomUUID();
         
-        console.log(`[WEBHOOK] Event: ${topic}, ID: ${webhookId}, received: ${receivedAt}`);
+        console.log(`[WEBHOOK] Event: ${eventType}, ID: ${webhookId}, received: ${receivedAt}`);
 
         // Store raw webhook event immediately (append-only)
         await base44.asServiceRole.entities.WebhookEvent.create({
             webhookId: String(webhookId),
-            topic: topic,
+            topic: eventType,
             receivedAt: receivedAt,
-            payloadJson: JSON.stringify(body)
+            payloadJson: JSON.stringify(evt)
         });
 
-        // Process based on topic (async, don't block response)
-        switch (topic) {
+        // Process based on resource.action (async, don't block response)
+        switch (eventType) {
             case 'lesson.completed':
-                await handleLessonCompleted(base44, body, receivedAt);
+                await handleLessonCompleted(base44, evt, webhookId);
                 break;
             case 'quiz.attempted':
-                await handleQuizAttempted(base44, body, receivedAt);
+                await handleQuizAttempted(base44, evt, webhookId);
                 break;
             case 'user.signin':
-                await handleUserSignin(base44, body, receivedAt);
+                await handleUserSignin(base44, evt, webhookId);
                 break;
             default:
-                console.log(`[WEBHOOK] Unhandled topic: ${topic}`);
+                console.log(`[WEBHOOK] Unhandled event type: ${eventType}`);
         }
 
         const processingTime = Date.now() - requestStartTime;
