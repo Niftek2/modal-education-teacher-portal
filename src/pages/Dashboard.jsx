@@ -48,6 +48,7 @@ export default function Dashboard() {
         try {
             setLoading(true);
             console.log('Loading dashboard with token:', sessionToken ? 'Yes' : 'No');
+            console.log('Token value:', sessionToken);
 
             // Get teacher data
             const teacherResponse = await api.call('getTeacherData', { sessionToken }, sessionToken);
