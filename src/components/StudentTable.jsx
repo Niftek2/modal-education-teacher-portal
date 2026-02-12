@@ -24,13 +24,16 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
     const [showConfirm, setShowConfirm] = useState(null);
 
     const getLastActive = (email) => {
-        const studentActivities = activities.filter(a => a.studentEmail === email);
+        const normalizedEmail = email.trim().toLowerCase();
+        const studentActivities = activities.filter(a => 
+            a.studentEmail?.trim().toLowerCase() === normalizedEmail
+        );
         if (studentActivities.length === 0) return null;
         
         const sorted = studentActivities.sort((a, b) => 
             new Date(b.occurredAt) - new Date(a.occurredAt)
         );
-        return sorted[0]?.occurredAt;
+        return sorted[0];
     };
 
     const handleRemove = async (student) => {
