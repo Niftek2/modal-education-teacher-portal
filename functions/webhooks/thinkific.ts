@@ -180,7 +180,7 @@ async function handleQuizAttempted(base44, evt, webhookId) {
 
     const occurredAt = extractOccurredAt(evt);
     const occurredAtIso = occurredAt.toISOString();
-    const dedupeKey = String(resultId || webhookId);
+    const dedupeKey = String(webhookId);
 
     // Check if already exists
     const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: webhookId });
