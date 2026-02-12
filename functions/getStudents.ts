@@ -37,7 +37,7 @@ async function getGroupMembers(groupId) {
 }
 
 async function getLastSignIn(userId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/events?query[user_id]=${userId}&query[name]=user.sign_in`, {
+    const response = await fetch(`https://api.thinkific.com/api/public/v1/events?query[user_id]=${userId}&query[name]=user.signin`, {
         headers: {
             'X-Auth-API-Key': THINKIFIC_API_KEY,
             'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,

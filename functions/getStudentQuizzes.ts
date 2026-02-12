@@ -1,7 +1,7 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { ThinkificClient } from './lib/thinkificClient.js';
 import * as jose from 'npm:jose@5.2.0';
 
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
 async function verifySession(token) {
@@ -9,77 +9,24 @@ async function verifySession(token) {
         throw new Error('Unauthorized');
     }
 
-    try {
-        const secret = new TextEncoder().encode(JWT_SECRET);
-        const { payload } = await jose.jwtVerify(token, secret);
-        return payload;
-    } catch (error) {
-        console.error('Token verification failed:', error.message);
-        throw new Error('Invalid session token');
-    }
+    const secret = new TextEncoder().encode(JWT_SECRET);
+    const { payload } = await jose.jwtVerify(token, secret);
+    return payload;
 }
 
-async function getQuizAttempts(userId) {
-    try {
-        console.log('Fetching quiz attempts for user:', userId);
-        // Try quiz_attempts (note: singular) instead of quizzes_attempts
-        const response = await fetch(`https://api.thinkific.com/api/public/v1/quiz_attempts?query[user_id]=${userId}`, {
-            headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                'Content-Type': 'application/json'
-            }
+function hashQuizAttempt(userId, quizId, lessonId, createdAt) {
+    const data = `${userId}-${quizId}-${lessonId}-${createdAt}`;
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(data))
+        .then(buffer => {
+            const hashArray = Array.from(new Uint8Array(buffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         });
-
-        console.log('Quiz attempts response status:', response.status);
-        const data = await response.json();
-        console.log('Full response from Thinkific:', data);
-        
-        if (!response.ok) {
-            console.error('Failed to fetch quiz attempts:', response.status, data);
-            return [];
-        }
-
-        const items = data.items || [];
-        console.log('Quiz attempts data items count:', items.length);
-        console.log('Quiz attempts items:', items);
-        return items;
-    } catch (error) {
-        console.error('Quiz attempts fetch error:', error);
-        return [];
-    }
-}
-
-async function getUserData(userId) {
-    try {
-        console.log('Fetching user data for user:', userId);
-        const response = await fetch(`https://api.thinkific.com/api/public/v1/users/${userId}`, {
-            headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        console.log('User data response status:', response.status);
-        if (!response.ok) {
-            console.error('Failed to fetch user data:', response.status);
-            return null;
-        }
-
-        const data = await response.json();
-        console.log('User data:', { last_login_at: data.last_login_at, created_at: data.created_at });
-        return data;
-    } catch (error) {
-        console.error('User data fetch error:', error);
-        return null;
-    }
 }
 
 Deno.serve(async (req) => {
     try {
+        const base44 = createClientFromRequest(req);
         const { studentId, sessionToken } = await req.json();
-        console.log('Request received for student:', studentId);
         
         await verifySession(sessionToken);
 
@@ -87,26 +34,93 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Student ID required' }, { status: 400 });
         }
 
-        // Fetch quiz attempts and user data in parallel
-        const [quizAttempts, userData] = await Promise.all([
-            getQuizAttempts(studentId),
-            getUserData(studentId)
-        ]);
+        console.log(`[QUIZ HISTORY] Fetching for student: ${studentId}`);
 
-        const enrichedQuizzes = quizAttempts.map((quiz) => ({
+        // Fetch quiz.attempted events from Thinkific
+        const quizEvents = await ThinkificClient.getUserEvents(studentId, 'quiz.attempted');
+        
+        console.log(`[QUIZ HISTORY] Found ${quizEvents.length} quiz events`);
+
+        // Check which already exist in DB
+        const existingQuizzes = await base44.asServiceRole.entities.QuizCompletion.filter({
+            studentId: String(studentId)
+        });
+
+        const existingIds = new Set(existingQuizzes.map(q => q.id));
+        
+        // Convert events to QuizCompletion format and store new ones
+        const newQuizzes = [];
+        
+        for (const event of quizEvents) {
+            const payload = event.payload || {};
+            
+            // Use quiz_attempt.id if available, otherwise create deterministic hash
+            let quizCompletionId;
+            if (payload.quiz_attempt?.id) {
+                quizCompletionId = `quiz_${payload.quiz_attempt.id}`;
+            } else {
+                quizCompletionId = await hashQuizAttempt(
+                    studentId,
+                    payload.quiz_id || event.object_id,
+                    payload.lesson_id,
+                    event.occurred_at
+                );
+            }
+
+            // Skip if already exists
+            if (existingIds.has(quizCompletionId)) {
+                continue;
+            }
+
+            const score = payload.score ?? payload.quiz_attempt?.score ?? 0;
+            const maxScore = payload.max_score ?? payload.quiz_attempt?.max_score ?? 100;
+            const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+
+            newQuizzes.push({
+                id: quizCompletionId,
+                studentId: String(studentId),
+                studentEmail: payload.email || '',
+                studentName: `${payload.first_name || ''} ${payload.last_name || ''}`.trim(),
+                quizId: String(payload.quiz_id || event.object_id || ''),
+                quizName: payload.quiz_name || 'Unknown Quiz',
+                courseId: String(payload.course_id || ''),
+                courseName: payload.course_name || '',
+                score,
+                maxScore,
+                percentage,
+                attemptNumber: payload.attempt_number || 1,
+                completedAt: event.occurred_at || new Date().toISOString(),
+                timeSpentSeconds: payload.time_spent_seconds || 0
+            });
+        }
+
+        // Store new quiz completions
+        if (newQuizzes.length > 0) {
+            await base44.asServiceRole.entities.QuizCompletion.bulkCreate(newQuizzes);
+            console.log(`[QUIZ HISTORY] Stored ${newQuizzes.length} new quiz completions`);
+        }
+
+        // Fetch all quizzes from DB for this student
+        const allQuizzes = await base44.asServiceRole.entities.QuizCompletion.filter({
+            studentId: String(studentId)
+        }, '-completedAt', 1000);
+
+        // Format for UI
+        const enrichedQuizzes = allQuizzes.map(quiz => ({
             id: quiz.id,
-            quizTitle: quiz.quiz_name || 'Unknown Quiz',
-            courseId: quiz.course_id,
-            courseTitle: quiz.course_name || 'Unknown Course',
+            quizTitle: quiz.quizName,
+            courseId: quiz.courseId,
+            courseTitle: quiz.courseName,
             score: quiz.score,
-            maxScore: quiz.max_score,
-            percentage: quiz.max_score ? Math.round((quiz.score / quiz.max_score) * 100) : 0,
-            attempt: quiz.attempt_number || 1,
-            completedAt: quiz.completed_at,
-            timeSpentSeconds: quiz.time_spent_seconds || null
-        })).sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+            maxScore: quiz.maxScore,
+            percentage: quiz.percentage,
+            attempt: quiz.attemptNumber,
+            completedAt: quiz.completedAt,
+            timeSpentSeconds: quiz.timeSpentSeconds
+        }));
 
-        console.log('Returning quizzes:', enrichedQuizzes.length);
+        // Get user data for lastLogin
+        const userData = await ThinkificClient.getUserById(studentId);
 
         return Response.json({ 
             quizzes: enrichedQuizzes,
@@ -115,7 +129,7 @@ Deno.serve(async (req) => {
         });
 
     } catch (error) {
-        console.error('Get student quizzes error:', error);
+        console.error('[QUIZ HISTORY] Error:', error);
         return Response.json({ error: error.message }, { status: 500 });
     }
 });

@@ -1,6 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { ThinkificClient } from './lib/thinkificClient.js';
 
+async function hashQuizAttempt(userId, quizId, lessonId, createdAt) {
+    const data = `${userId}-${quizId}-${lessonId}-${createdAt}`;
+    const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
+    const hashArray = Array.from(new Uint8Array(buffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
@@ -10,20 +17,120 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Group ID required' }, { status: 400 });
         }
 
-        // Get existing quiz completions from Base44 database
-        const existingQuizzes = await base44.asServiceRole.entities.QuizCompletion.list('-completedAt', 1000);
+        console.log(`[BACKFILL] Starting backfill for group ${groupId}`);
+
+        // Get all students in group
+        const allUsers = await ThinkificClient.getGroupUsers(groupId);
+        const students = allUsers.filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
+
+        console.log(`[BACKFILL] Found ${students.length} students`);
+
+        let quizzesAdded = 0;
+        let lessonsAdded = 0;
+        let studentsProcessed = 0;
+
+        for (const student of students) {
+            studentsProcessed++;
+            console.log(`[BACKFILL] Processing ${studentsProcessed}/${students.length}: ${student.email}`);
+
+            // Backfill quiz.attempted events
+            try {
+                const quizEvents = await ThinkificClient.getUserEvents(student.id, 'quiz.attempted');
+                
+                for (const event of quizEvents) {
+                    const payload = event.payload || {};
+                    
+                    // Create deterministic ID
+                    let quizCompletionId;
+                    if (payload.quiz_attempt?.id) {
+                        quizCompletionId = `quiz_${payload.quiz_attempt.id}`;
+                    } else {
+                        quizCompletionId = await hashQuizAttempt(
+                            student.id,
+                            payload.quiz_id || event.object_id,
+                            payload.lesson_id,
+                            event.occurred_at
+                        );
+                    }
+
+                    // Check if exists
+                    const existing = await base44.asServiceRole.entities.QuizCompletion.filter({
+                        id: quizCompletionId
+                    });
+
+                    if (existing.length === 0) {
+                        const score = payload.score ?? payload.quiz_attempt?.score ?? 0;
+                        const maxScore = payload.max_score ?? payload.quiz_attempt?.max_score ?? 100;
+                        const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+
+                        await base44.asServiceRole.entities.QuizCompletion.create({
+                            id: quizCompletionId,
+                            studentId: String(student.id),
+                            studentEmail: student.email,
+                            studentName: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+                            quizId: String(payload.quiz_id || event.object_id || ''),
+                            quizName: payload.quiz_name || 'Unknown Quiz',
+                            courseId: String(payload.course_id || ''),
+                            courseName: payload.course_name || '',
+                            score,
+                            maxScore,
+                            percentage,
+                            attemptNumber: payload.attempt_number || 1,
+                            completedAt: event.occurred_at || new Date().toISOString(),
+                            timeSpentSeconds: payload.time_spent_seconds || 0
+                        });
+                        quizzesAdded++;
+                    }
+                }
+            } catch (error) {
+                console.error(`[BACKFILL] Quiz error for ${student.email}:`, error);
+            }
+
+            // Backfill lesson.completed events
+            try {
+                const lessonEvents = await ThinkificClient.getUserEvents(student.id, 'lesson.completed');
+                
+                for (const event of lessonEvents) {
+                    const payload = event.payload || {};
+                    
+                    // Check if exists
+                    const existing = await base44.asServiceRole.entities.LessonCompletion.filter({
+                        studentId: String(student.id),
+                        lessonId: String(payload.lesson_id || event.object_id || ''),
+                        completedAt: event.occurred_at
+                    });
+
+                    if (existing.length === 0) {
+                        await base44.asServiceRole.entities.LessonCompletion.create({
+                            studentId: String(student.id),
+                            studentEmail: student.email,
+                            studentName: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+                            lessonId: String(payload.lesson_id || event.object_id || ''),
+                            lessonName: payload.lesson_name || 'Unknown Lesson',
+                            courseId: String(payload.course_id || ''),
+                            courseName: payload.course_name || '',
+                            completedAt: event.occurred_at || new Date().toISOString()
+                        });
+                        lessonsAdded++;
+                    }
+                }
+            } catch (error) {
+                console.error(`[BACKFILL] Lesson error for ${student.email}:`, error);
+            }
+        }
+
+        console.log(`[BACKFILL] Complete: ${quizzesAdded} quizzes, ${lessonsAdded} lessons`);
 
         return Response.json({
             success: true,
-            synced: existingQuizzes.length,
-            message: `Found ${existingQuizzes.length} quiz completions already captured via webhooks. Thinkific API doesn't provide historical quiz data - only real-time via webhooks.`,
-            note: 'To capture future quiz completions, ensure quiz.attempted webhook is properly configured in Thinkific'
+            studentsProcessed,
+            quizzesAdded,
+            lessonsAdded,
+            message: `Backfilled ${quizzesAdded} quizzes and ${lessonsAdded} lessons for ${studentsProcessed} students`
         });
+
     } catch (error) {
-        console.error('Sync historical quizzes error:', error);
-        return Response.json(
-            { error: error.message || 'Failed to sync quiz data' },
-            { status: 500 }
-        );
+        console.error('[BACKFILL] Error:', error);
+        return Response.json({ error: error.message }, { status: 500 });
     }
 });

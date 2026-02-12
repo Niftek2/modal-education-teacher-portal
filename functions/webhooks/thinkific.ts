@@ -5,6 +5,7 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Method not allowed' }, { status: 405 });
     }
 
+    let webhookLogId = null;
     try {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
@@ -13,6 +14,15 @@ Deno.serve(async (req) => {
         const webhookId = body.id || crypto.randomUUID();
         
         console.log(`[WEBHOOK] Received: ${topic} (ID: ${webhookId})`);
+
+        // Store in debug log first
+        const logEntry = await base44.asServiceRole.entities.WebhookEventLog.create({
+            timestamp: new Date().toISOString(),
+            topic: topic,
+            rawPayload: JSON.stringify(body),
+            status: 'ok'
+        });
+        webhookLogId = logEntry.id;
 
         // Store raw webhook event (append-only audit log)
         await base44.asServiceRole.entities.WebhookEvent.create({
@@ -40,6 +50,20 @@ Deno.serve(async (req) => {
         return Response.json({ success: true, webhookId });
     } catch (error) {
         console.error('[WEBHOOK] Error:', error);
+        
+        // Update log with error
+        if (webhookLogId) {
+            try {
+                const base44 = createClientFromRequest(req);
+                await base44.asServiceRole.entities.WebhookEventLog.update(webhookLogId, {
+                    status: 'error',
+                    errorMessage: error.message
+                });
+            } catch (logError) {
+                console.error('[WEBHOOK] Failed to log error:', logError);
+            }
+        }
+        
         return Response.json({ error: error.message }, { status: 500 });
     }
 });
