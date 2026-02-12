@@ -1,200 +1,154 @@
-// Thinkific API Client with pagination, retries, and logging
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
+/**
+ * Thinkific SDK Contract
+ * 
+ * Single point of contact for all Thinkific API calls.
+ * Restricts to only documented endpoints in Thinkific Admin API.
+ * Uses API Access Token (Bearer) authentication.
+ */
+
+const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-const BASE_URL = "https://api.thinkific.com/api/public/v1";
 
-async function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+// Whitelist of allowed REST endpoint prefixes (documented in Thinkific Admin API)
+const ALLOWED_ENDPOINTS = [
+    '/users',
+    '/groups',
+    '/group_users',
+    '/group_analysts',
+    '/enrollments',
+    '/courses',
+    '/chapters',
+    '/contents'
+];
+
+function validateRestPath(path) {
+    const allowed = ALLOWED_ENDPOINTS.some(prefix => path.startsWith(prefix));
+    if (!allowed) {
+        throw new Error(`Endpoint not allowed by SDK contract: ${path}. Allowed: ${ALLOWED_ENDPOINTS.join(', ')}`);
+    }
 }
 
-async function makeRequest(endpoint, options = {}) {
-    const { method = 'GET', body, retries = 3, params = {} } = options;
+export async function requestRest(path, method = 'GET', query = null, body = null) {
+    validateRestPath(path);
     
-    const url = new URL(`${BASE_URL}${endpoint}`);
-    Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-            url.searchParams.append(key, value);
+    const url = new URL(path, `https://${THINKIFIC_SUBDOMAIN}.thinkific.com/api/public/v1`);
+    
+    if (query) {
+        Object.entries(query).forEach(([k, v]) => {
+            url.searchParams.append(k, v);
+        });
+    }
+    
+    const options = {
+        method,
+        headers: {
+            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
+            'Content-Type': 'application/json'
         }
-    });
-
-    const headers = {
-        'X-Auth-API-Key': THINKIFIC_API_KEY,
-        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-        'Content-Type': 'application/json'
     };
-
-    let lastError;
-    for (let attempt = 0; attempt < retries; attempt++) {
-        try {
-            const requestId = crypto.randomUUID();
-            console.log(`[${requestId}] ${method} ${url.pathname}${url.search}`);
-            
-            const response = await fetch(url.toString(), {
-                method,
-                headers,
-                body: body ? JSON.stringify(body) : undefined
-            });
-
-            console.log(`[${requestId}] Status: ${response.status}`);
-
-            if (response.status === 429) {
-                const waitTime = Math.pow(2, attempt) * 1000;
-                console.log(`[${requestId}] Rate limited, waiting ${waitTime}ms`);
-                await sleep(waitTime);
-                continue;
-            }
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error(`[${requestId}] Error: ${errorText}`);
-                
-                if (response.status >= 500 && attempt < retries - 1) {
-                    const waitTime = Math.pow(2, attempt) * 1000;
-                    console.log(`[${requestId}] Server error, retrying in ${waitTime}ms`);
-                    await sleep(waitTime);
-                    continue;
-                }
-                
-                throw new Error(`API error ${response.status}: ${errorText}`);
-            }
-
-            const data = await response.json();
-            const itemCount = data.items?.length || (Array.isArray(data) ? data.length : 1);
-            console.log(`[${requestId}] Success: ${itemCount} items returned`);
-            
-            return data;
-        } catch (error) {
-            lastError = error;
-            if (attempt < retries - 1) {
-                const waitTime = Math.pow(2, attempt) * 1000;
-                console.log(`Attempt ${attempt + 1} failed, retrying in ${waitTime}ms: ${error.message}`);
-                await sleep(waitTime);
-            }
-        }
+    
+    if (body) {
+        options.body = JSON.stringify(body);
     }
     
-    throw lastError;
+    const response = await fetch(url.toString(), options);
+    const data = await response.json();
+    
+    return {
+        status: response.status,
+        ok: response.ok,
+        data
+    };
 }
 
-async function paginate(endpoint, params = {}) {
-    const allItems = [];
-    let page = 1;
-    const limit = 100;
-
-    while (true) {
-        const data = await makeRequest(endpoint, {
-            params: { ...params, page, limit }
-        });
-
-        const items = data.items || [];
-        allItems.push(...items);
-
-        console.log(`Page ${page}: ${items.length} items (total: ${allItems.length})`);
-
-        if (items.length < limit) {
-            break;
-        }
-        page++;
+export async function requestGraphQL(query, variables = {}) {
+    const url = `https://${THINKIFIC_SUBDOMAIN}.thinkific.com/graphql`;
+    
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${THINKIFIC_API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            query,
+            variables
+        })
+    });
+    
+    const data = await response.json();
+    
+    if (data.errors) {
+        throw new Error(`GraphQL error: ${data.errors.map(e => e.message).join('; ')}`);
     }
-
-    return allItems;
+    
+    return {
+        status: response.status,
+        ok: response.ok,
+        data: data.data
+    };
 }
 
-export const ThinkificClient = {
-    // Users
-    async getUserByEmail(email) {
-        const users = await paginate('/users', { 'query[email]': email });
-        return users[0] || null;
-    },
+/**
+ * Fetch a user by ID
+ */
+export async function getUser(userId) {
+    const result = await requestRest(`/users/${userId}`);
+    if (!result.ok) throw new Error(`User not found: ${userId}`);
+    return result.data;
+}
 
-    async getUserById(userId) {
-        return await makeRequest(`/users/${userId}`);
-    },
+/**
+ * Find a user by email
+ */
+export async function findUserByEmail(email) {
+    const result = await requestRest('/users', 'GET', { 'query[email]': email });
+    const users = result.data.items || [];
+    return users.length > 0 ? users[0] : null;
+}
 
-    async getGroupUsers(groupId) {
-        return await paginate('/users', { 'query[group_id]': groupId });
-    },
+/**
+ * List all groups
+ */
+export async function listGroups() {
+    const result = await requestRest('/groups');
+    return result.data.items || [];
+}
 
-    // Groups
-    async getGroups() {
-        return await paginate('/groups');
-    },
+/**
+ * List users in a group
+ */
+export async function listGroupUsers(groupId) {
+    const result = await requestRest('/users', 'GET', { 'query[group_id]': groupId });
+    return result.data.items || [];
+}
 
-    async getGroup(groupId) {
-        return await makeRequest(`/groups/${groupId}`);
-    },
+/**
+ * List all enrollments, optionally filtered
+ */
+export async function listEnrollments(filters = {}) {
+    const result = await requestRest('/enrollments', 'GET', filters);
+    return result.data.items || [];
+}
 
-    // Enrollments
-    async getEnrollmentsByUser(userId) {
-        return await paginate('/enrollments', { 'query[user_id]': userId });
-    },
+/**
+ * Get a course by ID
+ */
+export async function getCourse(courseId) {
+    const result = await requestRest(`/courses/${courseId}`);
+    if (!result.ok) throw new Error(`Course not found: ${courseId}`);
+    return result.data;
+}
 
-    async getEnrollmentsByCourse(courseId) {
-        return await paginate('/enrollments', { 'query[course_id]': courseId });
-    },
-
-    // Course Progress
-    async getCourseProgress(userId, courseId) {
-        const progress = await paginate('/course_progress', {
-            'query[user_id]': userId,
-            'query[course_id]': courseId
-        });
-        return progress[0] || null;
-    },
-
-    async getAllCourseProgressForUser(userId) {
-        return await paginate('/course_progress', { 'query[user_id]': userId });
-    },
-
-    // Products (for bundle verification)
-    async getProducts() {
-        return await paginate('/products');
-    },
-
-    // Events (for signin tracking)
-    async getUserEvents(userId, eventName = null) {
-        const params = { 'query[user_id]': userId };
-        if (eventName) {
-            params['query[name]'] = eventName;
-        }
-        return await paginate('/events', params);
-    },
-
-    // Diagnostic test
-    async diagnosticTest() {
-        console.log('=== THINKIFIC API DIAGNOSTIC TEST ===');
-        
-        const tests = [
-            { name: 'Groups', fn: () => this.getGroups() },
-            { name: 'Products', fn: () => this.getProducts() },
-            { name: 'Sample User Events', fn: async () => {
-                const users = await paginate('/users', { limit: 1 });
-                if (users[0]) {
-                    return await this.getUserEvents(users[0].id);
-                }
-                return [];
-            }}
-        ];
-
-        const results = {};
-        for (const test of tests) {
-            try {
-                const result = await test.fn();
-                results[test.name] = {
-                    success: true,
-                    count: result.length,
-                    sample: result[0] || null
-                };
-            } catch (error) {
-                results[test.name] = {
-                    success: false,
-                    error: error.message
-                };
-            }
-        }
-
-        console.log('=== DIAGNOSTIC RESULTS ===');
-        console.log(JSON.stringify(results, null, 2));
-        return results;
+/**
+ * Check if endpoint is available (for capabilities check)
+ */
+export async function checkEndpoint(path, method = 'GET') {
+    try {
+        validateRestPath(path);
+        const result = await requestRest(path, method);
+        return { available: result.ok, status: result.status };
+    } catch (error) {
+        return { available: false, error: error.message };
     }
-};
+}
