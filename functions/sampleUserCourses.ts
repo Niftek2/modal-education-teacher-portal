@@ -30,15 +30,8 @@ Deno.serve(async (req) => {
                             node {
                                 id
                                 name
-                                curriculum {
-                                    chapters(first: 1) {
-                                        edges {
-                                            node {
-                                                name
-                                            }
-                                        }
-                                    }
-                                }
+                                title
+                                description
                             }
                             cursor
                         }
