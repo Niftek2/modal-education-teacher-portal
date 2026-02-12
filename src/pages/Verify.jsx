@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../components/api';
 
 export default function Verify() {
     const [message, setMessage] = useState('Verifying your login...');
@@ -21,15 +21,15 @@ export default function Verify() {
                     return;
                 }
 
-                const response = await base44.functions.invoke('authVerify', { token });
-                console.log('authVerify response:', response.data);
+                const response = await api.call('authVerify', { token }, '');
+                console.log('authVerify response:', response);
                 
-                if (response.data.success && response.data.sessionToken) {
-                    localStorage.setItem('modal_math_session', response.data.sessionToken);
+                if (response.success && response.sessionToken) {
+                    localStorage.setItem('modal_math_session', response.sessionToken);
                     setMessage('Login successful! Redirecting...');
                     setTimeout(() => navigate('/Dashboard'), 1000);
                 } else {
-                    console.error('Verification failed:', response.data);
+                    console.error('Verification failed:', response);
                     setMessage('Verification failed. Redirecting...');
                     setTimeout(() => navigate('/'), 3000);
                 }

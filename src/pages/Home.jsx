@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { api } from '../utils/api';
+import { api } from '../components/api';
 
 export default function Home() {
     const [email, setEmail] = useState('');
