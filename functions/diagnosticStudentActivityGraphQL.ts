@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
                                     completedAt
                                     percentageCompleted
                                     course {
-                                        gid
+                                        id
                                         name
                                     }
                                 }
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
 
         for (const enrollment of enrollments) {
             const enrollmentId = enrollment.gid;
-            const courseId = enrollment.course.gid;
+            const courseId = enrollment.course.id;
             const courseName = enrollment.course.name;
             
             console.log(`[ACTIVITY] Processing enrollment: ${courseName} (${courseId})`);
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
                     query GetCompletedContents($userId: ID!, $courseId: ID!, $after: String) {
                         user(gid: $userId) {
                             gid
-                            courses(filter: { gid: $courseId }) {
+                            courses(filter: { id: $courseId }) {
                                 edges {
                                     node {
                                         gid
@@ -232,7 +232,7 @@ Deno.serve(async (req) => {
                     query GetQuizAttempts($userId: ID!, $courseId: ID!, $after: String) {
                         user(gid: $userId) {
                             gid
-                            courses(filter: { gid: $courseId }) {
+                            courses(filter: { id: $courseId }) {
                                 edges {
                                     node {
                                         gid
@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
                                                     submittedAt
                                                     timeSpentSeconds
                                                     quiz {
-                                                        gid
+                                                        id
                                                         name
                                                     }
                                                 }
@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
             // Collect first 5 samples
             detail.quizAttempts.slice(0, 5).forEach(item => {
                 allQuizSamples.push({
-                    quizId: item.quiz?.gid,
+                    quizId: item.quiz?.id,
                     quizName: item.quiz?.name,
                     score: item.score,
                     maxScore: item.maxScore,

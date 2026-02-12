@@ -13,8 +13,12 @@ async function graphQLQuery(query, variables = {}) {
 
     const data = await response.json();
     
-    if (!response.ok || data.errors) {
+    if (data.errors) {
         console.error('[SCHEMA] GraphQL Error:', JSON.stringify(data.errors, null, 2));
+        throw new Error(`GraphQL Error: ${data.errors[0]?.message || 'Unknown error'}`);
+    }
+    
+    if (!response.ok) {
         throw new Error(`GraphQL HTTP ${response.status}`);
     }
     
