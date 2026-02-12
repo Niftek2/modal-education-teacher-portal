@@ -1,14 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
-async function createExternalId(userId, quizId, lessonId, createdAt) {
-    const data = `${userId}-${quizId}-${lessonId || 'none'}-${createdAt}`;
-    const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
-    const hashArray = Array.from(new Uint8Array(buffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
-}
-
-async function createLessonExternalId(userId, lessonId, courseId, createdAt) {
-    const data = `${userId}-${lessonId}-${courseId || 'none'}-${createdAt}`;
+async function createDedupeKey(type, userId, contentId, courseId, timestamp) {
+    const data = `${type}-${userId}-${contentId || 'none'}-${courseId || 'none'}-${timestamp}`;
     const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
     const hashArray = Array.from(new Uint8Array(buffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
@@ -108,6 +101,7 @@ Deno.serve(async (req) => {
 
 async function handleLessonCompleted(base44, payload) {
     const {
+        id: webhook_id,
         user_id, email, first_name, last_name,
         lesson_id, lesson_name,
         course_id, course_name,
@@ -122,35 +116,36 @@ async function handleLessonCompleted(base44, payload) {
     }
 
     const occurredAt = completed_at || new Date().toISOString();
+    const dedupeKey = await createDedupeKey('lesson', user_id, lesson_id, course_id, occurredAt);
 
-    // Create stable external ID
-    const externalId = await createLessonExternalId(user_id, lesson_id, course_id, occurredAt);
-
-    // Check if already exists by externalId
-    const existing = await base44.asServiceRole.entities.LessonCompletion.filter({
-        externalId
-    });
-
+    // Check if already exists
+    const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
     if (existing.length > 0) {
         console.log('[WEBHOOK] ⚠️ Lesson completion already exists, skipping (duplicate)');
-        return { status: 'duplicate', externalId };
+        return { status: 'duplicate', dedupeKey };
     }
 
     try {
-        const created = await base44.asServiceRole.entities.LessonCompletion.create({
-            externalId,
-            studentId: String(user_id),
-            studentEmail: email,
-            studentName: `${first_name || ''} ${last_name || ''}`.trim(),
-            lessonId: String(lesson_id),
-            lessonName: lesson_name || 'Unknown Lesson',
+        // Store in normalized ActivityEvent
+        const created = await base44.asServiceRole.entities.ActivityEvent.create({
+            studentUserId: String(user_id),
+            studentEmail: email || '',
+            studentDisplayName: `${first_name || ''} ${last_name || ''}`.trim(),
             courseId: String(course_id || ''),
             courseName: course_name || '',
-            completedAt: occurredAt
+            eventType: 'lesson_completed',
+            contentId: String(lesson_id),
+            contentTitle: lesson_name || 'Unknown Lesson',
+            occurredAt,
+            source: 'webhook',
+            rawEventId: String(webhook_id || ''),
+            rawPayload: JSON.stringify(payload),
+            dedupeKey,
+            metadata: {}
         });
 
-        console.log(`[WEBHOOK] ✓ Lesson completion saved: DB ID=${created.id}, externalId=${externalId}`);
-        return { status: 'created', id: created.id, externalId };
+        console.log(`[WEBHOOK] ✓ Lesson completion saved: DB ID=${created.id}`);
+        return { status: 'created', id: created.id, dedupeKey };
     } catch (error) {
         console.error(`[WEBHOOK] ❌ Failed to save lesson completion:`, error);
         throw error;
@@ -162,6 +157,7 @@ async function handleQuizAttempted(base44, payload) {
     console.log(`[QUIZ WEBHOOK] Full payload:`, JSON.stringify(payload, null, 2));
     
     const {
+        id: webhook_id,
         user_id, email, first_name, last_name,
         quiz_id, quiz_name, lesson_id,
         course_id, course_name,
@@ -170,83 +166,57 @@ async function handleQuizAttempted(base44, payload) {
         quiz_attempt
     } = payload;
 
-    console.log(`[QUIZ WEBHOOK] Extracted fields:`);
-    console.log(`[QUIZ WEBHOOK]   user_id: ${user_id}`);
-    console.log(`[QUIZ WEBHOOK]   email: ${email}`);
-    console.log(`[QUIZ WEBHOOK]   quiz_id: ${quiz_id}`);
-    console.log(`[QUIZ WEBHOOK]   quiz_name: ${quiz_name}`);
-    console.log(`[QUIZ WEBHOOK]   score: ${score}`);
-    console.log(`[QUIZ WEBHOOK]   max_score: ${max_score}`);
-    console.log(`[QUIZ WEBHOOK]   lesson_id: ${lesson_id}`);
-
     if (!user_id || !quiz_id || score === undefined || !max_score) {
-        console.error('[QUIZ WEBHOOK] ❌ VALIDATION FAILED - Missing required fields');
-        console.error(`[QUIZ WEBHOOK]   user_id present: ${!!user_id}`);
-        console.error(`[QUIZ WEBHOOK]   quiz_id present: ${!!quiz_id}`);
-        console.error(`[QUIZ WEBHOOK]   score present: ${score !== undefined}`);
-        console.error(`[QUIZ WEBHOOK]   max_score present: ${!!max_score}`);
+        console.error('[QUIZ WEBHOOK] ❌ Missing required fields');
         return { status: 'error', reason: 'missing_fields' };
     }
 
     const percentage = percentage_score || Math.round((score / max_score) * 100);
     const occurredAt = completed_at || new Date().toISOString();
+    const dedupeKey = await createDedupeKey('quiz', user_id, quiz_id, course_id, occurredAt);
 
-    // Create stable external ID
-    let externalId;
-    if (quiz_attempt?.id) {
-        externalId = `quiz_attempt_${quiz_attempt.id}`;
-    } else {
-        externalId = await createExternalId(user_id, quiz_id, lesson_id, occurredAt);
-    }
-
-    // Check if already exists by externalId
-    const existing = await base44.asServiceRole.entities.QuizCompletion.filter({
-        externalId
-    });
-
+    // Check if already exists
+    const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
     if (existing.length > 0) {
-        console.log('[WEBHOOK] ⚠️ Quiz attempt already exists, skipping (duplicate)');
-        return { status: 'duplicate', externalId };
+        console.log('[QUIZ WEBHOOK] ⚠️ Quiz attempt already exists, skipping (duplicate)');
+        return { status: 'duplicate', dedupeKey };
     }
 
-    const recordToCreate = {
-        externalId,
-        studentId: String(user_id),
-        studentEmail: email,
-        studentName: `${first_name || ''} ${last_name || ''}`.trim(),
-        quizId: String(quiz_id),
-        quizName: quiz_name || 'Unknown Quiz',
-        courseId: String(course_id || ''),
-        courseName: course_name || '',
-        score,
-        maxScore: max_score,
-        percentage,
-        attemptNumber: attempt_number || 1,
-        completedAt: occurredAt,
-        timeSpentSeconds: time_spent_seconds || 0
-    };
-    
-    console.log(`[QUIZ WEBHOOK] About to create DB record:`, JSON.stringify(recordToCreate, null, 2));
-    
     try {
-        const created = await base44.asServiceRole.entities.QuizCompletion.create(recordToCreate);
+        // Store in normalized ActivityEvent
+        const created = await base44.asServiceRole.entities.ActivityEvent.create({
+            studentUserId: String(user_id),
+            studentEmail: email || '',
+            studentDisplayName: `${first_name || ''} ${last_name || ''}`.trim(),
+            courseId: String(course_id || ''),
+            courseName: course_name || '',
+            eventType: 'quiz_attempted',
+            contentId: String(quiz_id),
+            contentTitle: quiz_name || 'Unknown Quiz',
+            occurredAt,
+            source: 'webhook',
+            rawEventId: String(webhook_id || ''),
+            rawPayload: JSON.stringify(payload),
+            dedupeKey,
+            metadata: {
+                score,
+                maxScore: max_score,
+                percentage,
+                attemptNumber: attempt_number || 1,
+                timeSpentSeconds: time_spent_seconds || 0
+            }
+        });
 
-        console.log(`[QUIZ WEBHOOK] ✓✓✓ SUCCESS - Quiz attempt saved to DB`);
-        console.log(`[QUIZ WEBHOOK]   DB ID: ${created.id}`);
-        console.log(`[QUIZ WEBHOOK]   externalId: ${externalId}`);
-        console.log(`[QUIZ WEBHOOK]   score: ${percentage}%`);
-        console.log(`[QUIZ WEBHOOK] ==========================================`);
-        return { status: 'created', id: created.id, externalId, score: percentage };
+        console.log(`[QUIZ WEBHOOK] ✓ Quiz attempt saved: DB ID=${created.id}, score=${percentage}%`);
+        return { status: 'created', id: created.id, dedupeKey, score: percentage };
     } catch (error) {
-        console.error(`[QUIZ WEBHOOK] ❌❌❌ FATAL ERROR - Failed to save quiz attempt:`, error);
-        console.error(`[QUIZ WEBHOOK] Error details:`, error.message);
-        console.error(`[QUIZ WEBHOOK] Error stack:`, error.stack);
+        console.error(`[QUIZ WEBHOOK] ❌ Failed to save quiz attempt:`, error);
         throw error;
     }
 }
 
 async function handleUserSignin(base44, payload) {
-    const { user_id, email, occurred_at } = payload;
+    const { id: webhook_id, user_id, email, first_name, last_name, occurred_at } = payload;
 
     console.log(`[WEBHOOK] Processing user.signin for user ${user_id}, email ${email}`);
 
@@ -255,8 +225,38 @@ async function handleUserSignin(base44, payload) {
         return { status: 'error', reason: 'missing_fields' };
     }
 
-    console.log(`[WEBHOOK] ✓ User signin tracked: user=${user_id}, email=${email}, time=${occurred_at}`);
-    
-    // Login tracking handled by getStudents function via Thinkific API
-    return { status: 'logged', userId: user_id, email };
+    const occurredAt = occurred_at || new Date().toISOString();
+    const dedupeKey = await createDedupeKey('signin', user_id, null, null, occurredAt);
+
+    // Check if already exists
+    const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
+    if (existing.length > 0) {
+        console.log('[WEBHOOK] ⚠️ Signin already exists, skipping (duplicate)');
+        return { status: 'duplicate', dedupeKey };
+    }
+
+    try {
+        await base44.asServiceRole.entities.ActivityEvent.create({
+            studentUserId: String(user_id),
+            studentEmail: email,
+            studentDisplayName: `${first_name || ''} ${last_name || ''}`.trim(),
+            courseId: '',
+            courseName: '',
+            eventType: 'user_signin',
+            contentId: '',
+            contentTitle: '',
+            occurredAt,
+            source: 'webhook',
+            rawEventId: String(webhook_id || ''),
+            rawPayload: JSON.stringify(payload),
+            dedupeKey,
+            metadata: {}
+        });
+
+        console.log(`[WEBHOOK] ✓ User signin tracked`);
+        return { status: 'logged', userId: user_id, email };
+    } catch (error) {
+        console.error(`[WEBHOOK] ❌ Failed to track signin:`, error);
+        return { status: 'error', reason: error.message };
+    }
 }

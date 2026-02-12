@@ -50,12 +50,14 @@
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import Verify from './pages/Verify';
+import WebhookDebug from './pages/WebhookDebug';
 
 
 export const PAGES = {
     "Dashboard": Dashboard,
     "Home": Home,
     "Verify": Verify,
+    "WebhookDebug": WebhookDebug,
 }
 
 export const pagesConfig = {

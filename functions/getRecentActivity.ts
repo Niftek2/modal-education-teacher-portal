@@ -12,27 +12,29 @@ async function verifySession(token) {
 
 Deno.serve(async (req) => {
     try {
-        const { sessionToken } = await req.json();
+        const { limit = 50, sessionToken } = await req.json();
         await verifySession(sessionToken);
 
         const base44 = createClientFromRequest(req);
 
-        // Get recent webhook logs
-        const logs = await base44.asServiceRole.entities.WebhookEventLog.list('-timestamp', 50);
+        // Get recent activity events
+        const events = await base44.asServiceRole.entities.ActivityEvent.list('-occurredAt', limit);
 
         return Response.json({
-            logs: logs.map(log => ({
-                id: log.id,
-                timestamp: log.timestamp,
-                topic: log.topic,
-                status: log.status,
-                errorMessage: log.errorMessage,
-                rawPayload: log.rawPayload
+            events: events.map(event => ({
+                id: event.id,
+                studentEmail: event.studentEmail,
+                studentDisplayName: event.studentDisplayName,
+                courseName: event.courseName,
+                eventType: event.eventType,
+                contentTitle: event.contentTitle,
+                occurredAt: event.occurredAt,
+                source: event.source
             }))
         });
 
     } catch (error) {
-        console.error('[DEBUG WEBHOOKS] Error:', error);
+        console.error('[GET RECENT ACTIVITY] Error:', error);
         return Response.json({ 
             error: error.message
         }, { status: 500 });

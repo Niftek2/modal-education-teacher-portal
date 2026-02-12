@@ -4,9 +4,7 @@ import * as jose from 'npm:jose@5.2.0';
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
 async function verifySession(token) {
-    if (!token) {
-        throw new Error('Unauthorized');
-    }
+    if (!token) throw new Error('Unauthorized');
     const secret = new TextEncoder().encode(JWT_SECRET);
     const { payload } = await jose.jwtVerify(token, secret);
     return payload;
@@ -14,51 +12,52 @@ async function verifySession(token) {
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const { studentId, sessionToken } = await req.json();
+        const { studentEmail, sessionToken } = await req.json();
         
         await verifySession(sessionToken);
 
-        if (!studentId) {
-            return Response.json({ error: 'Student ID required' }, { status: 400 });
+        if (!studentEmail) {
+            return Response.json({ error: 'Student email required' }, { status: 400 });
         }
 
-        console.log(`[ACTIVITY] Fetching activity for student: ${studentId}`);
+        const base44 = createClientFromRequest(req);
 
-        // Get quiz completions
-        const quizzes = await base44.asServiceRole.entities.QuizCompletion.filter({
-            studentId: String(studentId)
-        }, '-completedAt', 1000);
+        // Get all activity events for this student
+        const events = await base44.asServiceRole.entities.ActivityEvent.filter(
+            { studentEmail },
+            '-occurredAt',
+            100
+        );
 
-        // Get lesson completions
-        const lessons = await base44.asServiceRole.entities.LessonCompletion.filter({
-            studentId: String(studentId)
-        }, '-completedAt', 1000);
+        // Format for display
+        const formattedEvents = events.map(event => {
+            const metadata = typeof event.metadata === 'string' 
+                ? JSON.parse(event.metadata) 
+                : (event.metadata || {});
 
-        console.log(`[ACTIVITY] Found ${quizzes.length} quizzes, ${lessons.length} lessons`);
+            return {
+                id: event.id,
+                type: event.eventType,
+                courseName: event.courseName,
+                contentTitle: event.contentTitle,
+                occurredAt: event.occurredAt,
+                source: event.source,
+                score: metadata.score,
+                percentage: metadata.percentage,
+                percentageCompleted: metadata.percentageCompleted
+            };
+        });
 
         return Response.json({
-            quizzes: quizzes.map(q => ({
-                id: q.id,
-                quizName: q.quizName,
-                courseName: q.courseName,
-                score: q.score,
-                maxScore: q.maxScore,
-                percentage: q.percentage,
-                attemptNumber: q.attemptNumber,
-                completedAt: q.completedAt,
-                timeSpentSeconds: q.timeSpentSeconds
-            })),
-            lessons: lessons.map(l => ({
-                id: l.id,
-                lessonName: l.lessonName,
-                courseName: l.courseName,
-                completedAt: l.completedAt
-            }))
+            student: studentEmail,
+            totalEvents: formattedEvents.length,
+            events: formattedEvents
         });
 
     } catch (error) {
-        console.error('[ACTIVITY] Error:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        console.error('[GET ACTIVITY] Error:', error);
+        return Response.json({ 
+            error: error.message
+        }, { status: 500 });
     }
 });

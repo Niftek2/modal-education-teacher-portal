@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Plus, Search, Download, AlertCircle, RefreshCw } from 'lucide-react';
+import { LogOut, Plus, Search, Download, AlertCircle, RefreshCw, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import StudentTable from '../components/StudentTable';
 import StudentDetail from '../components/StudentDetail';
 import AddStudentModal from '../components/AddStudentModal';
 import { api } from '@/components/api';
+import { createPageUrl } from '@/utils';
 
 export default function Dashboard() {
     const [teacher, setTeacher] = useState(null);
@@ -116,7 +117,7 @@ export default function Dashboard() {
             setSyncingQuizzes(true);
             const sessionToken = localStorage.getItem('modal_math_session');
             
-            const result = await api.call('syncStudentActivity', {
+            const result = await api.call('syncActivityBackfill', {
                 groupId: group.id,
                 sessionToken
             }, sessionToken);
@@ -126,7 +127,7 @@ export default function Dashboard() {
             // Reload dashboard to show new data
             await loadDashboard(sessionToken);
             
-            alert(result.message || `Success! Imported ${result.lessonsImported} lessons and ${result.quizzesImported} quizzes for ${result.studentsProcessed} students.`);
+            alert(result.message || `Success! Imported ${result.eventsImported} activity events for ${result.studentsProcessed} students.`);
         } catch (error) {
             console.error('Failed to sync data:', error);
             alert(error.message || 'Sync failed. Please try again.');
@@ -174,14 +175,24 @@ export default function Dashboard() {
                             {teacher?.firstName} {teacher?.lastName} · {group?.name}
                         </p>
                     </div>
-                    <Button
-                        onClick={handleLogout}
-                        variant="ghost"
-                        className="text-gray-600 hover:text-black"
-                    >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Logout
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button
+                            onClick={() => navigate(createPageUrl('WebhookDebug'))}
+                            variant="ghost"
+                            className="text-gray-600 hover:text-black"
+                        >
+                            <Bug className="w-4 h-4 mr-2" />
+                            Webhooks
+                        </Button>
+                        <Button
+                            onClick={handleLogout}
+                            variant="ghost"
+                            className="text-gray-600 hover:text-black"
+                        >
+                            <LogOut className="w-4 h-4 mr-2" />
+                            Logout
+                        </Button>
+                    </div>
                 </div>
             </header>
 
@@ -234,7 +245,7 @@ export default function Dashboard() {
                              className="border-gray-300"
                          >
                              <RefreshCw className={`w-4 h-4 mr-2 ${syncingQuizzes ? 'animate-spin' : ''}`} />
-                             {syncingQuizzes ? 'Syncing...' : 'Sync Quiz Data'}
+                             {syncingQuizzes ? 'Syncing...' : 'Sync Activity'}
                          </Button>
                          <Button
                              onClick={exportToCSV}
