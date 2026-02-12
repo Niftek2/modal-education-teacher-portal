@@ -11,6 +11,18 @@ async function findThinkificUser(email) {
     return await thinkific.findUserByEmail(email);
 }
 
+async function isThinkificAdmin(userId) {
+    // Check if user is a Thinkific admin
+    try {
+        const user = await thinkific.getUser(userId);
+        console.log('User role:', user.role);
+        return user.role === 'admin';
+    } catch (error) {
+        console.log('Could not fetch user role:', error.message);
+        return false;
+    }
+}
+
 async function verifyClassroomEnrollment(userId) {
     // Check if teacher is enrolled in the "your classroom" course using SDK
     const enrollments = await thinkific.listEnrollments({
