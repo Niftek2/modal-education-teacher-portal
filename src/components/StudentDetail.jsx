@@ -107,11 +107,10 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     };
 
     const getSortedQuizzes = () => {
-        const sorted = [...quizzes];
         if (quizSort === 'level') {
-            return sorted.sort((a, b) => a.level.localeCompare(b.level));
+            return [...quizzes].sort((a, b) => a.level.localeCompare(b.level));
         }
-        return sorted.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+        return quizzes;
     };
 
     const getSortedLessons = () => {
