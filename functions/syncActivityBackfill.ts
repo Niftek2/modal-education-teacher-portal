@@ -79,11 +79,103 @@ Deno.serve(async (req) => {
                 
                 let studentEventsImported = 0;
 
+                // Fetch all completed contents via GraphQL with pagination
+                console.log(`[SYNC]   Fetching lesson completions via GraphQL...`);
+                try {
+                    const completedContents = await ThinkificGraphQL.getCompletedContents(student.id, null);
+                    console.log(`[SYNC]     Fetched ${completedContents.length} completed lessons/contents`);
+                    
+                    for (const content of completedContents) {
+                        if (content.type === 'lesson' && content.completedAt) {
+                            const dedupeKey = await createDedupeKey(
+                                'lesson',
+                                student.id,
+                                content.id,
+                                content.courseName,
+                                content.completedAt
+                            );
+                            
+                            const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
+                            if (existing.length === 0) {
+                                await base44.asServiceRole.entities.ActivityEvent.create({
+                                    studentUserId: String(student.id),
+                                    studentEmail: student.email,
+                                    studentDisplayName: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+                                    courseId: '',
+                                    courseName: content.courseName || '',
+                                    eventType: 'lesson_completed',
+                                    contentId: String(content.id),
+                                    contentTitle: content.name || 'Unknown Lesson',
+                                    occurredAt: content.completedAt,
+                                    source: 'rest_backfill',
+                                    rawEventId: '',
+                                    rawPayload: JSON.stringify(content),
+                                    dedupeKey,
+                                    metadata: {}
+                                });
+                                studentEventsImported++;
+                                console.log(`[SYNC]       ✓ Lesson: ${content.name}`);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error(`[SYNC]     Error fetching GraphQL lesson completions:`, error.message);
+                }
+
+                // Fetch quiz attempts via GraphQL
+                console.log(`[SYNC]   Fetching quiz attempts via GraphQL...`);
+                try {
+                    const quizAttempts = await ThinkificGraphQL.getQuizAttempts(student.id, null);
+                    console.log(`[SYNC]     Fetched ${quizAttempts.length} quiz attempts`);
+                    
+                    for (const attempt of quizAttempts) {
+                        if (attempt.submittedAt) {
+                            const dedupeKey = await createDedupeKey(
+                                'quiz',
+                                student.id,
+                                attempt.quiz?.id,
+                                attempt.courseName,
+                                attempt.submittedAt
+                            );
+                            
+                            const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
+                            if (existing.length === 0) {
+                                await base44.asServiceRole.entities.ActivityEvent.create({
+                                    studentUserId: String(student.id),
+                                    studentEmail: student.email,
+                                    studentDisplayName: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+                                    courseId: '',
+                                    courseName: attempt.courseName || '',
+                                    eventType: 'quiz_attempted',
+                                    contentId: String(attempt.quiz?.id || ''),
+                                    contentTitle: attempt.quiz?.name || 'Unknown Quiz',
+                                    occurredAt: attempt.submittedAt,
+                                    source: 'rest_backfill',
+                                    rawEventId: '',
+                                    rawPayload: JSON.stringify(attempt),
+                                    dedupeKey,
+                                    metadata: {
+                                        score: attempt.score,
+                                        maxScore: attempt.maxScore,
+                                        percentage: attempt.percentageScore,
+                                        attemptNumber: attempt.attemptNumber || 1,
+                                        timeSpentSeconds: attempt.timeSpentSeconds || 0
+                                    }
+                                });
+                                studentEventsImported++;
+                                console.log(`[SYNC]       ✓ Quiz: ${attempt.quiz?.name} (${attempt.percentageScore}%)`);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error(`[SYNC]     Error fetching GraphQL quiz attempts:`, error.message);
+                }
+
                 for (const enrollment of enrollments) {
                     const courseId = enrollment.course_id;
                     const courseName = enrollment.course_name || `Course ${courseId}`;
 
-                    // Try to get progress data
+                    // Try to get progress data (REST fallback)
                     try {
                         const progressData = await makeRequest(
                             `course_progresses?query[user_id]=${student.id}&query[course_id]=${courseId}`
@@ -94,45 +186,6 @@ Deno.serve(async (req) => {
                             console.log(`[SYNC]     Course ${courseName}: progress data available`);
                             console.log(`[SYNC]       completed_chapters: ${progress.completed_chapter_ids?.length || 0}`);
                             console.log(`[SYNC]       percentage: ${progress.percentage_completed || 0}%`);
-                            
-                            // Store enrollment progress event
-                            if (progress.percentage_completed > 0) {
-                                const occurredAt = progress.updated_at || new Date().toISOString();
-                                const dedupeKey = await createDedupeKey(
-                                    'progress',
-                                    student.id,
-                                    null,
-                                    courseId,
-                                    occurredAt
-                                );
-
-                                const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
-                                if (existing.length === 0) {
-                                    await base44.asServiceRole.entities.ActivityEvent.create({
-                                        studentUserId: String(student.id),
-                                        studentEmail: student.email,
-                                        studentDisplayName: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
-                                        courseId: String(courseId),
-                                        courseName,
-                                        eventType: 'enrollment_progress',
-                                        contentId: '',
-                                        contentTitle: '',
-                                        occurredAt,
-                                        source: 'rest_backfill',
-                                        rawEventId: '',
-                                        rawPayload: JSON.stringify(progress),
-                                        dedupeKey,
-                                        metadata: {
-                                            percentageCompleted: progress.percentage_completed,
-                                            completedChapters: progress.completed_chapter_ids?.length || 0
-                                        }
-                                    });
-                                    studentEventsImported++;
-                                    console.log(`[SYNC]       ✓ Imported progress event`);
-                                }
-                            }
-                        } else {
-                            console.log(`[SYNC]     Course ${courseName}: no progress data returned`);
                         }
                     } catch (error) {
                         console.error(`[SYNC]     Error fetching progress for ${courseName}:`, error.message);
