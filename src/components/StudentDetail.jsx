@@ -72,6 +72,10 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
         return new Date(dateString).toLocaleDateString() + ' ' + new Date(dateString).toLocaleTimeString();
     };
 
+    const handlePrint = () => {
+        window.print();
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
