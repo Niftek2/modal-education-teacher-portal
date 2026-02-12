@@ -10,6 +10,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const [lessons, setLessons] = useState([]);
     const [activeTab, setActiveTab] = useState('quizzes');
     const [loading, setLoading] = useState(false);
+    const [quizSort, setQuizSort] = useState('time');
+    const [lessonSort, setLessonSort] = useState('time');
 
     useEffect(() => {
         if (isOpen && student) {
@@ -31,19 +33,20 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const studentEvents = events.filter(e => e.studentEmail?.toLowerCase() === student.email?.toLowerCase());
             
             // Split into quizzes and lessons
-            setQuizzes(studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => ({
+            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => ({
                 quizName: e.contentTitle || 'Unknown Quiz',
                 courseName: e.courseName || 'Unknown Course',
+                level: e.metadata?.level || 'Unknown',
                 score: e.metadata?.grade || 0,
                 maxScore: 100,
                 percentage: e.metadata?.grade || 0,
                 completedAt: e.occurredAt,
                 attemptNumber: 1,
                 timeSpentSeconds: 0,
-                source: e.source,
                 correctCount: e.metadata?.correctCount,
                 incorrectCount: e.metadata?.incorrectCount
-            })));
+            }));
+            setQuizzes(quizList.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt)));
 
             const lessonEvents = studentEvents
                 .filter(e => e.eventType === 'lesson_completed')
@@ -78,6 +81,22 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
 
     const handlePrint = () => {
         window.print();
+    };
+
+    const getSortedQuizzes = () => {
+        const sorted = [...quizzes];
+        if (quizSort === 'level') {
+            return sorted.sort((a, b) => a.level.localeCompare(b.level));
+        }
+        return sorted.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+    };
+
+    const getSortedLessons = () => {
+        const sorted = [...lessons];
+        if (lessonSort === 'level') {
+            return sorted.sort((a, b) => (a.level || '').localeCompare(b.level || ''));
+        }
+        return sorted.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
     };
 
     return (
@@ -133,7 +152,30 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                     No quiz attempts yet
                                 </div>
                             ) : (
-                                <Table>
+                                <div className="space-y-4">
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setQuizSort('time')}
+                                            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                                                quizSort === 'time'
+                                                    ? 'bg-purple-900 text-white'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            Sort by Time
+                                        </button>
+                                        <button
+                                            onClick={() => setQuizSort('level')}
+                                            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                                                quizSort === 'level'
+                                                    ? 'bg-purple-900 text-white'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            Sort by Level
+                                        </button>
+                                    </div>
+                                    <Table>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Quiz</TableHead>
@@ -145,10 +187,10 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {quizzes.map((quiz) => (
+                                        {getSortedQuizzes().map((quiz) => (
                                             <TableRow key={`${quiz.id}-${quiz.attemptNumber}`}>
                                                 <TableCell className="font-medium">{quiz.quizName}</TableCell>
-                                                <TableCell className="text-sm text-gray-600">{quiz.courseName}</TableCell>
+                                                <TableCell className="text-sm text-gray-600">{quiz.level}</TableCell>
                                                 <TableCell className="text-center">{quiz.attemptNumber}</TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col gap-1">
@@ -165,9 +207,6 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                                 </TableCell>
                                                 <TableCell className="text-sm">
                                                     {formatDate(quiz.completedAt)}
-                                                    <div className="text-xs text-gray-500 mt-1">
-                                                        {quiz.source === 'webhook' ? '📡 Live' : '📦 Backfill'}
-                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="text-sm">
                                                     <div className="flex items-center gap-1 text-gray-600">
@@ -179,6 +218,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                         ))}
                                     </TableBody>
                                 </Table>
+                                </div>
                             )
                         ) : (
                             lessons.length === 0 ? (
@@ -186,29 +226,50 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                     No lessons completed yet
                                 </div>
                             ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Lesson</TableHead>
-                                            <TableHead>Course</TableHead>
-                                            <TableHead>Completed</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {lessons.map((lesson) => (
-                                            <TableRow key={lesson.id}>
-                                                <TableCell className="font-medium">{lesson.lessonName}</TableCell>
-                                                <TableCell className="text-sm text-gray-600">{lesson.courseName}</TableCell>
-                                                <TableCell className="text-sm">
-                                                    {formatDate(lesson.completedAt)}
-                                                    <div className="text-xs text-gray-500 mt-1">
-                                                        {lesson.source === 'webhook' ? '📡 Live' : '📦 Backfill'}
-                                                    </div>
-                                                </TableCell>
+                                <div className="space-y-4">
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setLessonSort('time')}
+                                            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                                                lessonSort === 'time'
+                                                    ? 'bg-purple-900 text-white'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            Sort by Time
+                                        </button>
+                                        <button
+                                            onClick={() => setLessonSort('level')}
+                                            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                                                lessonSort === 'level'
+                                                    ? 'bg-purple-900 text-white'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            Sort by Level
+                                        </button>
+                                    </div>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Lesson</TableHead>
+                                                <TableHead>Course</TableHead>
+                                                <TableHead>Completed</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {getSortedLessons().map((lesson) => (
+                                                <TableRow key={lesson.id}>
+                                                    <TableCell className="font-medium">{lesson.lessonName}</TableCell>
+                                                    <TableCell className="text-sm text-gray-600">{lesson.courseName}</TableCell>
+                                                    <TableCell className="text-sm">
+                                                        {formatDate(lesson.completedAt)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             )
                         )}
                     </div>
