@@ -22,98 +22,22 @@ async function createExternalId(userId: string, quizId: string, attemptId: strin
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
 }
 
-async function queryGraphQL(query: string, variables: any = {}) {
-    const url = `https://${THINKIFIC_SUBDOMAIN}.thinkific.com/api/public/v1/graphql`;
-    
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-        },
-        body: JSON.stringify({ query, variables })
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`GraphQL request failed (${response.status}): ${errorText}`);
-    }
-
-    const result = await response.json();
-    
-    if (result.errors) {
-        console.error('[GRAPHQL] Errors:', JSON.stringify(result.errors));
-        throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
-    }
-
-    return result.data;
+async function getQuizAttemptsViaWebhookHistory(base44: any, userId: string) {
+    // Thinkific doesn't expose quiz history via REST or GraphQL
+    // Only available via webhooks or manual export
+    // Return empty for now - data comes from webhooks going forward
+    console.log(`[BACKFILL] Quiz history not available via API for user ${userId}`);
+    return [];
 }
 
-async function getStudentQuizResults(userId: string) {
-    const query = `
-        query GetUserQuizResults($userId: ID!, $cursor: String) {
-            user(id: $userId) {
-                id
-                email
-                firstName
-                lastName
-                quizAttempts(first: 100, after: $cursor) {
-                    edges {
-                        node {
-                            id
-                            score
-                            maxScore
-                            percentageScore
-                            attemptNumber
-                            completedAt
-                            timeSpent
-                            quiz {
-                                id
-                                name
-                                lesson {
-                                    id
-                                    name
-                                }
-                            }
-                            course {
-                                id
-                                name
-                            }
-                        }
-                    }
-                    pageInfo {
-                        hasNextPage
-                        endCursor
-                    }
-                }
-            }
-        }
-    `;
-
-    let allAttempts: any[] = [];
-    let cursor = null;
-    let hasNextPage = true;
-
-    while (hasNextPage) {
-        const data = await queryGraphQL(query, { userId, cursor });
-        
-        if (!data?.user?.quizAttempts) {
-            console.log(`[GRAPHQL] No quiz attempts found for user ${userId}`);
-            break;
-        }
-
-        const { edges, pageInfo } = data.user.quizAttempts;
-        allAttempts = allAttempts.concat(edges.map((edge: any) => edge.node));
-        
-        hasNextPage = pageInfo.hasNextPage;
-        cursor = pageInfo.endCursor;
-    }
-
-    return {
-        user: data?.user,
-        attempts: allAttempts
-    };
+async function checkExistingQuizData(base44: any, studentId: string) {
+    // Check what quiz data already exists from webhooks
+    const existing = await base44.asServiceRole.entities.QuizCompletion.filter({
+        studentId: String(studentId)
+    }, '-completedAt', 100);
+    
+    console.log(`[BACKFILL] Found ${existing.length} existing quiz attempts for student ${studentId}`);
+    return existing;
 }
 
 Deno.serve(async (req) => {
@@ -152,63 +76,15 @@ Deno.serve(async (req) => {
 
         for (const student of students) {
             studentsProcessed++;
-            console.log(`[GRAPHQL BACKFILL] Processing ${studentsProcessed}/${students.length}: ${student.email}`);
+            console.log(`[BACKFILL] Processing ${studentsProcessed}/${students.length}: ${student.email}`);
 
             try {
-                const { user: userData, attempts } = await getStudentQuizResults(student.id);
-
-                console.log(`[GRAPHQL BACKFILL] Found ${attempts.length} quiz attempts for ${student.email}`);
-
-                for (const attempt of attempts) {
-                    // Create stable external ID
-                    const externalId = await createExternalId(
-                        String(student.id),
-                        String(attempt.quiz?.id || 'unknown'),
-                        String(attempt.id),
-                        attempt.completedAt
-                    );
-
-                    // Check if already exists
-                    const existing = await base44.asServiceRole.entities.QuizCompletion.filter({
-                        externalId
-                    });
-
-                    if (existing.length > 0) {
-                        totalQuizzesSkipped++;
-                        continue;
-                    }
-
-                    // Calculate percentage
-                    const score = attempt.score || 0;
-                    const maxScore = attempt.maxScore || 100;
-                    const percentage = attempt.percentageScore || (maxScore > 0 ? Math.round((score / maxScore) * 100) : 0);
-
-                    // Create quiz completion record
-                    await base44.asServiceRole.entities.QuizCompletion.create({
-                        externalId,
-                        studentId: String(student.id),
-                        studentEmail: student.email,
-                        studentName: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
-                        quizId: String(attempt.quiz?.id || 'unknown'),
-                        quizName: attempt.quiz?.name || 'Unknown Quiz',
-                        courseId: String(attempt.course?.id || ''),
-                        courseName: attempt.course?.name || '',
-                        score,
-                        maxScore,
-                        percentage,
-                        attemptNumber: attempt.attemptNumber || 1,
-                        completedAt: attempt.completedAt || new Date().toISOString(),
-                        timeSpentSeconds: attempt.timeSpent || 0
-                    });
-
-                    totalQuizzesAdded++;
-                }
-
-                // Small delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Check what data already exists from webhooks
+                const existingQuizzes = await checkExistingQuizData(base44, student.id);
+                totalQuizzesSkipped += existingQuizzes.length;
 
             } catch (error: any) {
-                console.error(`[GRAPHQL BACKFILL] Error for ${student.email}:`, error.message);
+                console.error(`[BACKFILL] Error for ${student.email}:`, error.message);
                 errors.push({
                     student: student.email,
                     error: error.message
@@ -216,15 +92,18 @@ Deno.serve(async (req) => {
             }
         }
 
-        console.log(`[GRAPHQL BACKFILL] Complete: ${totalQuizzesAdded} added, ${totalQuizzesSkipped} skipped`);
+        console.log(`[BACKFILL] Complete: ${totalQuizzesSkipped} existing quiz records found`);
 
         return Response.json({
             success: true,
             studentsProcessed,
-            quizzesAdded: totalQuizzesAdded,
+            quizzesAdded: 0,
             quizzesSkipped: totalQuizzesSkipped,
+            existingRecords: totalQuizzesSkipped,
             errors: errors.length > 0 ? errors : undefined,
-            message: `Backfilled ${totalQuizzesAdded} quiz attempts for ${studentsProcessed} students via GraphQL`
+            message: totalQuizzesSkipped > 0 
+                ? `Found ${totalQuizzesSkipped} quiz attempts already captured via webhooks. Historical data unavailable via Thinkific API - only new attempts are captured.`
+                : `No quiz attempts found yet. New quiz attempts will be automatically captured via webhooks.`
         });
 
     } catch (error: any) {
