@@ -155,9 +155,10 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     const courseId = payload?.course?.id;
     const courseName = payload?.course?.name;
     const resultId = payload?.result_id;
-    const grade = payload?.grade;
+    const gradePercent = payload?.grade;
     const correctCount = payload?.correct_count;
     const incorrectCount = payload?.incorrect_count;
+    const attempts = payload?.attempts;
 
     console.log(`[QUIZ WEBHOOK] Processing quiz.attempted: student=${studentEmail}, quiz=${quizId}, resultId=${resultId}`);
 
