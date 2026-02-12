@@ -261,14 +261,24 @@ export default function Dashboard() {
                     </div>
                     <div className="flex gap-2 flex-wrap">
                         {teacher?.role === 'admin' && (
-                            <Button
-                                onClick={() => setShowCSVImport(true)}
-                                variant="outline"
-                                className="border-gray-300"
-                            >
-                                <Plus className="w-4 h-4 mr-2" />
-                                Import CSV
-                            </Button>
+                            <>
+                                <Button
+                                    onClick={() => setShowQuizImport(true)}
+                                    variant="outline"
+                                    className="border-gray-300"
+                                >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Import Quiz Data
+                                </Button>
+                                <Button
+                                    onClick={() => setShowCSVImport(true)}
+                                    variant="outline"
+                                    className="border-gray-300"
+                                >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Import CSV
+                                </Button>
+                            </>
                         )}
                         <Button
                             onClick={exportToCSV}
