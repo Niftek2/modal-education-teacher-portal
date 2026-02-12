@@ -42,15 +42,16 @@ async function getTeacherStudentEmails(teacherId) {
         
         const isMember = members.some(m => String(m.id) === String(teacherId));
         if (isMember) {
+            // Include all members in teacher's groups, not just modalmath.com
             members.forEach(m => {
-                if (m.email?.toLowerCase().endsWith('@modalmath.com')) {
+                if (m.email) {
                     studentEmails.add(m.email.toLowerCase());
                 }
             });
         }
     }
     
-    return Array.from(studentEmails);
+    return Array.from(studentEmails).sort();
 }
 
 Deno.serve(async (req) => {
