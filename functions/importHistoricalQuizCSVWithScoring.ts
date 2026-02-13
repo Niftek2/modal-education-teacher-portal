@@ -11,10 +11,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
  *   - Date Completed (UTC) (maps to occurredAt)
  *   - Total Number of Questions (optional)
  *   - Total Correct (optional, for correctCount)
- *   - % Score (maps to scorePercent, handles "70" or "70%")
+ *   - % Score or variant (maps to scorePercent, handles "70" or "70%")
  * 
  * Creates quiz_attempted ActivityEvent with:
- *   - scorePercent: parsed from "% Score"
+ *   - scorePercent: parsed from "% Score" or variant
  *   - attemptNumber: computed deterministically by grouping
  *   - correctCount/incorrectCount: derived from "Total Correct"
  */
@@ -45,10 +45,51 @@ function parseCSVLine(line) {
     return result;
 }
 
-function parseScore(scoreStr) {
-    if (!scoreStr) return null;
-    const num = parseFloat(scoreStr.toString().replace('%', '').trim());
-    return Number.isFinite(num) ? num : null;
+/**
+ * Find column by name variants (case-insensitive, handles spaces)
+ */
+function getColumn(row, headerIndex, candidateNames) {
+    const normalized = Object.fromEntries(
+        Object.entries(headerIndex).map(([k, v]) => [
+            k.toLowerCase().trim().replace(/\s+/g, ' '),
+            v
+        ])
+    );
+    
+    for (const candidate of candidateNames) {
+        const key = candidate.toLowerCase().trim().replace(/\s+/g, ' ');
+        if (normalized[key] !== undefined) {
+            return normalized[key];
+        }
+    }
+    return -1;
+}
+
+/**
+ * Parse percent value: "70%", "70", "0.7", "", etc.
+ */
+function parsePercent(value) {
+    if (!value) return null;
+    
+    const str = String(value).trim();
+    if (str === '' || str.toLowerCase() === 'n/a') return null;
+    
+    // Check if ends with %
+    const hasPercent = str.endsWith('%');
+    const numStr = str.replace('%', '').replace(/,/g, '').trim();
+    
+    const num = parseFloat(numStr);
+    if (!Number.isFinite(num)) return null;
+    
+    // If 0-1 and no % sign, treat as fraction
+    let result = num;
+    if (!hasPercent && num >= 0 && num <= 1) {
+        result = num * 100;
+    }
+    
+    // Clamp to 0-100
+    result = Math.max(0, Math.min(100, result));
+    return result;
 }
 
 Deno.serve(async (req) => {
