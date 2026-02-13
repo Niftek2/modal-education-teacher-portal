@@ -35,27 +35,48 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             console.log(`[StudentDetail] Filtered to ${studentEvents.length} events for ${student.email}`);
             
             // Split into quizzes and lessons
-            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => {
-                // Primary source: top-level scorePercent (new canonical field)
-                let percentage = null;
-                if (Number.isFinite(e.scorePercent)) {
-                    percentage = Number(e.scorePercent);
+            const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted');
+            
+            // Group by quiz and deduplicate: prefer webhook events (after 2/11/2026) which have scorePercent
+            const quizMap = new Map();
+            quizAttempts.forEach(e => {
+                const groupKey = e.contentId && e.contentId.trim() ? e.contentId : (e.contentTitle || 'Unknown').toLowerCase();
+                if (!quizMap.has(groupKey)) {
+                    quizMap.set(groupKey, []);
                 }
+                quizMap.get(groupKey).push(e);
+            });
+            
+            const quizList = [];
+            quizMap.forEach((events) => {
+                // For each quiz, separate webhook (with scores) from CSV (without scores)
+                const webhookEvents = events.filter(e => Number.isFinite(e.scorePercent));
+                const csvEvents = events.filter(e => !Number.isFinite(e.scorePercent));
                 
-                const metadata = e.metadata || {};
-                const courseName = e.courseName && e.courseName.trim() ? e.courseName : 'Unknown Course';
+                // Use webhook events if available, otherwise CSV events
+                const preferredEvents = webhookEvents.length > 0 ? webhookEvents : csvEvents;
                 
-                return {
-                    quizName: e.contentTitle || 'Unknown Quiz',
-                    quizId: e.contentId || null,
-                    courseName: courseName,
-                    level: courseName,
-                    percentage: percentage,
-                    completedAt: e.occurredAt,
-                    attempts: metadata.attemptNumber,
-                    correctCount: metadata.correctCount,
-                    incorrectCount: metadata.incorrectCount
-                };
+                preferredEvents.forEach(e => {
+                    let percentage = null;
+                    if (Number.isFinite(e.scorePercent)) {
+                        percentage = Number(e.scorePercent);
+                    }
+                    
+                    const metadata = e.metadata || {};
+                    const courseName = e.courseName && e.courseName.trim() ? e.courseName : 'Unknown Course';
+                    
+                    quizList.push({
+                        quizName: e.contentTitle || 'Unknown Quiz',
+                        quizId: e.contentId || null,
+                        courseName: courseName,
+                        level: courseName,
+                        percentage: percentage,
+                        completedAt: e.occurredAt,
+                        attempts: metadata.attemptNumber,
+                        correctCount: metadata.correctCount,
+                        incorrectCount: metadata.incorrectCount
+                    });
+                });
             });
             
             console.log(`[StudentDetail] Found ${quizList.length} quiz attempts:`, quizList.slice(0, 3));
