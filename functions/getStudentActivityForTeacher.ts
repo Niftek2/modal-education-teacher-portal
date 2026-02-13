@@ -1,3 +1,5 @@
+// 🔒 PRODUCTION LOCKED – DO NOT MODIFY WITHOUT EXPLICIT APPROVAL
+
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import * as jose from 'npm:jose@5.2.0';
 import * as thinkific from './lib/thinkificClient.js';
