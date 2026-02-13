@@ -37,10 +37,11 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             // Split into quizzes and lessons
             const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted');
             
-            // Group by quiz and deduplicate: prefer webhook events (after 2/11/2026) which have scorePercent
+            // Group by quiz (contentId + title to handle both webhook and CSV records)
             const quizMap = new Map();
             quizAttempts.forEach(e => {
-                const groupKey = e.contentId && e.contentId.trim() ? e.contentId : (e.contentTitle || 'Unknown').toLowerCase();
+                // Group by contentId if available, otherwise by title
+                const groupKey = e.contentId ? String(e.contentId) : (e.contentTitle || 'Unknown').toLowerCase();
                 if (!quizMap.has(groupKey)) {
                     quizMap.set(groupKey, []);
                 }
@@ -48,15 +49,23 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             });
             
             const quizList = [];
-            quizMap.forEach((events) => {
-                // For each quiz, separate webhook (with scores) from CSV (without scores)
-                const webhookEvents = events.filter(e => Number.isFinite(e.scorePercent));
-                const csvEvents = events.filter(e => !Number.isFinite(e.scorePercent));
+            quizMap.forEach((eventsInGroup) => {
+                // For each quiz, prefer webhook records (2/11/2026 cutoff: anything after uses webhooks with scorePercent)
+                const cutoffDate = new Date('2026-02-12T00:00:00Z'); // After 2/11/2026
+                const webhookRecords = eventsInGroup.filter(e => {
+                    const eventDate = new Date(e.occurredAt);
+                    return eventDate >= cutoffDate && Number.isFinite(e.scorePercent);
+                });
                 
-                // Use webhook events if available, otherwise CSV events
-                const preferredEvents = webhookEvents.length > 0 ? webhookEvents : csvEvents;
+                const csvRecords = eventsInGroup.filter(e => {
+                    const eventDate = new Date(e.occurredAt);
+                    return eventDate < cutoffDate;
+                });
                 
-                preferredEvents.forEach(e => {
+                // Use webhook records if available, otherwise CSV records
+                const recordsToUse = webhookRecords.length > 0 ? webhookRecords : csvRecords;
+                
+                recordsToUse.forEach(e => {
                     let percentage = null;
                     if (Number.isFinite(e.scorePercent)) {
                         percentage = Number(e.scorePercent);
