@@ -273,13 +273,11 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                                                     {formatDate(quiz.completedAt)}
                                                                 </TableCell>
                                                             </TableRow>
-                                                            );
-                                                        })}
-                                                    </TableBody>
-                                                </Table>
-                                            </div>
-                                            );
-                                        })}
+                                                            )})}
+                                                            </TableBody>
+                                                            </Table>
+                                                            </div>
+                                                            )})}
                                     </div>
                                 </div>
                             )
