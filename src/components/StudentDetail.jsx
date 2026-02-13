@@ -44,25 +44,16 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     }
                 }
                 
-                // Try multiple field names for percentage
-                let percentage = metadata?.scorePercent ?? metadata?.percentage ?? metadata?.score_percent;
+                // Primary: use scorePercent from metadata (webhook stores as metadata.scorePercent)
+                let percentage = metadata?.scorePercent;
                 
-                // Fallback: calculate from score/maxScore
-                if ((percentage == null || isNaN(percentage)) && metadata?.score != null && metadata?.maxScore != null && metadata.maxScore > 0) {
-                    percentage = Math.round((metadata.score / metadata.maxScore) * 100);
-                }
-                
-                // Fallback: try rawPayload if metadata doesn't have score
-                if ((percentage == null || isNaN(percentage)) && e.rawPayload) {
+                // Fallback: try rawPayload.grade (webhook payload.grade is the percentage)
+                if (percentage == null && e.rawPayload) {
                     try {
                         const payload = typeof e.rawPayload === 'string' ? JSON.parse(e.rawPayload) : e.rawPayload;
-                        const score = payload.grade?.score ?? payload.quiz_attempt?.score;
-                        const maxScore = payload.grade?.max_score ?? payload.quiz_attempt?.max_score;
-                        if (score != null && maxScore != null && maxScore > 0) {
-                            percentage = Math.round((score / maxScore) * 100);
-                        }
+                        percentage = payload?.grade;
                     } catch (err) {
-                        console.error('Failed to parse rawPayload for score:', err);
+                        console.error('Failed to parse rawPayload:', err);
                     }
                 }
                 
@@ -73,9 +64,9 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     level: e.courseName || 'Unknown',
                     percentage: percentage,
                     completedAt: e.occurredAt,
-                    attempts: metadata?.attempts,
-                    correctCount: metadata?.correctCount ?? metadata?.correct_count,
-                    incorrectCount: metadata?.incorrectCount ?? metadata?.incorrect_count
+                    attempts: metadata?.attemptNumber,
+                    correctCount: metadata?.correctCount,
+                    incorrectCount: metadata?.incorrectCount
                 };
             });
 
