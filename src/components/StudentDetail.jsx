@@ -34,33 +34,18 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             
             // Split into quizzes and lessons
             const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted' || e.eventType === 'quiz.attempted').map(e => {
-                // Parse metadata if it's a string
-                let metadata = e.metadata || {};
-                if (typeof metadata === 'string') {
-                    try {
-                        metadata = JSON.parse(metadata);
-                    } catch {
-                        metadata = {};
-                    }
-                }
+                // Parse metadata
+                let metadata = typeof e.metadata === 'string' ? JSON.parse(e.metadata || '{}') : (e.metadata || {});
                 
-                // Extract score from multiple sources
+                // Extract score: scorePercent from metadata has priority
                 let percentage = null;
-                
-                // Primary: scorePercent from metadata
                 if (metadata.scorePercent != null) {
                     percentage = Number(metadata.scorePercent);
-                }
-                
-                // Secondary: grade from rawPayload
-                if (percentage == null && e.rawPayload) {
-                    try {
-                        const payload = typeof e.rawPayload === 'string' ? JSON.parse(e.rawPayload) : e.rawPayload;
-                        if (payload.grade != null) {
-                            percentage = Number(payload.grade);
-                        }
-                    } catch (err) {
-                        console.error('Failed to parse rawPayload:', err);
+                } else if (e.rawPayload) {
+                    // Fallback to grade from rawPayload
+                    const payload = typeof e.rawPayload === 'string' ? JSON.parse(e.rawPayload) : e.rawPayload;
+                    if (payload.grade != null) {
+                        percentage = Number(payload.grade);
                     }
                 }
                 
