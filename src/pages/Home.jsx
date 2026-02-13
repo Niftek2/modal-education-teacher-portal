@@ -133,6 +133,10 @@ export default function Home() {
                         A login link will be sent to your email. Only teachers with an active Classroom bundle can access the portal.
                     </p>
                 </div>
+
+                <p className="text-xs text-gray-500 mt-6 text-center">
+                    Don't have a teacher account? <a href="https://www.modalmath.com/teacher" target="_blank" rel="noopener noreferrer" className="text-purple-900 hover:underline font-medium">Sign up now!</a>
+                </p>
             </div>
         </div>
     );
