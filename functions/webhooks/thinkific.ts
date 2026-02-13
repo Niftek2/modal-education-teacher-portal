@@ -174,6 +174,9 @@ async function handleQuizAttempted(base44, evt, webhookId) {
                     if (lessonResponse.ok) {
                         const lessonData = await lessonResponse.json();
                         courseId = lessonData?.course_id;
+                        console.log(`[QUIZ WEBHOOK] ✓ Fetched courseId from lesson: ${courseId}`);
+                    } else {
+                        console.warn(`[QUIZ WEBHOOK] Failed to fetch lesson ${lessonId}: ${lessonResponse.status} ${lessonResponse.statusText}`);
                     }
                 }
                 
@@ -189,11 +192,14 @@ async function handleQuizAttempted(base44, evt, webhookId) {
                     if (courseResponse.ok) {
                         const courseData = await courseResponse.json();
                         courseName = courseData?.name;
+                        console.log(`[QUIZ WEBHOOK] ✓ Fetched courseName from course ${courseId}: ${courseName}`);
+                    } else {
+                        console.warn(`[QUIZ WEBHOOK] Failed to fetch course ${courseId}: ${courseResponse.status} ${courseResponse.statusText}`);
                     }
                 }
             }
         } catch (error) {
-            console.warn(`[QUIZ WEBHOOK] Failed to fetch course info for lesson ${lessonId}:`, error.message);
+            console.error(`[QUIZ WEBHOOK] ❌ Exception while fetching course info for lesson ${lessonId}:`, error.message);
         }
     }
     
