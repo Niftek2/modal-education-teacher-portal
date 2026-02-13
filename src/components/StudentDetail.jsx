@@ -33,20 +33,11 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const studentEvents = events.filter(e => e.studentEmail?.toLowerCase() === student.email?.toLowerCase());
             
             // Split into quizzes and lessons
-            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted' || e.eventType === 'quiz.attempted').map(e => {
-                // Parse metadata
-                let metadata = typeof e.metadata === 'string' ? JSON.parse(e.metadata || '{}') : (e.metadata || {});
-                
-                // Extract score: scorePercent from metadata has priority
+            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => {
+                // Primary source: top-level scorePercent (new canonical field)
                 let percentage = null;
-                if (metadata.scorePercent != null) {
-                    percentage = Number(metadata.scorePercent);
-                } else if (e.rawPayload) {
-                    // Fallback to grade from rawPayload
-                    const payload = typeof e.rawPayload === 'string' ? JSON.parse(e.rawPayload) : e.rawPayload;
-                    if (payload.grade != null) {
-                        percentage = Number(payload.grade);
-                    }
+                if (Number.isFinite(e.scorePercent)) {
+                    percentage = Number(e.scorePercent);
                 }
                 
                 return {

@@ -19,16 +19,16 @@ Deno.serve(async (req) => {
         const allEvents = await base44.asServiceRole.entities.ActivityEvent.filter({});
         
         const quizEvents = allEvents.filter(e => 
-            (e.eventType === 'quiz_attempted' || e.eventType === 'quiz.attempted') &&
+            e.eventType === 'quiz_attempted' &&
             e.studentEmail?.toLowerCase() === studentEmail.toLowerCase()
-        ).sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt)).slice(0, 10);
+        ).sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt)).slice(0, 20);
 
         const diagnostic = quizEvents.map(event => ({
             id: event.id,
             eventType: event.eventType,
-            resultId: event.metadata?.resultId || null,
+            resulId: event.metadata?.resultId || null,
             attemptNumber: event.metadata?.attemptNumber || null,
-            scorePercent: event.metadata?.scorePercent ?? null,
+            scorePercent: event.scorePercent ?? null,
             correctCount: event.metadata?.correctCount ?? null,
             incorrectCount: event.metadata?.incorrectCount ?? null,
             occurredAt: event.occurredAt,

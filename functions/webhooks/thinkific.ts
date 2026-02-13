@@ -223,12 +223,12 @@ async function handleQuizAttempted(base44, evt, webhookId) {
             rawEventId: String(webhookId),
             rawPayload: JSON.stringify(payload),
             dedupeKey: dedupeKey,
+            scorePercent: scorePercent,
             metadata: {
-                scorePercent: scorePercent,
-                correctCount: correctCount,
-                incorrectCount: incorrectCount,
+                resultId: resultId ? String(resultId) : null,
                 attemptNumber: attemptNumber,
-                resultId: resultId ? String(resultId) : null
+                correctCount: correctCount,
+                incorrectCount: incorrectCount
             }
         });
 
