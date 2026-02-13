@@ -13,7 +13,7 @@ async function verifySession(token) {
 async function getTeacherStudentEmails(teacherId, teacherEmail) {
     // Get all groups where teacher is a member using Thinkific SDK
     const allGroups = await thinkific.listGroups();
-    const studentEmails = new Set();
+    const students = []; // Now returns {email, id}
     
     for (const group of allGroups) {
         const groupUsers = await thinkific.listGroupUsers(group.id);
@@ -23,13 +23,19 @@ async function getTeacherStudentEmails(teacherId, teacherEmail) {
             // Include all members EXCEPT the teacher themselves
             groupUsers.forEach(user => {
                 if (user.email && String(user.id) !== String(teacherId)) {
-                    studentEmails.add(user.email.toLowerCase());
+                    // Avoid duplicates
+                    if (!students.some(s => s.email.toLowerCase() === user.email.toLowerCase())) {
+                        students.push({
+                            email: user.email.toLowerCase(),
+                            id: user.id
+                        });
+                    }
                 }
             });
         }
     }
     
-    return Array.from(studentEmails).sort();
+    return students;
 }
 
 Deno.serve(async (req) => {
@@ -43,8 +49,10 @@ Deno.serve(async (req) => {
         // Get teacher's email for filtering
         const teacherUser = await thinkific.getUser(teacherId);
         
-        // Get student emails in teacher's rosters (excludes teacher)
-        const studentEmails = await getTeacherStudentEmails(teacherId, teacherUser.email);
+        // Get student roster with emails and IDs (excludes teacher)
+        const studentRoster = await getTeacherStudentEmails(teacherId, teacherUser.email);
+        const studentEmails = studentRoster.map(s => s.email);
+        const studentIdMap = Object.fromEntries(studentRoster.map(s => [s.id, s.email]));
         
         // Fetch all activity events (no limit, we'll filter by student)
         const base44 = createClientFromRequest(req);
@@ -60,8 +68,14 @@ Deno.serve(async (req) => {
         });
         
         // Filter to only events for students in this teacher's roster
+        // Match by email first (primary), then by thinkificUserId (fallback)
         const filtered = normalizedEvents
-            .filter(e => studentEmails.includes(e.studentEmail?.toLowerCase()))
+            .filter(e => {
+                const eventEmail = e.studentEmail?.toLowerCase();
+                const eventUserId = e.thinkificUserId || Number(e.studentUserId);
+                return studentEmails.includes(eventEmail) || 
+                       (eventUserId && studentIdMap[eventUserId] !== undefined);
+            })
             .slice(0, limit);
         
         return Response.json({
