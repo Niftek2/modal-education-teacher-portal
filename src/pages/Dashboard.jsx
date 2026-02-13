@@ -104,7 +104,7 @@ export default function Dashboard() {
 
     const handleLogout = () => {
         localStorage.removeItem('modal_math_session');
-        navigate('/');
+        navigate('/Home');
     };
 
     const handleStudentsAdded = () => {
