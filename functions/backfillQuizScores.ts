@@ -12,9 +12,9 @@ Deno.serve(async (req) => {
 
         console.log('[BACKFILL] Starting quiz score backfill...');
 
-        // Get all quiz.attempted events with missing or invalid scorePercent
+        // Get all quiz_attempted events with missing or invalid scorePercent
         const allQuizEvents = await base44.asServiceRole.entities.ActivityEvent.filter({ 
-            eventType: 'quiz.attempted' 
+            eventType: 'quiz_attempted' 
         });
 
         const needsBackfill = allQuizEvents.filter(evt => {
@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
                 }
 
                 // Update the event with proper dedupe key if resultId available
-                const newDedupeKey = resultId ? `quiz.attempted:${resultId}` : evt.dedupeKey;
+                const newDedupeKey = resultId ? `quiz_attempted:${resultId}` : evt.dedupeKey;
                 
                 await base44.asServiceRole.entities.ActivityEvent.update(evt.id, {
                     dedupeKey: newDedupeKey,

@@ -125,7 +125,7 @@ async function handleLessonCompleted(base44, evt, webhookId) {
             studentDisplayName: studentEmail.split('@')[0],
             courseId: String(courseId || ''),
             courseName: courseName || '',
-            eventType: 'lesson.completed',
+            eventType: 'lesson_completed',
             contentId: String(lessonId),
             contentTitle: lessonName || 'Unknown Lesson',
             occurredAt: occurredAtIso,
@@ -184,7 +184,7 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     const occurredAtIso = occurredAt.toISOString();
     
     // Use resultId for dedupe if available, otherwise webhookId
-    const dedupeKey = resultId ? `quiz.attempted:${resultId}` : `quiz.attempted:${webhookId}`;
+    const dedupeKey = resultId ? `quiz_attempted:${resultId}` : `quiz_attempted:${webhookId}`;
 
     // Check if already exists by dedupeKey
     const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey: dedupeKey });
@@ -200,7 +200,7 @@ async function handleQuizAttempted(base44, evt, webhookId) {
             studentDisplayName: studentEmail.split('@')[0],
             courseId: String(courseId || ''),
             courseName: courseName || '',
-            eventType: 'quiz.attempted',
+            eventType: 'quiz_attempted',
             contentId: String(quizId),
             contentTitle: quizName || 'Unknown Quiz',
             occurredAt: occurredAtIso,
