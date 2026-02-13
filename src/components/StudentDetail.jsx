@@ -33,7 +33,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const studentEvents = events.filter(e => e.studentEmail?.toLowerCase() === student.email?.toLowerCase());
             
             // Split into quizzes and lessons
-            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => {
+            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted' || e.eventType === 'quiz.attempted').map(e => {
                 // Parse metadata if it's a string
                 let metadata = e.metadata || {};
                 if (typeof metadata === 'string') {
