@@ -28,9 +28,11 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             }, sessionToken);
             
             const events = response.events || [];
+            console.log(`[StudentDetail] Total events returned: ${events.length}`);
             
             // Filter to this specific student's events by email
             const studentEvents = events.filter(e => e.studentEmail?.toLowerCase() === student.email?.toLowerCase());
+            console.log(`[StudentDetail] Filtered to ${studentEvents.length} events for ${student.email}`);
             
             // Split into quizzes and lessons
             const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => {
