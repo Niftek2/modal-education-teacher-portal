@@ -44,14 +44,21 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     }
                 }
                 
-                // Primary: use scorePercent from metadata (webhook stores as metadata.scorePercent)
-                let percentage = metadata.scorePercent;
+                // Extract score from multiple sources
+                let percentage = null;
                 
-                // Fallback: try rawPayload.grade (webhook payload.grade is the percentage)
+                // Primary: scorePercent from metadata
+                if (metadata.scorePercent != null) {
+                    percentage = Number(metadata.scorePercent);
+                }
+                
+                // Secondary: grade from rawPayload
                 if (percentage == null && e.rawPayload) {
                     try {
                         const payload = typeof e.rawPayload === 'string' ? JSON.parse(e.rawPayload) : e.rawPayload;
-                        percentage = payload.grade;
+                        if (payload.grade != null) {
+                            percentage = Number(payload.grade);
+                        }
                     } catch (err) {
                         console.error('Failed to parse rawPayload:', err);
                     }
