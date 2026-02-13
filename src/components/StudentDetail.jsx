@@ -34,10 +34,36 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             
             // Split into quizzes and lessons
             const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => {
-                // Handle both webhook format (scorePercent) and CSV import format (score/maxScore)
-                let percentage = e.metadata?.scorePercent;
-                if (percentage == null && e.metadata?.score != null && e.metadata?.maxScore != null && e.metadata.maxScore > 0) {
-                    percentage = Math.round((e.metadata.score / e.metadata.maxScore) * 100);
+                // Parse metadata if it's a string
+                let metadata = e.metadata;
+                if (typeof metadata === 'string') {
+                    try {
+                        metadata = JSON.parse(metadata);
+                    } catch {
+                        metadata = {};
+                    }
+                }
+                
+                // Try multiple field names for percentage
+                let percentage = metadata?.scorePercent ?? metadata?.percentage ?? metadata?.score_percent;
+                
+                // Fallback: calculate from score/maxScore
+                if ((percentage == null || isNaN(percentage)) && metadata?.score != null && metadata?.maxScore != null && metadata.maxScore > 0) {
+                    percentage = Math.round((metadata.score / metadata.maxScore) * 100);
+                }
+                
+                // Fallback: try rawPayload if metadata doesn't have score
+                if ((percentage == null || isNaN(percentage)) && e.rawPayload) {
+                    try {
+                        const payload = typeof e.rawPayload === 'string' ? JSON.parse(e.rawPayload) : e.rawPayload;
+                        const score = payload.grade?.score ?? payload.quiz_attempt?.score;
+                        const maxScore = payload.grade?.max_score ?? payload.quiz_attempt?.max_score;
+                        if (score != null && maxScore != null && maxScore > 0) {
+                            percentage = Math.round((score / maxScore) * 100);
+                        }
+                    } catch (err) {
+                        console.error('Failed to parse rawPayload for score:', err);
+                    }
                 }
                 
                 return {
@@ -47,9 +73,9 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     level: e.courseName || 'Unknown',
                     percentage: percentage,
                     completedAt: e.occurredAt,
-                    attempts: e.metadata?.attempts,
-                    correctCount: e.metadata?.correctCount,
-                    incorrectCount: e.metadata?.incorrectCount
+                    attempts: metadata?.attempts,
+                    correctCount: metadata?.correctCount ?? metadata?.correct_count,
+                    incorrectCount: metadata?.incorrectCount ?? metadata?.incorrect_count
                 };
             });
 
