@@ -95,7 +95,7 @@ export default function Dashboard() {
             console.error('Dashboard error:', error);
             if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
                 localStorage.removeItem('modal_math_session');
-                navigate('/');
+                navigate('/Home');
             }
         } finally {
             setLoading(false);
