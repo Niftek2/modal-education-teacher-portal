@@ -15,8 +15,28 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Missing csvData' }, { status: 400 });
         }
 
+        // Simple CSV parser that handles quoted fields
+        const parseCSVLine = (line) => {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim().replace(/^"|"$/g, ''));
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim().replace(/^"|"$/g, ''));
+            return result;
+        };
+        
         const lines = csvData.trim().split('\n');
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        const headers = parseCSVLine(lines[0]);
         
         let imported = 0;
         let duplicates = 0;
@@ -24,7 +44,7 @@ Deno.serve(async (req) => {
 
         for (let i = 1; i < lines.length; i++) {
             try {
-                const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+                const values = parseCSVLine(lines[i]);
                 const row = {};
                 headers.forEach((h, idx) => {
                     row[h] = values[idx];
