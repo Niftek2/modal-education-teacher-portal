@@ -109,19 +109,25 @@ Deno.serve(async (req) => {
         }
         
         const lines = csvText.trim().split('\n');
-        const header = parseCSVLine(lines[0]);
+        const headerLine = parseCSVLine(lines[0]);
         
-        // Map header columns
-        const courseNameIdx = header.findIndex(h => h.toLowerCase() === 'course name');
-        const quizNameIdx = header.findIndex(h => h.toLowerCase().includes('quiz') && h.toLowerCase().includes('name'));
-        const studentNameIdx = header.findIndex(h => h.toLowerCase() === 'student name');
-        const studentEmailIdx = header.findIndex(h => h.toLowerCase() === 'student email');
-        const dateIdx = header.findIndex(h => h.toLowerCase().includes('date') && h.toLowerCase().includes('completed'));
-        const totalQuestionsIdx = header.findIndex(h => h.toLowerCase().includes('total') && h.toLowerCase().includes('questions'));
-        const totalCorrectIdx = header.findIndex(h => h.toLowerCase().includes('total') && h.toLowerCase().includes('correct'));
-        const scoreIdx = header.findIndex(h => h.toLowerCase() === '% score' || (h.toLowerCase().includes('score') && h.toLowerCase().includes('%')));
+        // Build header index (column name -> index)
+        const headerIndex = Object.fromEntries(headerLine.map((h, i) => [h, i]));
         
+        // Find column indices by name variants
+        const courseNameIdx = getColumn(headerIndex, headerIndex, ['course name', 'Course Name']);
+        const quizNameIdx = getColumn(headerIndex, headerIndex, ['survey/quiz name', 'quiz name', 'Survey/Quiz Name', 'Quiz Name']);
+        const studentNameIdx = getColumn(headerIndex, headerIndex, ['student name', 'Student Name']);
+        const studentEmailIdx = getColumn(headerIndex, headerIndex, ['student email', 'Student Email']);
+        const dateIdx = getColumn(headerIndex, headerIndex, ['date completed (utc)', 'Date Completed (UTC)', 'date completed', 'Date Completed']);
+        const totalQuestionsIdx = getColumn(headerIndex, headerIndex, ['total number of questions', 'Total Number of Questions', 'total questions', 'Total Questions']);
+        const totalCorrectIdx = getColumn(headerIndex, headerIndex, ['total correct', 'Total Correct']);
+        const scoreIdx = getColumn(headerIndex, headerIndex, ['% score', '% Score', 'percent score', 'Percent Score', 'score (%)', 'Score (%)', 'score percent', 'Score Percent', 'score_percent']);
+        
+        console.log('[QUIZ CSV] Headers detected:', Object.keys(headerIndex));
         console.log('[QUIZ CSV] Column indices:', { courseNameIdx, quizNameIdx, studentNameIdx, studentEmailIdx, dateIdx, totalCorrectIdx, scoreIdx });
+        
+        const scoreColumnDetected = scoreIdx !== -1;
         
         if (studentEmailIdx === -1 || quizNameIdx === -1 || dateIdx === -1) {
             return Response.json({ 
