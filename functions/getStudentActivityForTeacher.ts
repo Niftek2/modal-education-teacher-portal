@@ -46,9 +46,9 @@ Deno.serve(async (req) => {
         // Get student emails in teacher's rosters (excludes teacher)
         const studentEmails = await getTeacherStudentEmails(teacherId, teacherUser.email);
         
-        // Fetch all activity events
+        // Fetch all activity events (no limit, we'll filter by student)
         const base44 = createClientFromRequest(req);
-        const allEvents = await base44.asServiceRole.entities.ActivityEvent.list('-created_date', 500);
+        const allEvents = await base44.asServiceRole.entities.ActivityEvent.list('-created_date', 5000);
         
         // Normalize event types for backward compatibility
         const normalizedEvents = allEvents.map(event => {
