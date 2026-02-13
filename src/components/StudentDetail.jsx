@@ -37,66 +37,22 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             // Split into quizzes and lessons
             const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted');
             
-            // Group by quiz (contentId + title to handle both webhook and CSV records)
-            const quizMap = new Map();
-            quizAttempts.forEach(e => {
-                // Group by contentId if available, otherwise by title
-                const groupKey = e.contentId ? String(e.contentId) : (e.contentTitle || 'Unknown').toLowerCase();
-                if (!quizMap.has(groupKey)) {
-                    quizMap.set(groupKey, []);
-                }
-                quizMap.get(groupKey).push(e);
-            });
-            
-            const quizList = [];
-            quizMap.forEach((eventsInGroup) => {
-                // For each quiz, prefer webhook records (2/10/2026 cutoff: anything after uses webhooks with scorePercent)
-                const cutoffDate = new Date('2026-02-10T00:00:00Z'); // After 2/10/2026
-                const webhookRecords = eventsInGroup.filter(e => {
-                    const eventDate = new Date(e.occurredAt);
-                    return eventDate >= cutoffDate && Number.isFinite(e.scorePercent);
-                });
+            const quizList = quizAttempts.map(e => {
+                const metadata = e.metadata || {};
+                const percentage = Number.isFinite(e.scorePercent) ? Number(e.scorePercent) : null;
+                const courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim()) ? e.courseName.trim() : 'Elementary';
                 
-                const csvRecords = eventsInGroup.filter(e => {
-                    const eventDate = new Date(e.occurredAt);
-                    return eventDate < cutoffDate;
-                });
-                
-                // Use webhook records if available, otherwise CSV records
-                const recordsToUse = webhookRecords.length > 0 ? webhookRecords : csvRecords;
-                
-                recordsToUse.forEach(e => {
-                    let percentage = null;
-                    if (Number.isFinite(e.scorePercent)) {
-                        percentage = Number(e.scorePercent);
-                    }
-                    
-                    const metadata = e.metadata || {};
-                    // Use courseName from the event, trim whitespace, and check it's not just empty
-                    let courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim()) ? e.courseName.trim() : null;
-                    
-                    // If no courseName found, try to get it from other quiz attempts in the same group
-                    if (!courseName) {
-                        const siblingWithCourse = eventsInGroup.find(sibling => sibling.courseName && typeof sibling.courseName === 'string' && sibling.courseName.trim());
-                        if (siblingWithCourse) {
-                            courseName = siblingWithCourse.courseName.trim();
-                        }
-                    }
-                    
-                    courseName = courseName || 'Elementary';
-                    
-                    quizList.push({
-                        quizName: e.contentTitle || 'Unknown Quiz',
-                        quizId: e.contentId || null,
-                        courseName: courseName,
-                        level: courseName,
-                        percentage: percentage,
-                        completedAt: e.occurredAt,
-                        attempts: metadata.attemptNumber,
-                        correctCount: metadata.correctCount,
-                        incorrectCount: metadata.incorrectCount
-                    });
-                });
+                return {
+                    quizName: e.contentTitle || 'Unknown Quiz',
+                    quizId: e.contentId || null,
+                    courseName: courseName,
+                    level: courseName,
+                    percentage: percentage,
+                    completedAt: e.occurredAt,
+                    attempts: metadata.attemptNumber,
+                    correctCount: metadata.correctCount,
+                    incorrectCount: metadata.incorrectCount
+                };
             });
             
             console.log(`[StudentDetail] Found ${quizList.length} quiz attempts:`, quizList.slice(0, 3));
