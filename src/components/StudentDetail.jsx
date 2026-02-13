@@ -123,7 +123,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
         if (quizSort === 'level') {
             return [...quizzes].sort((a, b) => a.level.localeCompare(b.level));
         }
-        return quizzes;
+        // Sort by time: most recent first
+        return [...quizzes].sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
     };
 
     const getSortedLessons = () => {
