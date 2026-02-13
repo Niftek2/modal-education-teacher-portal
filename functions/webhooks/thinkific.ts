@@ -181,23 +181,12 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     }
     
     // Extract and convert to numbers - use null if missing, never 0 as default
-    const gradePercent = payload?.grade != null ? Number(payload.grade) : null;
+    const scorePercent = payload?.grade != null ? Number(payload.grade) : null;
     const correctCount = payload?.correct_count != null ? Number(payload.correct_count) : null;
     const incorrectCount = payload?.incorrect_count != null ? Number(payload.incorrect_count) : null;
     const attemptNumber = payload?.attempts != null ? Number(payload.attempts) : null;
-    
-    // Calculate questionCount safely
-    const questionCount = (Number.isFinite(correctCount) ? correctCount : 0) + (Number.isFinite(incorrectCount) ? incorrectCount : 0);
 
-    // Derive scorePercent with exact priority
-    let scorePercent = null;
-    if (Number.isFinite(gradePercent)) {
-        scorePercent = gradePercent;
-    } else if (questionCount > 0 && Number.isFinite(correctCount)) {
-        scorePercent = Math.round((correctCount / questionCount) * 100);
-    }
-
-    console.log(`[QUIZ WEBHOOK] Processing quiz.attempted: student=${studentEmail}, quiz=${quizId}, resultId=${resultId}, scorePercent=${scorePercent}, gradePercent=${gradePercent}`);
+    console.log(`[QUIZ WEBHOOK] Processing quiz.attempted: student=${studentEmail}, quiz=${quizId}, resultId=${resultId}, scorePercent=${scorePercent}`);
 
     if (!studentEmail || !quizId) {
         console.error('[QUIZ WEBHOOK] ❌ Missing required fields');
