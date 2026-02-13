@@ -31,7 +31,15 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             console.log(`[StudentDetail] Total events returned: ${events.length}`);
             
             // Filter to this specific student's events by email
-            const studentEvents = events.filter(e => e.studentEmail?.toLowerCase() === student.email?.toLowerCase());
+            // Also include the student by first/last name for StudentDetail lookup
+            const studentKey = student.email?.toLowerCase() || `${student.firstName} ${student.lastName}`.toLowerCase();
+            const studentEvents = events.filter(e => {
+                const eventEmail = e.studentEmail?.toLowerCase();
+                const eventName = `${e.studentDisplayName || ''}`.toLowerCase();
+                return eventEmail === student.email?.toLowerCase() || 
+                       eventName.includes(student.firstName?.toLowerCase()) ||
+                       eventEmail === studentKey;
+            });
             console.log(`[StudentDetail] Filtered to ${studentEvents.length} events for ${student.email}`);
             
             // Split into quizzes and lessons
