@@ -51,6 +51,7 @@ import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import Verify from './pages/Verify';
 import WebhookDebug from './pages/WebhookDebug';
+import SelectProgram from './pages/SelectProgram';
 import __Layout from './Layout.jsx';
 
 
@@ -59,6 +60,7 @@ export const PAGES = {
     "Home": Home,
     "Verify": Verify,
     "WebhookDebug": WebhookDebug,
+    "SelectProgram": SelectProgram,
 }
 
 export const pagesConfig = {
