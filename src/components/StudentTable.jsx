@@ -46,7 +46,6 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
     const handleRemove = async (student) => {
         try {
             setRemoving(student.id);
-            const sessionToken = localStorage.getItem('modal_math_session');
             
             await api.call('removeStudent', {
                 studentId: student.id,

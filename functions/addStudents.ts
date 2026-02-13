@@ -6,6 +6,15 @@ const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const STUDENT_PRODUCT_ID = Deno.env.get("STUDENT_PRODUCT_ID");
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
+const COURSE_IDS = {
+    PK: Deno.env.get("COURSE_ID_PK"),
+    L1: Deno.env.get("COURSE_ID_L1"),
+    L2: Deno.env.get("COURSE_ID_L2"),
+    L3: Deno.env.get("COURSE_ID_L3"),
+    L4: Deno.env.get("COURSE_ID_L4"),
+    L5: Deno.env.get("COURSE_ID_L5")
+};
+
 async function verifySession(token) {
     if (!token) {
         throw new Error('Unauthorized');
@@ -93,6 +102,38 @@ async function enrollInStudentBundle(userId) {
     return response.ok;
 }
 
+async function enrollInCourses(userId) {
+    const enrollments = [];
+    
+    for (const [level, courseId] of Object.entries(COURSE_IDS)) {
+        if (!courseId) continue;
+        
+        try {
+            const response = await fetch('https://api.thinkific.com/api/public/v1/enrollments', {
+                method: 'POST',
+                headers: {
+                    'X-Auth-API-Key': THINKIFIC_API_KEY,
+                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    course_id: courseId,
+                    activated_at: new Date().toISOString()
+                })
+            });
+
+            if (response.ok) {
+                enrollments.push(level);
+            }
+        } catch (error) {
+            console.error(`Failed to enroll in ${level}:`, error);
+        }
+    }
+    
+    return enrollments;
+}
+
 Deno.serve(async (req) => {
     try {
         const { students, groupId, sessionToken } = await req.json();
@@ -124,6 +165,9 @@ Deno.serve(async (req) => {
                 
                 // Enroll in student bundle
                 await enrollInStudentBundle(user.id);
+                
+                // Enroll in courses PK, L1, L2, L3, L4, L5
+                await enrollInCourses(user.id);
 
                 results.push({
                     success: true,
