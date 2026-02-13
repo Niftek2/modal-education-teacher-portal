@@ -240,7 +240,8 @@ Deno.serve(async (req) => {
                     metadata: {
                         attemptNumber: attemptNumber,
                         correctCount: totalCorrect,
-                        incorrectCount: incorrectCount
+                        incorrectCount: incorrectCount,
+                        rawScore: rawScore
                     }
                 });
                 
