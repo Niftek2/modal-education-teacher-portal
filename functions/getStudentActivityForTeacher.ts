@@ -51,8 +51,8 @@ Deno.serve(async (req) => {
         
         // Get student roster with emails and IDs (excludes teacher)
         const studentRoster = await getTeacherStudentEmails(teacherId, teacherUser.email);
-        const studentEmails = studentRoster.map(s => s.email);
-        const studentIdMap = Object.fromEntries(studentRoster.map(s => [s.id, s.email]));
+        const studentEmails = studentRoster.map(s => s.email.toLowerCase());
+        const studentIdMap = Object.fromEntries(studentRoster.map(s => [s.id, s.email.toLowerCase()]));
         
         // Fetch all activity events (no limit, we'll filter by student)
         const base44 = createClientFromRequest(req);
@@ -68,10 +68,10 @@ Deno.serve(async (req) => {
         });
         
         // Filter to only events for students in this teacher's roster
-        // Match by email first (primary), then by thinkificUserId (fallback)
+        // Match by normalized email (primary), then by thinkificUserId (fallback)
         const filtered = normalizedEvents
             .filter(e => {
-                const eventEmail = e.studentEmail?.toLowerCase();
+                const eventEmail = e.studentEmail?.toLowerCase?.() || '';
                 const eventUserId = e.thinkificUserId || Number(e.studentUserId);
                 return studentEmails.includes(eventEmail) || 
                        (eventUserId && studentIdMap[eventUserId] !== undefined);
