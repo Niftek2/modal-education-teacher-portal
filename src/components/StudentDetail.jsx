@@ -50,8 +50,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             
             const quizList = [];
             quizMap.forEach((eventsInGroup) => {
-                // For each quiz, prefer webhook records (2/11/2026 cutoff: anything after uses webhooks with scorePercent)
-                const cutoffDate = new Date('2026-02-12T00:00:00Z'); // After 2/11/2026
+                // For each quiz, prefer webhook records (2/10/2026 cutoff: anything after uses webhooks with scorePercent)
+                const cutoffDate = new Date('2026-02-10T00:00:00Z'); // After 2/10/2026
                 const webhookRecords = eventsInGroup.filter(e => {
                     const eventDate = new Date(e.occurredAt);
                     return eventDate >= cutoffDate && Number.isFinite(e.scorePercent);
