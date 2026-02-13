@@ -4,10 +4,34 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
  * Admin-only: Repair existing CSV-imported quiz records
  * 
  * Finds all quiz_attempted events from CSV imports with missing scorePercent
- * and recomputes attemptNumber deterministically.
+ * and re-parses scores from metadata.rawScore, then updates attemptNumber deterministically.
  * 
  * Safe and idempotent: only updates records that need repair.
  */
+
+/**
+ * Parse percent value: "70%", "70", "0.7", "", etc.
+ */
+function parsePercent(value) {
+    if (!value) return null;
+    
+    const str = String(value).trim();
+    if (str === '' || str.toLowerCase() === 'n/a') return null;
+    
+    const hasPercent = str.endsWith('%');
+    const numStr = str.replace('%', '').replace(/,/g, '').trim();
+    
+    const num = parseFloat(numStr);
+    if (!Number.isFinite(num)) return null;
+    
+    let result = num;
+    if (!hasPercent && num >= 0 && num <= 1) {
+        result = num * 100;
+    }
+    
+    result = Math.max(0, Math.min(100, result));
+    return result;
+}
 
 Deno.serve(async (req) => {
     try {
