@@ -156,18 +156,20 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     const courseName = payload?.course?.name;
     const resultId = payload?.result_id;
     
-    // Extract and convert to numbers (ensure numeric types)
+    // Extract and convert to numbers - use null if missing, never 0 as default
     const gradePercent = payload?.grade != null ? Number(payload.grade) : null;
-    const correctCount = payload?.correct_count != null ? Number(payload.correct_count) : 0;
-    const incorrectCount = payload?.incorrect_count != null ? Number(payload.incorrect_count) : 0;
-    const attemptNumber = payload?.attempts != null ? Number(payload.attempts) : 1;
-    const questionCount = correctCount + incorrectCount;
+    const correctCount = payload?.correct_count != null ? Number(payload.correct_count) : null;
+    const incorrectCount = payload?.incorrect_count != null ? Number(payload.incorrect_count) : null;
+    const attemptNumber = payload?.attempts != null ? Number(payload.attempts) : null;
+    
+    // Calculate questionCount safely
+    const questionCount = (Number.isFinite(correctCount) ? correctCount : 0) + (Number.isFinite(incorrectCount) ? incorrectCount : 0);
 
-    // Derive scorePercent reliably
+    // Derive scorePercent with exact priority
     let scorePercent = null;
-    if (gradePercent != null && !Number.isNaN(gradePercent)) {
+    if (Number.isFinite(gradePercent)) {
         scorePercent = gradePercent;
-    } else if (questionCount > 0) {
+    } else if (questionCount > 0 && Number.isFinite(correctCount)) {
         scorePercent = Math.round((correctCount / questionCount) * 100);
     }
 
@@ -180,12 +182,14 @@ async function handleQuizAttempted(base44, evt, webhookId) {
 
     const occurredAt = extractOccurredAt(evt);
     const occurredAtIso = occurredAt.toISOString();
-    const dedupeKey = String(webhookId);
+    
+    // Use resultId for dedupe if available, otherwise webhookId
+    const dedupeKey = resultId ? `quiz.attempted:${resultId}` : `quiz.attempted:${webhookId}`;
 
-    // Check if already exists
-    const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: webhookId });
+    // Check if already exists by dedupeKey
+    const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey: dedupeKey });
     if (existing.length > 0) {
-        console.log('[QUIZ WEBHOOK] ⚠️ Quiz attempt already exists, skipping (duplicate)');
+        console.log('[QUIZ WEBHOOK] ⚠️ Quiz attempt already exists (dedupe), skipping');
         return { status: 'duplicate' };
     }
 
@@ -210,7 +214,7 @@ async function handleQuizAttempted(base44, evt, webhookId) {
                 incorrectCount: incorrectCount,
                 questionCount: questionCount,
                 attempts: attemptNumber,
-                resultId: String(resultId || ''),
+                resultId: resultId ? String(resultId) : null,
                 scorePercent: scorePercent
             }
         });
