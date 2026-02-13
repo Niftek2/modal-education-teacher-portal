@@ -35,7 +35,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             // Split into quizzes and lessons
             const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => {
                 // Parse metadata if it's a string
-                let metadata = e.metadata;
+                let metadata = e.metadata || {};
                 if (typeof metadata === 'string') {
                     try {
                         metadata = JSON.parse(metadata);
@@ -45,13 +45,13 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                 }
                 
                 // Primary: use scorePercent from metadata (webhook stores as metadata.scorePercent)
-                let percentage = metadata?.scorePercent;
+                let percentage = metadata.scorePercent;
                 
                 // Fallback: try rawPayload.grade (webhook payload.grade is the percentage)
                 if (percentage == null && e.rawPayload) {
                     try {
                         const payload = typeof e.rawPayload === 'string' ? JSON.parse(e.rawPayload) : e.rawPayload;
-                        percentage = payload?.grade;
+                        percentage = payload.grade;
                     } catch (err) {
                         console.error('Failed to parse rawPayload:', err);
                     }
@@ -64,9 +64,9 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     level: e.courseName || 'Unknown',
                     percentage: percentage,
                     completedAt: e.occurredAt,
-                    attempts: metadata?.attemptNumber,
-                    correctCount: metadata?.correctCount,
-                    incorrectCount: metadata?.incorrectCount
+                    attempts: metadata.attemptNumber,
+                    correctCount: metadata.correctCount,
+                    incorrectCount: metadata.incorrectCount
                 };
             });
 
