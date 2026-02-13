@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
         let repaired = 0;
         const repairs = [];
         
-        // Update each event with correct attemptNumber
+        // Update each event with correct attemptNumber and re-parse scorePercent
         for (const group of Object.values(groupMap)) {
             for (let idx = 0; idx < group.length; idx++) {
                 const event = group[idx];
@@ -78,10 +78,22 @@ Deno.serve(async (req) => {
                 // Check if needs repair
                 const metadata = event.metadata || {};
                 const currentAttemptNumber = metadata.attemptNumber;
+                const currentScorePercent = event.scorePercent;
                 
-                if (currentAttemptNumber !== newAttemptNumber) {
+                // Try to re-parse score from metadata.rawScore if currently null
+                let newScorePercent = currentScorePercent;
+                if (newScorePercent === null && metadata.rawScore) {
+                    newScorePercent = parsePercent(metadata.rawScore);
+                    console.log(`[REPAIR] Re-parsed score for ${event.studentEmail} / ${event.contentTitle}: "${metadata.rawScore}" → ${newScorePercent}`);
+                }
+                
+                const attemptNumberNeedsRepair = currentAttemptNumber !== newAttemptNumber;
+                const scoreNeedsRepair = newScorePercent !== null && currentScorePercent === null;
+                
+                if (attemptNumberNeedsRepair || scoreNeedsRepair) {
                     // Repair the record
-                    const updated = await base44.asServiceRole.entities.ActivityEvent.update(event.id, {
+                    await base44.asServiceRole.entities.ActivityEvent.update(event.id, {
+                        scorePercent: newScorePercent,
                         metadata: {
                             ...metadata,
                             attemptNumber: newAttemptNumber
@@ -96,10 +108,12 @@ Deno.serve(async (req) => {
                         courseName: event.courseName,
                         oldAttemptNumber: currentAttemptNumber,
                         newAttemptNumber: newAttemptNumber,
-                        scorePercent: event.scorePercent
+                        oldScorePercent: currentScorePercent,
+                        newScorePercent: newScorePercent,
+                        rawScore: metadata.rawScore
                     });
                     
-                    console.log(`[REPAIR] ${event.studentEmail} / ${event.contentTitle} / attempt ${newAttemptNumber}`);
+                    console.log(`[REPAIR] ${event.studentEmail} / ${event.contentTitle} / attempt ${newAttemptNumber} / score ${newScorePercent}`);
                 }
             }
         }
