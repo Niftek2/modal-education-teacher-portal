@@ -220,6 +220,49 @@ async function handleQuizAttempted(base44, evt, webhookId) {
         }
     }
     
+    // Fallback: fetch from Thinkific API if still missing
+    if (!courseName && lessonId) {
+        try {
+            const apiKey = Deno.env.get('THINKIFIC_API_KEY');
+            const subdomain = Deno.env.get('THINKIFIC_SUBDOMAIN');
+            if (apiKey && subdomain) {
+                // Get course_id from lesson
+                if (!courseId) {
+                    const lessonResponse = await fetch(`https://api.thinkific.com/api/public/v1/lessons/${lessonId}`, {
+                        headers: {
+                            'X-Auth-API-Key': apiKey,
+                            'X-Auth-Subdomain': subdomain,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    if (lessonResponse.ok) {
+                        const lessonData = await lessonResponse.json();
+                        courseId = lessonData?.course_id;
+                        console.log(`[QUIZ WEBHOOK] ✓ Fetched courseId from Thinkific lesson: ${courseId}`);
+                    }
+                }
+                
+                // Get course name
+                if (courseId && !courseName) {
+                    const courseResponse = await fetch(`https://api.thinkific.com/api/public/v1/courses/${courseId}`, {
+                        headers: {
+                            'X-Auth-API-Key': apiKey,
+                            'X-Auth-Subdomain': subdomain,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    if (courseResponse.ok) {
+                        const courseData = await courseResponse.json();
+                        courseName = courseData?.name;
+                        console.log(`[QUIZ WEBHOOK] ✓ Fetched courseName from Thinkific: ${courseName}`);
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn(`[QUIZ WEBHOOK] Could not fetch from Thinkific API:`, error.message);
+        }
+    }
+    
     // Extract and convert to numbers - use null if missing, never 0 as default
     const scorePercent = payload?.grade != null ? Number(payload.grade) : null;
     const correctCount = payload?.correct_count != null ? Number(payload.correct_count) : null;
