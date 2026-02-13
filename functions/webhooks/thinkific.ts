@@ -94,8 +94,8 @@ async function handleLessonCompleted(base44, evt, webhookId) {
     const studentEmail = extractStudentEmail(evt);
     const studentUserId = extractStudentThinkificUserId(evt);
     
-    let courseId = payload?.course?.id;
-    let courseName = payload?.course?.name;
+    const courseId = payload?.course?.id;
+    const courseName = payload?.course?.name;
     const lessonId = payload?.lesson?.id;
     const lessonName = payload?.lesson?.name;
     const enrollmentId = payload?.enrollment?.id;
@@ -107,49 +107,6 @@ async function handleLessonCompleted(base44, evt, webhookId) {
         return { status: 'error', reason: 'missing_fields' };
     }
 
-    // Fetch course name from Thinkific if missing
-    if ((!courseName || !courseId) && lessonId) {
-        try {
-            const apiKey = Deno.env.get('THINKIFIC_API_KEY');
-            const subdomain = Deno.env.get('THINKIFIC_SUBDOMAIN');
-            if (apiKey && subdomain) {
-                // Get course_id from lesson
-                if (lessonId && !courseId) {
-                    const lessonResponse = await fetch(`https://api.thinkific.com/api/public/v1/lessons/${lessonId}`, {
-                        headers: {
-                            'X-Auth-API-Key': apiKey,
-                            'X-Auth-Subdomain': subdomain,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    if (lessonResponse.ok) {
-                        const lessonData = await lessonResponse.json();
-                        courseId = lessonData?.course_id;
-                        console.log(`[LESSON WEBHOOK] ✓ Fetched courseId from lesson: ${courseId}`);
-                    }
-                }
-                
-                // Get course name
-                if (courseId && !courseName) {
-                    const courseResponse = await fetch(`https://api.thinkific.com/api/public/v1/courses/${courseId}`, {
-                        headers: {
-                            'X-Auth-API-Key': apiKey,
-                            'X-Auth-Subdomain': subdomain,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    if (courseResponse.ok) {
-                        const courseData = await courseResponse.json();
-                        courseName = courseData?.name;
-                        console.log(`[LESSON WEBHOOK] ✓ Fetched courseName: ${courseName}`);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error(`[LESSON WEBHOOK] ❌ Failed to fetch course info:`, error.message);
-        }
-    }
-
     const occurredAt = extractOccurredAt(evt);
     const occurredAtIso = occurredAt.toISOString();
     const dedupeKey = String(enrollmentId && lessonId ? `${enrollmentId}-${lessonId}` : webhookId);
@@ -159,6 +116,31 @@ async function handleLessonCompleted(base44, evt, webhookId) {
     if (existing.length > 0) {
         console.log('[WEBHOOK] ⚠️ Lesson completion already exists, skipping (duplicate)');
         return { status: 'duplicate' };
+    }
+
+    // Upsert lesson->course mapping
+    if (lessonId && courseId && courseName) {
+        try {
+            const existing = await base44.asServiceRole.entities.LessonCourseMap.filter({ lessonId: String(lessonId) });
+            if (existing.length > 0) {
+                await base44.asServiceRole.entities.LessonCourseMap.update(existing[0].id, {
+                    courseId: String(courseId),
+                    courseName: courseName,
+                    lastSeenAt: occurredAtIso
+                });
+                console.log(`[LESSON WEBHOOK] ✓ Updated LessonCourseMap: lesson=${lessonId}, course=${courseName}`);
+            } else {
+                await base44.asServiceRole.entities.LessonCourseMap.create({
+                    lessonId: String(lessonId),
+                    courseId: String(courseId),
+                    courseName: courseName,
+                    lastSeenAt: occurredAtIso
+                });
+                console.log(`[LESSON WEBHOOK] ✓ Created LessonCourseMap: lesson=${lessonId}, course=${courseName}`);
+            }
+        } catch (error) {
+            console.error(`[LESSON WEBHOOK] ❌ Failed to upsert LessonCourseMap:`, error.message);
+        }
     }
 
     try {
