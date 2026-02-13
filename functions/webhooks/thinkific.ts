@@ -181,43 +181,17 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     let courseName = payload?.course?.name;
     const resultId = payload?.result_id;
     
-    // Fetch course name from Thinkific API using lesson ID
+    // Look up course name from LessonCourseMap using lesson ID
     if (!courseName && lessonId) {
         try {
-            const apiKey = Deno.env.get('THINKIFIC_API_KEY');
-            const subdomain = Deno.env.get('THINKIFIC_SUBDOMAIN');
-            if (apiKey && subdomain) {
-                // Get course_id from lesson
-                const lessonResponse = await fetch(`https://api.thinkific.com/api/public/v1/lessons/${lessonId}`, {
-                    headers: {
-                        'X-Auth-API-Key': apiKey,
-                        'X-Auth-Subdomain': subdomain,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                if (lessonResponse.ok) {
-                    const lessonData = await lessonResponse.json();
-                    courseId = lessonData?.course_id;
-                    
-                    // Get course name
-                    if (courseId) {
-                        const courseResponse = await fetch(`https://api.thinkific.com/api/public/v1/courses/${courseId}`, {
-                            headers: {
-                                'X-Auth-API-Key': apiKey,
-                                'X-Auth-Subdomain': subdomain,
-                                'Content-Type': 'application/json'
-                            }
-                        });
-                        if (courseResponse.ok) {
-                            const courseData = await courseResponse.json();
-                            courseName = courseData?.name;
-                            console.log(`[QUIZ WEBHOOK] ✓ Fetched courseName from API: ${courseName}`);
-                        }
-                    }
-                }
+            const mapping = await base44.asServiceRole.entities.LessonCourseMap.filter({ lessonId: String(lessonId) });
+            if (mapping.length > 0) {
+                courseId = mapping[0].courseId;
+                courseName = mapping[0].courseName;
+                console.log(`[QUIZ WEBHOOK] ✓ Found courseName from mapping: ${courseName}`);
             }
         } catch (error) {
-            console.warn(`[QUIZ WEBHOOK] Could not fetch course from API:`, error.message);
+            console.warn(`[QUIZ WEBHOOK] Could not lookup course mapping:`, error.message);
         }
     }
     
