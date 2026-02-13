@@ -47,8 +47,17 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const allEvents = await base44.asServiceRole.entities.ActivityEvent.list('-created_date', 500);
         
+        // Normalize event types for backward compatibility
+        const normalizedEvents = allEvents.map(event => {
+            let normalizedType = event.eventType;
+            if (event.eventType === 'quiz.attempted') normalizedType = 'quiz_attempted';
+            if (event.eventType === 'lesson.completed') normalizedType = 'lesson_completed';
+            if (event.eventType === 'user.signin') normalizedType = 'user_signin';
+            return { ...event, eventType: normalizedType };
+        });
+        
         // Filter to only events for students in this teacher's roster
-        const filtered = allEvents
+        const filtered = normalizedEvents
             .filter(e => studentEmails.includes(e.studentEmail?.toLowerCase()))
             .slice(0, limit);
         
