@@ -73,7 +73,9 @@ async function addToGroup(userId, groupId) {
     });
 
     if (!response.ok) {
-        throw new Error('Failed to add to group');
+        const error = await response.json().catch(() => ({}));
+        console.error('Add to group failed:', { status: response.status, error, userId, groupId });
+        throw new Error(error.message || `Failed to add to group (${response.status})`);
     }
 
     return await response.json();
