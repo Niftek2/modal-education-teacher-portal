@@ -40,6 +40,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     percentage = Number(e.scorePercent);
                 }
                 
+                const metadata = e.metadata || {};
                 return {
                     quizName: e.contentTitle || 'Unknown Quiz',
                     quizId: e.contentId || null,
