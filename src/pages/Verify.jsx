@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/components/api';
+import { createPageUrl } from '@/utils';
 
 export default function Verify() {
     const [message, setMessage] = useState('Verifying your login...');
