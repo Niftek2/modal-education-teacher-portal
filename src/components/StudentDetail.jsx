@@ -33,17 +33,25 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const studentEvents = events.filter(e => e.studentEmail?.toLowerCase() === student.email?.toLowerCase());
             
             // Split into quizzes and lessons
-            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => ({
-                quizName: e.contentTitle || 'Unknown Quiz',
-                quizId: e.contentId || null,
-                courseName: e.courseName || 'Unknown Course',
-                level: e.courseName || 'Unknown',
-                percentage: e.metadata?.scorePercent,
-                completedAt: e.occurredAt,
-                attempts: e.metadata?.attempts,
-                correctCount: e.metadata?.correctCount,
-                incorrectCount: e.metadata?.incorrectCount
-            }));
+            const quizList = studentEvents.filter(e => e.eventType === 'quiz_attempted').map(e => {
+                // Handle both webhook format (scorePercent) and CSV import format (score/maxScore)
+                let percentage = e.metadata?.scorePercent;
+                if (percentage == null && e.metadata?.score != null && e.metadata?.maxScore != null && e.metadata.maxScore > 0) {
+                    percentage = Math.round((e.metadata.score / e.metadata.maxScore) * 100);
+                }
+                
+                return {
+                    quizName: e.contentTitle || 'Unknown Quiz',
+                    quizId: e.contentId || null,
+                    courseName: e.courseName || 'Unknown Course',
+                    level: e.courseName || 'Unknown',
+                    percentage: percentage,
+                    completedAt: e.occurredAt,
+                    attempts: e.metadata?.attempts,
+                    correctCount: e.metadata?.correctCount,
+                    incorrectCount: e.metadata?.incorrectCount
+                };
+            });
 
             // Group quizzes by quizId or normalized title
             const groupedQuizzes = {};
