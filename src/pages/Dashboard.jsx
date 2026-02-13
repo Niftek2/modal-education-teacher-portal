@@ -18,7 +18,7 @@ export default function Dashboard() {
     const [students, setStudents] = useState([]);
     const [filteredStudents, setFilteredStudents] = useState([]);
     const [studentActivities, setStudentActivities] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
