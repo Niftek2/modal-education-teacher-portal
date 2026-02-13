@@ -43,11 +43,13 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                 }
                 
                 const metadata = e.metadata || {};
+                const courseName = e.courseName && e.courseName.trim() ? e.courseName : 'Unknown Course';
+                
                 return {
                     quizName: e.contentTitle || 'Unknown Quiz',
                     quizId: e.contentId || null,
-                    courseName: e.courseName || 'Unknown Course',
-                    level: e.courseName || 'Unknown',
+                    courseName: courseName,
+                    level: courseName,
                     percentage: percentage,
                     completedAt: e.occurredAt,
                     attempts: metadata.attemptNumber,
@@ -55,6 +57,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     incorrectCount: metadata.incorrectCount
                 };
             });
+            
+            console.log(`[StudentDetail] Found ${quizList.length} quiz attempts:`, quizList.slice(0, 3));
 
             // Group quizzes by quizId or normalized title
             const groupedQuizzes = {};
