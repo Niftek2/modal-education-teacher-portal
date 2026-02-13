@@ -116,6 +116,44 @@ Deno.serve(async (req) => {
 
         console.log(`[ENROLLMENT WEBHOOK] ✓ Created group ${group.id} for teacher ${userEmail}`);
 
+        // Send welcome email to the teacher
+        try {
+            await base44.integrations.Core.SendEmail({
+                to: userEmail,
+                subject: "Welcome to Modal Math – Access Your Teacher Portal",
+                body: `Hi,
+
+Welcome to Modal Math! We're excited to have you onboard.
+
+To access your Teacher Portal, please visit:
+
+modalmath.com
+
+Once you're there, click the Teacher Portal button in the top right corner of the homepage.
+
+Your Teacher Portal is where you can:
+
+• View real-time student quiz and lesson activity
+• Track progress and performance
+• Add or remove students from your roster
+• Monitor recent logins and engagement
+
+This is your central dashboard for managing your classroom and staying informed about student growth.
+
+If you ever need historical student reports, technical support, or help setting up your class, just reply to this email or reach out to contact@modalmath.com and we'll be happy to help.
+
+We're looking forward to supporting your students.
+
+Warmly,
+Nadia
+contact@modalmath.com`,
+                from_name: "ModalMath"
+            });
+            console.log(`[ENROLLMENT WEBHOOK] ✓ Welcome email sent to ${userEmail}`);
+        } catch (emailError) {
+            console.error(`[ENROLLMENT WEBHOOK] ❌ Failed to send welcome email to ${userEmail}:`, emailError.message);
+        }
+
         return Response.json({
             success: true,
             groupId: group.id,
