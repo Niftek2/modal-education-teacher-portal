@@ -222,13 +222,11 @@ async function handleQuizAttempted(base44, evt, webhookId) {
             rawPayload: JSON.stringify(payload),
             dedupeKey: dedupeKey,
             metadata: {
-                gradePercent: gradePercent,
+                scorePercent: scorePercent,
                 correctCount: correctCount,
                 incorrectCount: incorrectCount,
-                questionCount: questionCount,
-                attempts: attemptNumber,
-                resultId: resultId ? String(resultId) : null,
-                scorePercent: scorePercent
+                attemptNumber: attemptNumber,
+                resultId: resultId ? String(resultId) : null
             }
         });
 
