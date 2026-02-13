@@ -8,6 +8,7 @@ const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
 const COURSE_IDS = {
     PK: Deno.env.get("COURSE_ID_PK"),
+    K: Deno.env.get("COURSE_ID_K"),
     L1: Deno.env.get("COURSE_ID_L1"),
     L2: Deno.env.get("COURSE_ID_L2"),
     L3: Deno.env.get("COURSE_ID_L3"),
