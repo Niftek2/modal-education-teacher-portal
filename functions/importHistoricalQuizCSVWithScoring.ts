@@ -137,6 +137,7 @@ Deno.serve(async (req) => {
         
         let imported = 0;
         let duplicates = 0;
+        let scoreParseFailures = 0;
         const errors = [];
         
         // First pass: collect all rows by (email, quiz, course, date) to compute attempt numbers
