@@ -61,8 +61,11 @@ Deno.serve(async (req) => {
                     scorePercent = Math.round((correctCount / questionCount) * 100);
                 }
 
-                // Update the event
+                // Update the event with proper dedupe key if resultId available
+                const newDedupeKey = resultId ? `quiz.attempted:${resultId}` : evt.dedupeKey;
+                
                 await base44.asServiceRole.entities.ActivityEvent.update(evt.id, {
+                    dedupeKey: newDedupeKey,
                     metadata: {
                         ...evt.metadata,
                         gradePercent: gradePercent,
@@ -70,6 +73,7 @@ Deno.serve(async (req) => {
                         incorrectCount: incorrectCount,
                         questionCount: questionCount,
                         attempts: attemptNumber,
+                        resultId: resultId ? String(resultId) : null,
                         scorePercent: scorePercent
                     }
                 });
