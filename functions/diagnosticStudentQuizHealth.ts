@@ -45,9 +45,23 @@ Deno.serve(async (req) => {
             bySource[e.source || 'unknown'] = (bySource[e.source || 'unknown'] || 0) + 1;
         });
         
-        // Count missing fields
-        const missingScorePercent = quizEvents.filter(e => !Number.isFinite(e.scorePercent)).length;
-        const missingCourseName = quizEvents.filter(e => !e.courseName || e.courseName.trim() === '').length;
+        // Count missing scorePercent by source
+        const csvEvents = quizEvents.filter(e => e.source === 'csv_import');
+        const webhookEvents = quizEvents.filter(e => e.source === 'webhook');
+        const missingScorePercentCsv = csvEvents.filter(e => !Number.isFinite(e.scorePercent)).length;
+        const missingScorePercentWebhook = webhookEvents.filter(e => !Number.isFinite(e.scorePercent)).length;
+        const missingScorePercent = missingScorePercentCsv + missingScorePercentWebhook;
+        
+        // Count missing courseName by source
+        const missingCourseNameCsv = csvEvents.filter(e => !e.courseName || e.courseName.trim() === '').length;
+        const missingCourseNameWebhook = webhookEvents.filter(e => !e.courseName || e.courseName.trim() === '').length;
+        const missingCourseName = missingCourseNameCsv + missingCourseNameWebhook;
+        
+        // Count CSV rows that have rawScore but scorePercent is still null (parse failures)
+        const csvScoreParseFailures = csvEvents.filter(e => {
+            const meta = e.metadata || {};
+            return meta.rawScore && e.scorePercent === null;
+        }).length;
         
         // Sample 5 newest
         const sorted = [...quizEvents].sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
