@@ -199,50 +199,24 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     let courseName = payload?.course?.name;
     const resultId = payload?.result_id;
     
-    // If course info missing, try to fetch from Thinkific
-    if ((!courseName || !courseId) && (lessonId || courseId)) {
+    // If course name missing, look for it from a recent lesson.completed event for this student
+    if (!courseName && studentEmail && lessonId) {
         try {
-            const apiKey = Deno.env.get('THINKIFIC_API_KEY');
-            const subdomain = Deno.env.get('THINKIFIC_SUBDOMAIN');
-            if (apiKey && subdomain) {
-                // First, try to get course_id from lesson if we don't have it
-                if (lessonId && !courseId) {
-                    const lessonResponse = await fetch(`https://api.thinkific.com/api/public/v1/lessons/${lessonId}`, {
-                        headers: {
-                            'X-Auth-API-Key': apiKey,
-                            'X-Auth-Subdomain': subdomain,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    if (lessonResponse.ok) {
-                        const lessonData = await lessonResponse.json();
-                        courseId = lessonData?.course_id;
-                        console.log(`[QUIZ WEBHOOK] ✓ Fetched courseId from lesson: ${courseId}`);
-                    } else {
-                        console.warn(`[QUIZ WEBHOOK] Failed to fetch lesson ${lessonId}: ${lessonResponse.status} ${lessonResponse.statusText}`);
-                    }
-                }
-                
-                // Now fetch course name using course_id
-                if (courseId && !courseName) {
-                    const courseResponse = await fetch(`https://api.thinkific.com/api/public/v1/courses/${courseId}`, {
-                        headers: {
-                            'X-Auth-API-Key': apiKey,
-                            'X-Auth-Subdomain': subdomain,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    if (courseResponse.ok) {
-                        const courseData = await courseResponse.json();
-                        courseName = courseData?.name;
-                        console.log(`[QUIZ WEBHOOK] ✓ Fetched courseName from course ${courseId}: ${courseName}`);
-                    } else {
-                        console.warn(`[QUIZ WEBHOOK] Failed to fetch course ${courseId}: ${courseResponse.status} ${courseResponse.statusText}`);
-                    }
-                }
+            const recentLessons = await base44.asServiceRole.entities.ActivityEvent.filter({
+                studentEmail: studentEmail,
+                eventType: 'lesson_completed',
+                contentId: String(lessonId)
+            });
+            
+            if (recentLessons.length > 0) {
+                // Get the most recent lesson completion for this lesson
+                const sorted = recentLessons.sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
+                courseName = sorted[0].courseName;
+                courseId = sorted[0].courseId;
+                console.log(`[QUIZ WEBHOOK] ✓ Found courseName from lesson.completed: ${courseName}`);
             }
         } catch (error) {
-            console.error(`[QUIZ WEBHOOK] ❌ Exception while fetching course info for lesson ${lessonId}:`, error.message);
+            console.warn(`[QUIZ WEBHOOK] Could not lookup lesson course name:`, error.message);
         }
     }
     
