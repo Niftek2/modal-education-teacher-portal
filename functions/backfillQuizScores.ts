@@ -44,18 +44,20 @@ Deno.serve(async (req) => {
                 const webhookPayload = JSON.parse(webhookEvents[0].payloadJson);
                 const payload = webhookPayload.payload;
 
-                // Re-extract score data with proper numeric conversion
+                // Re-extract score data with proper numeric conversion - use null if missing
                 const gradePercent = payload?.grade != null ? Number(payload.grade) : null;
-                const correctCount = payload?.correct_count != null ? Number(payload.correct_count) : 0;
-                const incorrectCount = payload?.incorrect_count != null ? Number(payload.incorrect_count) : 0;
-                const attemptNumber = payload?.attempts != null ? Number(payload.attempts) : 1;
-                const questionCount = correctCount + incorrectCount;
+                const correctCount = payload?.correct_count != null ? Number(payload.correct_count) : null;
+                const incorrectCount = payload?.incorrect_count != null ? Number(payload.incorrect_count) : null;
+                const attemptNumber = payload?.attempts != null ? Number(payload.attempts) : null;
+                const resultId = payload?.result_id;
+                
+                const questionCount = (Number.isFinite(correctCount) ? correctCount : 0) + (Number.isFinite(incorrectCount) ? incorrectCount : 0);
 
-                // Derive scorePercent
+                // Derive scorePercent with exact priority
                 let scorePercent = null;
-                if (gradePercent != null && !Number.isNaN(gradePercent)) {
+                if (Number.isFinite(gradePercent)) {
                     scorePercent = gradePercent;
-                } else if (questionCount > 0) {
+                } else if (questionCount > 0 && Number.isFinite(correctCount)) {
                     scorePercent = Math.round((correctCount / questionCount) * 100);
                 }
 
