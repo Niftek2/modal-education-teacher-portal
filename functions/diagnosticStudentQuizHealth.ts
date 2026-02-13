@@ -79,8 +79,21 @@ Deno.serve(async (req) => {
             studentEmail: normalizedEmail,
             totalQuizAttempts: quizEvents.length,
             bySource,
-            missingScorePercent,
-            missingCourseName,
+            missingScorePercent: {
+                total: missingScorePercent,
+                bySource: {
+                    csv_import: missingScorePercentCsv,
+                    webhook: missingScorePercentWebhook
+                }
+            },
+            missingCourseName: {
+                total: missingCourseName,
+                bySource: {
+                    csv_import: missingCourseNameCsv,
+                    webhook: missingCourseNameWebhook
+                }
+            },
+            csvScoreParseFailures,
             sampleNewest5: sample
         }, { status: 200 });
     } catch (error) {
