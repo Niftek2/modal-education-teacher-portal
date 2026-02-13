@@ -9,7 +9,7 @@ export default function Layout({ children, currentPageName }) {
             alt="Modal Education Logo" 
             className="h-8 w-8 object-contain flex-shrink-0"
           />
-          <h1 className="text-lg tracking-tight" style={{ fontFamily: 'Arial' }}>modal education</h1>
+          <h1 className="text-lg tracking-tight" style={{ fontFamily: 'Arial' }}>Modal Education</h1>
         </div>
       </header>
 
