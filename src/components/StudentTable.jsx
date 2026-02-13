@@ -32,7 +32,8 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
     const getLastActive = (email) => {
         const normalizedEmail = email.trim().toLowerCase();
         const studentActivities = activities.filter(a => 
-            a.studentEmail?.trim().toLowerCase() === normalizedEmail
+            a.studentEmail?.trim().toLowerCase() === normalizedEmail &&
+            a.eventType === 'user_signin'
         );
         if (studentActivities.length === 0) return null;
         
