@@ -25,15 +25,21 @@ Deno.serve(async (req) => {
 
             let scoreValue = null;
 
-            // Try metadata.grade first
+            // Try metadata fields first
             if (event.metadata?.grade != null) {
                 const n = Number(event.metadata.grade);
                 if (Number.isFinite(n)) {
                     scoreValue = n;
                 }
             }
+            if (scoreValue === null && event.metadata?.scorePercent != null) {
+                const n = Number(event.metadata.scorePercent);
+                if (Number.isFinite(n)) {
+                    scoreValue = n;
+                }
+            }
 
-            // Fallback: parse rawPayload for grade
+            // Fallback: parse rawPayload for grade or scorePercent
             if (scoreValue === null && event.rawPayload) {
                 try {
                     const payload = typeof event.rawPayload === 'string' 
@@ -41,6 +47,11 @@ Deno.serve(async (req) => {
                         : event.rawPayload;
                     if (payload?.grade != null) {
                         const n = Number(payload.grade);
+                        if (Number.isFinite(n)) {
+                            scoreValue = n;
+                        }
+                    } else if (payload?.['% Score'] != null) {
+                        const n = Number(payload['% Score']);
                         if (Number.isFinite(n)) {
                             scoreValue = n;
                         }

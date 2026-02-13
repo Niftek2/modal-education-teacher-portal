@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
                 // Check for duplicates
                 const existing = await base44.asServiceRole.entities.ActivityEvent.filter({
                     studentEmail: studentEmail,
-                    eventType: 'quiz.attempted',
+                    eventType: 'quiz_attempted',
                     contentTitle: quizName,
                     occurredAt: occurredAtIso
                 });
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
                     studentDisplayName: studentName || studentEmail.split('@')[0],
                     courseId: '',
                     courseName: courseName,
-                    eventType: 'quiz.attempted',
+                    eventType: 'quiz_attempted',
                     contentId: '',
                     contentTitle: quizName,
                     occurredAt: occurredAtIso,
@@ -77,8 +77,8 @@ Deno.serve(async (req) => {
                     rawEventId: '',
                     rawPayload: JSON.stringify(row),
                     dedupeKey: dedupeKey,
+                    scorePercent: percentage,
                     metadata: {
-                        grade: percentage,
                         correctCount: totalCorrect,
                         incorrectCount: totalQuestions - totalCorrect
                     }
