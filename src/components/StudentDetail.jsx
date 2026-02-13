@@ -44,6 +44,14 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     }
                 }
                 
+                // Debug: Log what we're working with
+                console.log('Quiz event:', { 
+                    contentTitle: e.contentTitle, 
+                    metadata, 
+                    rawPayloadType: typeof e.rawPayload,
+                    rawPayloadSample: typeof e.rawPayload === 'string' ? e.rawPayload.substring(0, 200) : e.rawPayload
+                });
+                
                 // Primary: use scorePercent from metadata (webhook stores as metadata.scorePercent)
                 let percentage = metadata?.scorePercent;
                 
@@ -52,10 +60,13 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     try {
                         const payload = typeof e.rawPayload === 'string' ? JSON.parse(e.rawPayload) : e.rawPayload;
                         percentage = payload?.grade;
+                        console.log('Using rawPayload.grade:', percentage);
                     } catch (err) {
                         console.error('Failed to parse rawPayload:', err);
                     }
                 }
+                
+                console.log('Final percentage:', percentage);
                 
                 return {
                     quizName: e.contentTitle || 'Unknown Quiz',
