@@ -59,9 +59,14 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const flatQuizzes = [];
             Object.values(groupedQuizzes).forEach(group => {
                 const sortedGroup = group.sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
-                const scores = sortedGroup.map(q => q.percentage).filter(s => s !== null && s !== undefined);
+                const scores = sortedGroup
+                    .map(q => q.percentage)
+                    .filter(s => typeof s === 'number' && !Number.isNaN(s));
                 const bestScore = scores.length > 0 ? Math.max(...scores) : null;
                 const latestAttempt = sortedGroup[sortedGroup.length - 1];
+                const latestScore = typeof latestAttempt.percentage === 'number' && !Number.isNaN(latestAttempt.percentage) 
+                    ? latestAttempt.percentage 
+                    : null;
                 
                 sortedGroup.forEach((quiz, idx) => {
                     flatQuizzes.push({
@@ -69,7 +74,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                         attemptIndex: idx + 1,
                         groupSize: sortedGroup.length,
                         groupBest: bestScore,
-                        groupLatestScore: latestAttempt.percentage,
+                        groupLatestScore: latestScore,
                         groupLatestDate: latestAttempt.completedAt,
                         isFirstInGroup: idx === 0
                     });
