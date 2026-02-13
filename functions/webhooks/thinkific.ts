@@ -230,7 +230,7 @@ async function handleQuizAttempted(base44, evt, webhookId) {
             }
         });
 
-        console.log(`[QUIZ WEBHOOK] ✓ Quiz attempt saved: student=${studentEmail}, gradePercent=${gradePercent}, scorePercent=${scorePercent}, occurredAt=${occurredAtIso}`);
+        console.log(`[QUIZ WEBHOOK] ✓ Quiz attempt saved: student=${studentEmail}, scorePercent=${scorePercent}, occurredAt=${occurredAtIso}`);
         return { status: 'created', id: created.id };
     } catch (error) {
         console.error(`[QUIZ WEBHOOK] ❌ Failed to save quiz attempt:`, error);
