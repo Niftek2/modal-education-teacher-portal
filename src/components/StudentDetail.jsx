@@ -48,7 +48,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const quizList = quizAttempts.map(e => {
                 const metadata = e.metadata || {};
                 const percentage = Number.isFinite(e.scorePercent) ? Number(e.scorePercent) : null;
-                const courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim()) ? e.courseName.trim() : 'Elementary';
+                const courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim() && e.courseName !== 'Unknown Course') ? e.courseName.trim() : 'Elementary';
                 
                 return {
                     quizName: e.contentTitle || 'Unknown Quiz',
