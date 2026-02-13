@@ -49,18 +49,20 @@
  */
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
+import SelectProgram from './pages/SelectProgram';
 import Verify from './pages/Verify';
 import WebhookDebug from './pages/WebhookDebug';
-import SelectProgram from './pages/SelectProgram';
+import RequestHistory from './pages/RequestHistory';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Dashboard": Dashboard,
     "Home": Home,
+    "SelectProgram": SelectProgram,
     "Verify": Verify,
     "WebhookDebug": WebhookDebug,
-    "SelectProgram": SelectProgram,
+    "RequestHistory": RequestHistory,
 }
 
 export const pagesConfig = {
