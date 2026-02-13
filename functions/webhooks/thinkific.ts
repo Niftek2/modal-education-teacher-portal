@@ -199,9 +199,11 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     // Use resultId for dedupe if available, otherwise webhookId
     const dedupeKey = resultId ? `quiz_attempted:${resultId}` : `quiz_attempted:${webhookId}`;
 
-    // Check if already exists by dedupeKey
+    // Check if already exists by dedupeKey OR by old format dedupeKey
     const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey: dedupeKey });
-    if (existing.length > 0) {
+    const existingOldFormat = resultId ? await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey: String(resultId) }) : [];
+    
+    if (existing.length > 0 || existingOldFormat.length > 0) {
         console.log('[QUIZ WEBHOOK] ⚠️ Quiz attempt already exists (dedupe), skipping');
         return { status: 'duplicate' };
     }
