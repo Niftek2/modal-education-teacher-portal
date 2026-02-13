@@ -28,7 +28,7 @@ export default function Verify() {
                 if (response.success && response.sessionToken) {
                     localStorage.setItem('modal_math_session', response.sessionToken);
                     setMessage('Login successful! Redirecting...');
-                    setTimeout(() => navigate('/Dashboard'), 1000);
+                    setTimeout(() => navigate(createPageUrl('SelectProgram')), 1000);
                 } else {
                     console.error('Verification failed:', response);
                     setMessage('Verification failed. Redirecting...');
