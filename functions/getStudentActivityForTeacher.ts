@@ -10,7 +10,7 @@ async function verifySession(token) {
     return payload;
 }
 
-async function getTeacherStudentEmails(teacherId) {
+async function getTeacherStudentEmails(teacherId, teacherEmail) {
     // Get all groups where teacher is a member using Thinkific SDK
     const allGroups = await thinkific.listGroups();
     const studentEmails = new Set();
@@ -20,9 +20,9 @@ async function getTeacherStudentEmails(teacherId) {
         const isMember = groupUsers.some(u => String(u.id) === String(teacherId));
         
         if (isMember) {
-            // Include all members in teacher's groups
+            // Include all members EXCEPT the teacher themselves
             groupUsers.forEach(user => {
-                if (user.email) {
+                if (user.email && String(user.id) !== String(teacherId)) {
                     studentEmails.add(user.email.toLowerCase());
                 }
             });
@@ -40,8 +40,11 @@ Deno.serve(async (req) => {
         const session = await verifySession(sessionToken);
         const teacherId = session.userId;
         
-        // Get student emails in teacher's rosters
-        const studentEmails = await getTeacherStudentEmails(teacherId);
+        // Get teacher's email for filtering
+        const teacherUser = await thinkific.getUser(teacherId);
+        
+        // Get student emails in teacher's rosters (excludes teacher)
+        const studentEmails = await getTeacherStudentEmails(teacherId, teacherUser.email);
         
         // Fetch all activity events
         const base44 = createClientFromRequest(req);
