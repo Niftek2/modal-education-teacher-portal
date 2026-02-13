@@ -152,9 +152,33 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     const quizId = payload?.quiz?.id;
     const quizName = payload?.quiz?.name;
     const lessonId = payload?.lesson?.id;
-    const courseId = payload?.course?.id;
-    const courseName = payload?.course?.name;
+    let courseId = payload?.course?.id;
+    let courseName = payload?.course?.name;
     const resultId = payload?.result_id;
+    
+    // If course info missing but we have lessonId, fetch from Thinkific
+    if (!courseName && lessonId) {
+        try {
+            const apiKey = Deno.env.get('THINKIFIC_API_KEY');
+            const subdomain = Deno.env.get('THINKIFIC_SUBDOMAIN');
+            if (apiKey && subdomain) {
+                const lessonResponse = await fetch(`https://api.thinkific.com/api/public/v1/lessons/${lessonId}`, {
+                    headers: {
+                        'X-Auth-API-Key': apiKey,
+                        'X-Auth-Subdomain': subdomain,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (lessonResponse.ok) {
+                    const lessonData = await lessonResponse.json();
+                    courseId = lessonData?.course_id;
+                    courseName = lessonData?.course_name || null;
+                }
+            }
+        } catch (error) {
+            console.warn(`[QUIZ WEBHOOK] Failed to fetch course for lesson ${lessonId}:`, error.message);
+        }
+    }
     
     // Extract and convert to numbers - use null if missing, never 0 as default
     const gradePercent = payload?.grade != null ? Number(payload.grade) : null;
