@@ -211,25 +211,33 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                         </button>
                                     </div>
                                     <div className="space-y-3">
-                                        {getSortedQuizzes().reduce((groups, quiz, idx) => {
-                                            const lastGroup = groups[groups.length - 1];
-                                            const groupKey = quiz.quizId || quiz.quizName.toLowerCase();
-                                            const lastGroupKey = lastGroup ? (lastGroup.attempts[0].quizId || lastGroup.attempts[0].quizName.toLowerCase()) : null;
-                                            
-                                            if (!lastGroup || groupKey !== lastGroupKey) {
-                                                groups.push({ attempts: [quiz] });
-                                            } else {
-                                                lastGroup.attempts.push(quiz);
-                                            }
-                                            return groups;
-                                        }, []).map((group, groupIdx) => (
-                                            <div key={groupIdx} className="border border-gray-200 rounded-lg overflow-hidden">
-                                                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                                                    <div className="font-medium text-sm">{group.attempts[0].quizName}</div>
-                                                    <div className="text-xs text-gray-600 mt-1">
-                                                        Attempts: {group.attempts[0].groupSize} | Best: {group.attempts[0].groupBest !== null ? `${Math.round(group.attempts[0].groupBest)}%` : '—'} | Latest: {group.attempts[0].groupLatestScore !== null ? `${Math.round(group.attempts[0].groupLatestScore)}%` : '—'} at {formatDate(group.attempts[0].groupLatestDate)}
-                                                    </div>
-                                                </div>
+                                       {getSortedQuizzes().reduce((groups, quiz, idx) => {
+                                           const lastGroup = groups[groups.length - 1];
+                                           const groupKey = quiz.quizId || quiz.quizName.toLowerCase();
+                                           const lastGroupKey = lastGroup ? (lastGroup.attempts[0].quizId || lastGroup.attempts[0].quizName.toLowerCase()) : null;
+
+                                           if (!lastGroup || groupKey !== lastGroupKey) {
+                                               groups.push({ attempts: [quiz] });
+                                           } else {
+                                               lastGroup.attempts.push(quiz);
+                                           }
+                                           return groups;
+                                       }, []).map((group, groupIdx) => {
+                                           // Recalculate group stats from current group
+                                           const scores = group.attempts.map(q => q.percentage).filter(s => typeof s === 'number' && !Number.isNaN(s));
+                                           const groupBest = scores.length > 0 ? Math.max(...scores) : null;
+                                           const sortedByTime = [...group.attempts].sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
+                                           const latestAttempt = sortedByTime[sortedByTime.length - 1];
+                                           const groupLatestScore = typeof latestAttempt.percentage === 'number' && !Number.isNaN(latestAttempt.percentage) ? latestAttempt.percentage : null;
+
+                                           return (
+                                           <div key={groupIdx} className="border border-gray-200 rounded-lg overflow-hidden">
+                                               <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                                                   <div className="font-medium text-sm">{group.attempts[0].quizName}</div>
+                                                   <div className="text-xs text-gray-600 mt-1">
+                                                       Attempts: {group.attempts.length} | Best: {groupBest !== null ? `${Math.round(groupBest)}%` : '—'} | Latest: {groupLatestScore !== null ? `${Math.round(groupLatestScore)}%` : '—'} at {formatDate(latestAttempt.completedAt)}
+                                                   </div>
+                                               </div>
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow className="bg-white">
