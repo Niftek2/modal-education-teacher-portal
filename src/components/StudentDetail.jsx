@@ -83,7 +83,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                         }
                     }
                     
-                    courseName = courseName || 'Unknown Course';
+                    courseName = courseName || 'Elementary';
                     
                     quizList.push({
                         quizName: e.contentTitle || 'Unknown Quiz',
@@ -143,7 +143,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                 .filter(e => e.eventType === 'lesson_completed')
                 .map(e => ({
                     lessonName: e.contentTitle || 'Unknown Lesson',
-                    courseName: e.courseName || 'Unknown Course',
+                    courseName: e.courseName || 'Elementary',
                     completedAt: e.occurredAt,
                     source: e.source
                 }))
