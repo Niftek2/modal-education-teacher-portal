@@ -6,8 +6,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
  * Returns:
  *   - total quiz attempts
  *   - count by source (webhook vs csv)
- *   - count missing scorePercent
- *   - count missing courseName
+ *   - count missing scorePercent (with breakdown by source)
+ *   - count missing courseName (with breakdown by source)
+ *   - CSV score column detection and parse failure count
  *   - sample 5 newest attempts
  */
 
