@@ -146,6 +146,7 @@ async function handleLessonCompleted(base44, evt, webhookId) {
     try {
         const created = await base44.asServiceRole.entities.ActivityEvent.create({
             studentUserId: String(studentUserId || ''),
+            thinkificUserId: studentUserId ? Number(studentUserId) : null,
             studentEmail: studentEmail,
             studentDisplayName: studentEmail.split('@')[0],
             courseId: String(courseId || ''),
@@ -158,7 +159,7 @@ async function handleLessonCompleted(base44, evt, webhookId) {
             rawEventId: String(webhookId),
             rawPayload: JSON.stringify(payload),
             dedupeKey: dedupeKey,
-            metadata: {}
+            metadata: { userId: studentUserId }
         });
 
         console.log(`[WEBHOOK] ✓ Lesson completion saved: student=${studentEmail}, occurredAt=${occurredAtIso}`);
@@ -226,6 +227,7 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     try {
         const created = await base44.asServiceRole.entities.ActivityEvent.create({
             studentUserId: String(studentUserId || ''),
+            thinkificUserId: studentUserId ? Number(studentUserId) : null,
             studentEmail: studentEmail,
             studentDisplayName: studentEmail.split('@')[0],
             courseId: String(courseId || ''),
@@ -240,6 +242,7 @@ async function handleQuizAttempted(base44, evt, webhookId) {
             dedupeKey: dedupeKey,
             scorePercent: scorePercent,
             metadata: {
+                userId: studentUserId,
                 resultId: resultId ? String(resultId) : null,
                 attemptNumber: attemptNumber,
                 correctCount: correctCount,
@@ -280,6 +283,7 @@ async function handleUserSignin(base44, evt, webhookId) {
     try {
         await base44.asServiceRole.entities.ActivityEvent.create({
             studentUserId: String(studentUserId || ''),
+            thinkificUserId: studentUserId ? Number(studentUserId) : null,
             studentEmail: studentEmail,
             studentDisplayName: studentEmail.split('@')[0],
             courseId: '',
@@ -292,7 +296,7 @@ async function handleUserSignin(base44, evt, webhookId) {
             rawEventId: String(webhookId),
             rawPayload: JSON.stringify(payload),
             dedupeKey: webhookId,
-            metadata: {}
+            metadata: { userId: studentUserId }
         });
 
         console.log(`[WEBHOOK] ✓ User signin tracked: email=${studentEmail}, occurredAt=${occurredAtIso}`);
