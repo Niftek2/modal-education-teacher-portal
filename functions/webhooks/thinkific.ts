@@ -157,7 +157,7 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     const resultId = payload?.result_id;
     
     // If course info missing but we have lessonId, fetch from Thinkific
-    if (!courseName && lessonId) {
+    if ((!courseName || !courseId) && lessonId) {
         try {
             const apiKey = Deno.env.get('THINKIFIC_API_KEY');
             const subdomain = Deno.env.get('THINKIFIC_SUBDOMAIN');
@@ -171,8 +171,8 @@ async function handleQuizAttempted(base44, evt, webhookId) {
                 });
                 if (lessonResponse.ok) {
                     const lessonData = await lessonResponse.json();
-                    courseId = lessonData?.course_id;
-                    courseName = lessonData?.course_name || null;
+                    courseId = courseId || lessonData?.course_id;
+                    courseName = courseName || lessonData?.course_name || null;
                 }
             }
         } catch (error) {
