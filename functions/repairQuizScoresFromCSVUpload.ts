@@ -120,12 +120,8 @@ Deno.serve(async (req) => {
             }, { status: 400 });
         }
         
-        // Parse CSV rows and match to existing events
-        let matched = 0;
-        let updated = 0;
-        const matches = [];
-        const parseErrors = [];
-        
+        // Parse all CSV rows first
+        const csvRows = [];
         for (let rowIdx = 1; rowIdx < lines.length; rowIdx++) {
             const line = lines[rowIdx];
             const fields = parseCSVLine(line);
@@ -140,66 +136,102 @@ Deno.serve(async (req) => {
             
             const scorePercent = parsePercent(rawScore);
             if (scorePercent === null) {
-                parseErrors.push({ row: rowIdx + 1, quizName, studentEmail, rawScore });
+                console.log(`[REPAIR CSV] Parse error row ${rowIdx + 1}: ${quizName} / ${rawScore}`);
                 continue;
             }
             
-            // Find matching event(s)
-            const candidates = eventsWithNullScore.filter(e => {
-                const emailMatch = e.studentEmail?.toLowerCase() === studentEmail;
-                const quizMatch = e.contentTitle?.toLowerCase() === quizName.toLowerCase();
-                const courseMatch = courseName === '' || e.courseName === courseName;
-                return emailMatch && quizMatch && courseMatch;
+            csvRows.push({
+                quizName,
+                studentEmail,
+                courseName,
+                scorePercent,
+                dateStr,
+                rowIdx: rowIdx + 1
             });
+        }
+        
+        console.log(`[REPAIR CSV] Parsed ${csvRows.length} valid CSV rows with scores`);
+        
+        // Group events and CSV rows by (studentEmail, quizName, courseName)
+        const eventsByKey = {};
+        eventsWithNullScore.forEach(e => {
+            const key = `${e.studentEmail?.toLowerCase()}|${e.contentTitle?.toLowerCase()}|${e.courseName || ''}`;
+            if (!eventsByKey[key]) eventsByKey[key] = [];
+            eventsByKey[key].push(e);
+        });
+        
+        // Match and update
+        let matched = 0;
+        let updated = 0;
+        let ambiguousMatches = 0;
+        const updates = [];
+        
+        for (const csvRow of csvRows) {
+            const key = `${csvRow.studentEmail}|${csvRow.quizName.toLowerCase()}|${csvRow.courseName}`;
+            const candidates = eventsByKey[key] || [];
             
-            if (candidates.length === 0) {
-                continue;
-            }
+            if (candidates.length === 0) continue;
             
             matched++;
             
-            // Try to match by date if available; otherwise pick first (already sorted by -occurredAt)
+            // If multiple candidates, match by date
             let targetEvent = candidates[0];
-            if (dateStr && candidates.length > 1) {
-                const csvDate = new Date(dateStr).getTime();
-                let bestMatch = candidates[0];
-                let bestDiff = Math.abs(new Date(candidates[0].occurredAt).getTime() - csvDate);
+            if (candidates.length > 1) {
+                ambiguousMatches++;
                 
-                for (const candidate of candidates) {
-                    const diff = Math.abs(new Date(candidate.occurredAt).getTime() - csvDate);
-                    if (diff < bestDiff) {
-                        bestDiff = diff;
-                        bestMatch = candidate;
+                if (csvRow.dateStr) {
+                    try {
+                        const csvDate = new Date(csvRow.dateStr);
+                        let bestMatch = candidates[0];
+                        let bestDiff = Math.abs(new Date(candidates[0].occurredAt).getTime() - csvDate.getTime());
+                        
+                        for (const candidate of candidates) {
+                            const diff = Math.abs(new Date(candidate.occurredAt).getTime() - csvDate.getTime());
+                            if (diff < bestDiff) {
+                                bestDiff = diff;
+                                bestMatch = candidate;
+                            }
+                        }
+                        targetEvent = bestMatch;
+                        console.log(`[REPAIR CSV] Matched ambiguous: ${csvRow.quizName} (${candidates.length} candidates, picked by date)`);
+                    } catch (e) {
+                        console.log(`[REPAIR CSV] Date parse failed: ${csvRow.dateStr}, using first candidate`);
                     }
+                } else {
+                    console.log(`[REPAIR CSV] Ambiguous match: ${csvRow.quizName} (${candidates.length} candidates, no date, using first)`);
                 }
-                targetEvent = bestMatch;
             }
             
-            // Update the event
+            // Update
             await base44.asServiceRole.entities.ActivityEvent.update(targetEvent.id, {
-                scorePercent: scorePercent
+                scorePercent: csvRow.scorePercent,
+                metadata: {
+                    ...(targetEvent.metadata || {}),
+                    rawScore: csvRow.scorePercent.toString()
+                }
             });
             
             updated++;
-            matches.push({
-                studentEmail,
-                quizName,
-                courseName,
-                eventId: targetEvent.id,
-                scorePercent: scorePercent
+            updates.push({
+                studentEmail: csvRow.studentEmail,
+                quizName: csvRow.quizName,
+                courseName: csvRow.courseName,
+                scorePercent: csvRow.scorePercent,
+                eventId: targetEvent.id
             });
             
-            console.log(`[REPAIR CSV] Updated ${studentEmail} / ${quizName} / ${scorePercent}%`);
+            console.log(`[REPAIR CSV] Updated: ${csvRow.studentEmail} / ${csvRow.quizName} / ${csvRow.scorePercent}%`);
         }
         
+        const stillMissing = eventsWithNullScore.length - updated;
+        
         return Response.json({
-            csvRowsProcessed: lines.length - 1,
-            matched,
-            updated,
-            parseErrors: parseErrors.length,
-            scoreDetected: scoreDetected,
-            updates: matches.slice(0, 10),
-            summary: `Matched ${matched} CSV rows to existing events, updated ${updated} with scores`
+            totalRowsInCsv: csvRows.length,
+            eventsMatched: matched,
+            eventsUpdated: updated,
+            eventsStillMissing: stillMissing,
+            ambiguousMatches: ambiguousMatches,
+            updates: updates.slice(0, 15)
         }, { status: 200 });
     } catch (error) {
         console.error('[REPAIR CSV ERROR]', error.message);
