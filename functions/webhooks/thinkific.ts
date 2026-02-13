@@ -156,27 +156,44 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     let courseName = payload?.course?.name;
     const resultId = payload?.result_id;
     
-    // If course info missing but we have lessonId, fetch from Thinkific
-    if ((!courseName || !courseId) && lessonId) {
+    // If course info missing, try to fetch from Thinkific
+    if ((!courseName || !courseId) && (lessonId || courseId)) {
         try {
             const apiKey = Deno.env.get('THINKIFIC_API_KEY');
             const subdomain = Deno.env.get('THINKIFIC_SUBDOMAIN');
             if (apiKey && subdomain) {
-                const lessonResponse = await fetch(`https://api.thinkific.com/api/public/v1/lessons/${lessonId}`, {
-                    headers: {
-                        'X-Auth-API-Key': apiKey,
-                        'X-Auth-Subdomain': subdomain,
-                        'Content-Type': 'application/json'
+                // First, try to get course_id from lesson if we don't have it
+                if (lessonId && !courseId) {
+                    const lessonResponse = await fetch(`https://api.thinkific.com/api/public/v1/lessons/${lessonId}`, {
+                        headers: {
+                            'X-Auth-API-Key': apiKey,
+                            'X-Auth-Subdomain': subdomain,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    if (lessonResponse.ok) {
+                        const lessonData = await lessonResponse.json();
+                        courseId = lessonData?.course_id;
                     }
-                });
-                if (lessonResponse.ok) {
-                    const lessonData = await lessonResponse.json();
-                    courseId = courseId || lessonData?.course_id;
-                    courseName = courseName || lessonData?.course_name || null;
+                }
+                
+                // Now fetch course name using course_id
+                if (courseId && !courseName) {
+                    const courseResponse = await fetch(`https://api.thinkific.com/api/public/v1/courses/${courseId}`, {
+                        headers: {
+                            'X-Auth-API-Key': apiKey,
+                            'X-Auth-Subdomain': subdomain,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    if (courseResponse.ok) {
+                        const courseData = await courseResponse.json();
+                        courseName = courseData?.name;
+                    }
                 }
             }
         } catch (error) {
-            console.warn(`[QUIZ WEBHOOK] Failed to fetch course for lesson ${lessonId}:`, error.message);
+            console.warn(`[QUIZ WEBHOOK] Failed to fetch course info for lesson ${lessonId}:`, error.message);
         }
     }
     
