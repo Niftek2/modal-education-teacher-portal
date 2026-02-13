@@ -155,23 +155,23 @@ async function handleQuizAttempted(base44, evt, webhookId) {
     const courseId = payload?.course?.id;
     const courseName = payload?.course?.name;
     const resultId = payload?.result_id;
-    const gradePercent = payload?.grade;
-    const correctCount = payload?.correct_count;
-    const incorrectCount = payload?.incorrect_count;
-    const attempts = payload?.attempts;
+    
+    // Extract and convert to numbers (ensure numeric types)
+    const gradePercent = payload?.grade != null ? Number(payload.grade) : null;
+    const correctCount = payload?.correct_count != null ? Number(payload.correct_count) : 0;
+    const incorrectCount = payload?.incorrect_count != null ? Number(payload.incorrect_count) : 0;
+    const attemptNumber = payload?.attempts != null ? Number(payload.attempts) : 1;
+    const questionCount = correctCount + incorrectCount;
 
-    // Compute scorePercent based on priority
+    // Derive scorePercent reliably
     let scorePercent = null;
-    if (typeof gradePercent === 'number') {
+    if (gradePercent != null && !Number.isNaN(gradePercent)) {
         scorePercent = gradePercent;
-    } else if (correctCount !== undefined && incorrectCount !== undefined) {
-        const total = correctCount + incorrectCount;
-        if (total > 0) {
-            scorePercent = Math.round(100 * correctCount / total);
-        }
+    } else if (questionCount > 0) {
+        scorePercent = Math.round((correctCount / questionCount) * 100);
     }
 
-    console.log(`[QUIZ WEBHOOK] Processing quiz.attempted: student=${studentEmail}, quiz=${quizId}, resultId=${resultId}, scorePercent=${scorePercent}`);
+    console.log(`[QUIZ WEBHOOK] Processing quiz.attempted: student=${studentEmail}, quiz=${quizId}, resultId=${resultId}, scorePercent=${scorePercent}, gradePercent=${gradePercent}`);
 
     if (!studentEmail || !quizId) {
         console.error('[QUIZ WEBHOOK] ❌ Missing required fields');
@@ -205,10 +205,11 @@ async function handleQuizAttempted(base44, evt, webhookId) {
             rawPayload: JSON.stringify(payload),
             dedupeKey: dedupeKey,
             metadata: {
-                gradePercent: gradePercent || null,
-                correctCount: correctCount !== undefined ? correctCount : null,
-                incorrectCount: incorrectCount !== undefined ? incorrectCount : null,
-                attempts: attempts || null,
+                gradePercent: gradePercent,
+                correctCount: correctCount,
+                incorrectCount: incorrectCount,
+                questionCount: questionCount,
+                attempts: attemptNumber,
                 resultId: String(resultId || ''),
                 scorePercent: scorePercent
             }
