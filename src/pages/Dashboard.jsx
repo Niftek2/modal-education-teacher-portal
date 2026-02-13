@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Plus, Search, Download, AlertCircle, RefreshCw, Bug, Settings } from 'lucide-react';
+import { LogOut, Plus, Search, Download, AlertCircle, RefreshCw, Bug, Settings, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import StudentTable from '../components/StudentTable';
@@ -9,6 +9,7 @@ import AddStudentModal from '../components/AddStudentModal';
 import CSVImportModal from '../components/CSVImportModal';
 import QuizImportModal from '../components/QuizImportModal';
 import SnapshotModal from '../components/SnapshotModal';
+import ArchivedStudentsModal from '../components/ArchivedStudentsModal';
 import { api } from '@/components/api';
 import { createPageUrl } from '@/utils';
 
@@ -27,6 +28,7 @@ export default function Dashboard() {
     const [showCSVImport, setShowCSVImport] = useState(false);
     const [showQuizImport, setShowQuizImport] = useState(false);
     const [showSnapshot, setShowSnapshot] = useState(false);
+    const [showArchived, setShowArchived] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -285,6 +287,14 @@ export default function Dashboard() {
                             </>
                         )}
                         <Button
+                            onClick={() => setShowArchived(true)}
+                            variant="outline"
+                            className="border-gray-300"
+                        >
+                            <Archive className="w-4 h-4 mr-2" />
+                            Archived
+                        </Button>
+                        <Button
                             onClick={exportToCSV}
                             variant="outline"
                             className="border-gray-300"
@@ -360,6 +370,15 @@ export default function Dashboard() {
                 <SnapshotModal
                     sessionToken={localStorage.getItem('modal_math_session')}
                     onClose={() => setShowSnapshot(false)}
+                />
+            )}
+
+            {/* Archived Students Modal */}
+            {showArchived && (
+                <ArchivedStudentsModal
+                    isOpen={showArchived}
+                    onClose={() => setShowArchived(false)}
+                    sessionToken={localStorage.getItem('modal_math_session')}
                 />
             )}
         </div>
