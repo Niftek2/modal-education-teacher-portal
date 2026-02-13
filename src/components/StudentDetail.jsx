@@ -248,10 +248,14 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                                         </TableRow>
                                                     </TableHeader>
                                                     <TableBody>
-                                                        {group.attempts.map((quiz, idx) => (
+                                                        {group.attempts.map((quiz, idx) => {
+                                                            const sortedByTime = [...group.attempts].sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
+                                                            const attemptIndex = sortedByTime.findIndex(q => q.completedAt === quiz.completedAt) + 1;
+                                                            
+                                                            return (
                                                             <TableRow key={`${quiz.quizName}-${quiz.completedAt}-${idx}`} className="hover:bg-gray-50">
                                                                 <TableCell className="text-sm text-gray-600">{quiz.level}</TableCell>
-                                                                <TableCell className="text-center text-sm">{quiz.attemptIndex}</TableCell>
+                                                                <TableCell className="text-center text-sm">{attemptIndex}</TableCell>
                                                                 <TableCell>
                                                                     <div className="flex flex-col gap-1">
                                                                         <div className="flex items-center gap-2">
