@@ -278,7 +278,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                                     </TableBody>
                                                 </Table>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )
