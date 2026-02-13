@@ -72,7 +72,18 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     }
                     
                     const metadata = e.metadata || {};
-                    const courseName = e.courseName && e.courseName.trim() ? e.courseName : 'Unknown Course';
+                    // Use courseName from the event, trim whitespace, and check it's not just empty
+                    let courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim()) ? e.courseName.trim() : null;
+                    
+                    // If no courseName found, try to get it from other quiz attempts in the same group
+                    if (!courseName) {
+                        const siblingWithCourse = eventsInGroup.find(sibling => sibling.courseName && typeof sibling.courseName === 'string' && sibling.courseName.trim());
+                        if (siblingWithCourse) {
+                            courseName = siblingWithCourse.courseName.trim();
+                        }
+                    }
+                    
+                    courseName = courseName || 'Unknown Course';
                     
                     quizList.push({
                         quizName: e.contentTitle || 'Unknown Quiz',
