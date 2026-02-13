@@ -257,6 +257,8 @@ Deno.serve(async (req) => {
             imported,
             duplicates,
             total: allRows.length,
+            scoreColumnDetected,
+            scoreParseFailures,
             errors: errors.slice(0, 20)
         }, { status: 200 });
     } catch (error) {
