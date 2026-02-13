@@ -188,7 +188,18 @@ Deno.serve(async (req) => {
                 const studentName = studentNameIdx !== -1 ? (fields[studentNameIdx]?.trim() || '') : '';
                 const totalQuestions = totalQuestionsIdx !== -1 ? parseInt(fields[totalQuestionsIdx]) : null;
                 const totalCorrect = totalCorrectIdx !== -1 ? parseInt(fields[totalCorrectIdx]) : null;
-                const scorePercent = scoreIdx !== -1 ? parseScore(fields[scoreIdx]) : null;
+                
+                // Parse score using new parser
+                let scorePercent = null;
+                let rawScore = null;
+                if (scoreIdx !== -1) {
+                    rawScore = fields[scoreIdx];
+                    scorePercent = parsePercent(fields[scoreIdx]);
+                    if (rawScore && scorePercent === null) {
+                        scoreParseFailures++;
+                        console.warn(`[QUIZ CSV] Row ${i + 1}: score parse failed for "${rawScore}"`);
+                    }
+                }
                 
                 // Compute attempt number
                 const group = rowsByGroup[groupKey];
