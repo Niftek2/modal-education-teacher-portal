@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Plus, Search, Download, AlertCircle, RefreshCw, Bug, Settings, Archive } from 'lucide-react';
+import { LogOut, Plus, Search, AlertCircle, RefreshCw, Bug, Settings, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import StudentTable from '../components/StudentTable';
@@ -161,25 +161,6 @@ export default function Dashboard() {
 
     const stats = calculateStats();
 
-    const exportToCSV = () => {
-        const headers = ['Name', 'Email', 'Progress %', 'Completed Lessons', 'Last Activity'];
-        const rows = filteredStudents.map(s => [
-            `${s.firstName} ${s.lastName}`,
-            s.email,
-            s.percentage || 0,
-            s.completedLessons || 0,
-            s.lastActivity ? new Date(s.lastActivity).toLocaleDateString() : 'Never'
-        ]);
-
-        const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'students.csv';
-        a.click();
-    };
-
     const handleSyncQuizzes = async () => {
         try {
             setSyncingQuizzes(true);
@@ -328,14 +309,6 @@ export default function Dashboard() {
                         >
                             <Archive className="w-4 h-4 mr-2" />
                             Archived
-                        </Button>
-                        <Button
-                            onClick={exportToCSV}
-                            variant="outline"
-                            className="border-gray-300"
-                        >
-                            <Download className="w-4 h-4 mr-2" />
-                            Export CSV
                         </Button>
                         <Button
                             onClick={() => setShowAddModal(true)}
