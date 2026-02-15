@@ -75,7 +75,7 @@ async function getTeacherGroupsIndex() {
                         }
                     );
                     const enrollmentsData = await enrollmentsResponse.json();
-                    const hasClassroomEnrollment = enrollmentsData.items?.some(e => String(e.course_id) === CLASSROOM_COURSE_ID && e.status === 'active');
+                    const hasClassroomEnrollment = enrollmentsData.items?.some(e => String(e.course_id) === CLASSROOM_COURSE_ID);
 
                     if (hasClassroomEnrollment) {
                         validTeachersFound++;
