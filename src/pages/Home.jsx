@@ -4,6 +4,7 @@ import { Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/components/api';
+import PrivacyPolicy from '@/components/PrivacyPolicy';
 
 export default function Home() {
     const [email, setEmail] = useState('');
@@ -124,9 +125,9 @@ export default function Home() {
                             />
                             <label htmlFor="privacy-policy" className="text-sm text-gray-600">
                                 I agree to the{' '}
-                                <a href="#privacy" className="text-purple-900 hover:underline font-medium">
-                                    Privacy Policy
-                                </a>
+                                <span className="inline-block">
+                                    <PrivacyPolicy />
+                                </span>
                             </label>
                         </div>
 
