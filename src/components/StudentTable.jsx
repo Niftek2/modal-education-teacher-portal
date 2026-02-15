@@ -43,28 +43,6 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
         return sorted[0];
     };
 
-    const getLessonCount = (email) => {
-        const normalizedEmail = email.trim().toLowerCase();
-        const lessonEvents = activities.filter(a => 
-            a.studentEmail?.trim().toLowerCase() === normalizedEmail &&
-            a.eventType === 'lesson_completed'
-        );
-        
-        // Count unique lessons by lessonId or contentId if available, else count all events
-        const uniqueLessons = new Set();
-        lessonEvents.forEach(event => {
-            const lessonId = event.contentId || event.lessonId || event.lesson_id;
-            if (lessonId) {
-                uniqueLessons.add(lessonId);
-            } else {
-                // If no ID, use timestamp as unique identifier (count all)
-                uniqueLessons.add(event.occurredAt + event.contentTitle);
-            }
-        });
-        
-        return uniqueLessons.size;
-    };
-
     const handleRemove = async (student) => {
         try {
             setRemoving(student.id);
@@ -114,7 +92,6 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
                         <TableRow className="bg-gray-50 border-b border-gray-200">
                             <TableHead className="font-semibold text-black">Student</TableHead>
                             <TableHead className="font-semibold text-black">Email</TableHead>
-                            <TableHead className="font-semibold text-black">Lessons</TableHead>
                             <TableHead className="font-semibold text-black">Last Activity</TableHead>
                             <TableHead className="w-12"></TableHead>
                         </TableRow>
@@ -133,9 +110,6 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
                                 </TableCell>
                                 <TableCell className="text-gray-600 text-sm">
                                     {student.email}
-                                </TableCell>
-                                <TableCell className="text-gray-600 text-sm text-center">
-                                    {getLessonCount(student.email)}
                                 </TableCell>
                                 <TableCell className="text-gray-600 text-sm">
                                     <TooltipProvider>
