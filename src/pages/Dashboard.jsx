@@ -275,15 +275,15 @@ export default function Dashboard() {
                         <p className="text-3xl font-bold text-black">{students.length}</p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                        <p className="text-sm text-gray-600 mb-1">Number of Activities Completed</p>
+                        <p className="text-sm text-gray-600 mb-1">Quizzes Taken</p>
                         <p className="text-3xl font-bold text-black">
-                            {dashboardMetrics.totalQuizAttemptsAllTime}
+                            {stats.quizzesTaken}
                         </p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                        <p className="text-sm text-gray-600 mb-1">Active This Week</p>
+                        <p className="text-sm text-gray-600 mb-1">Sign-ins (7 days)</p>
                         <p className="text-3xl font-bold text-black">
-                            {dashboardMetrics.activeStudentsThisWeek}
+                            {stats.signinsLast7Days}
                         </p>
                     </div>
                 </div>
