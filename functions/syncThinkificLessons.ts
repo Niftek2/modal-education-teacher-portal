@@ -14,9 +14,8 @@ const COURSE_IDS = {
 };
 
 async function fetchThinkificLessons(courseId) {
-    // Fetch curriculum which includes lesson details
-    const curriculumResponse = await fetch(
-        `https://api.thinkific.com/api/public/v1/courses/${courseId}/curriculum`,
+    const chaptersResponse = await fetch(
+        `https://api.thinkific.com/api/public/v1/courses/${courseId}/chapters`,
         {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -25,22 +24,27 @@ async function fetchThinkificLessons(courseId) {
         }
     );
 
-    if (!curriculumResponse.ok) {
-        const errorText = await curriculumResponse.text();
-        console.error(`Failed to fetch curriculum for course ${courseId}: ${curriculumResponse.status} - ${errorText}`);
-        throw new Error(`Failed to fetch curriculum for course ${courseId}: ${curriculumResponse.status}`);
+    if (!chaptersResponse.ok) {
+        const errorText = await chaptersResponse.text();
+        console.error(`Failed to fetch chapters for course ${courseId}: ${chaptersResponse.status} - ${errorText}`);
+        throw new Error(`Failed to fetch chapters for course ${courseId}: ${chaptersResponse.status}`);
     }
 
-    const curriculumData = await curriculumResponse.json();
+    const chaptersData = await chaptersResponse.json();
     const lessons = [];
 
-    // Curriculum structure: chapters array with lessons inside
-    for (const chapter of curriculumData.items || []) {
-        if (chapter.lessons && Array.isArray(chapter.lessons)) {
-            for (const lesson of chapter.lessons) {
+    // Chapters API returns content_ids array - treat these as lesson IDs
+    // The chapter name serves as a grouping, individual lessons need to be fetched separately
+    for (const chapter of chaptersData.items || []) {
+        if (chapter.content_ids && Array.isArray(chapter.content_ids)) {
+            // Use chapter name as base, but we need lesson titles from somewhere
+            // Since we can't fetch individual content details, use content_id as lesson ID
+            // and chapter name as the lesson title base
+            for (let i = 0; i < chapter.content_ids.length; i++) {
+                const contentId = chapter.content_ids[i];
                 lessons.push({
-                    lessonId: String(lesson.id),
-                    title: lesson.name,
+                    lessonId: String(contentId),
+                    title: `${chapter.name} - Item ${i + 1}`,
                     courseId: String(courseId)
                 });
             }
