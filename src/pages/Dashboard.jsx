@@ -311,6 +311,14 @@ export default function Dashboard() {
                             Archived
                         </Button>
                         <Button
+                            onClick={() => navigate('/Assign')}
+                            variant="outline"
+                            className="border-purple-900 text-purple-900 hover:bg-purple-50"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Assign
+                        </Button>
+                        <Button
                             onClick={() => setShowAddModal(true)}
                             className="bg-purple-900 hover:bg-purple-800 text-white"
                         >

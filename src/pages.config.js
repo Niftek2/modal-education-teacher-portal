@@ -53,6 +53,10 @@ import RequestHistory from './pages/RequestHistory';
 import SelectProgram from './pages/SelectProgram';
 import Verify from './pages/Verify';
 import WebhookDebug from './pages/WebhookDebug';
+import Assign from './pages/Assign';
+import StudentAssignmentsLogin from './pages/StudentAssignmentsLogin';
+import StudentAssignments from './pages/StudentAssignments';
+import ManageCatalog from './pages/ManageCatalog';
 import __Layout from './Layout.jsx';
 
 
@@ -63,6 +67,10 @@ export const PAGES = {
     "SelectProgram": SelectProgram,
     "Verify": Verify,
     "WebhookDebug": WebhookDebug,
+    "Assign": Assign,
+    "StudentAssignmentsLogin": StudentAssignmentsLogin,
+    "StudentAssignments": StudentAssignments,
+    "ManageCatalog": ManageCatalog,
 }
 
 export const pagesConfig = {
