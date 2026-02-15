@@ -14,12 +14,12 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const { sessionToken } = await req.json();
 
-        // Verify teacher session
+        // Verify session
         const session = await verifySession(sessionToken);
-        const teacherEmail = session.email;
+        const userEmail = session.email;
 
-        if (!teacherEmail || !teacherEmail.endsWith('@modalmath.com')) {
-            return Response.json({ error: 'Invalid teacher session' }, { status: 401 });
+        if (!userEmail) {
+            return Response.json({ error: 'Invalid session' }, { status: 401 });
         }
 
         // Get active catalog items
