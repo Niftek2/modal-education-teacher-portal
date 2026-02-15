@@ -47,30 +47,30 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
+import Assign from './pages/Assign';
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
+import ManageCatalog from './pages/ManageCatalog';
 import RequestHistory from './pages/RequestHistory';
 import SelectProgram from './pages/SelectProgram';
+import StudentAssignments from './pages/StudentAssignments';
+import StudentAssignmentsLogin from './pages/StudentAssignmentsLogin';
 import Verify from './pages/Verify';
 import WebhookDebug from './pages/WebhookDebug';
-import Assign from './pages/Assign';
-import StudentAssignmentsLogin from './pages/StudentAssignmentsLogin';
-import StudentAssignments from './pages/StudentAssignments';
-import ManageCatalog from './pages/ManageCatalog';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "Assign": Assign,
     "Dashboard": Dashboard,
     "Home": Home,
+    "ManageCatalog": ManageCatalog,
     "RequestHistory": RequestHistory,
     "SelectProgram": SelectProgram,
+    "StudentAssignments": StudentAssignments,
+    "StudentAssignmentsLogin": StudentAssignmentsLogin,
     "Verify": Verify,
     "WebhookDebug": WebhookDebug,
-    "Assign": Assign,
-    "StudentAssignmentsLogin": StudentAssignmentsLogin,
-    "StudentAssignments": StudentAssignments,
-    "ManageCatalog": ManageCatalog,
 }
 
 export const pagesConfig = {

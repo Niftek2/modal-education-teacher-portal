@@ -14,7 +14,7 @@ export default function Assign() {
     const [filteredCatalog, setFilteredCatalog] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStudents, setSelectedStudents] = useState([]);
-    const [selectedCatalogId, setSelectedCatalogId] = useState('');
+    const [selectedCatalogIds, setSelectedCatalogIds] = useState([]);
     const [dueDate, setDueDate] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [syncing, setSyncing] = useState(false);
@@ -144,7 +144,7 @@ export default function Assign() {
             
             // Reset form
             setSelectedStudents([]);
-            setSelectedCatalogId('');
+            setSelectedCatalogIds([]);
             setDueDate('');
 
         } catch (error) {
@@ -285,20 +285,33 @@ export default function Assign() {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Choose Assignment
+                                    Choose Assignments ({selectedCatalogIds.length} selected)
                                 </label>
-                                <Select value={selectedCatalogId} onValueChange={setSelectedCatalogId}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select an assignment..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {filteredCatalog.map((item) => (
-                                            <SelectItem key={item.id} value={item.id}>
-                                                [{item.level}] {item.title}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <div className="border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto space-y-2">
+                                    {filteredCatalog.length === 0 ? (
+                                        <p className="text-sm text-gray-500">No assignments match your search</p>
+                                    ) : (
+                                        filteredCatalog.map((item) => (
+                                            <div
+                                                key={item.id}
+                                                className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50"
+                                            >
+                                                <Checkbox
+                                                    checked={selectedCatalogIds.includes(item.id)}
+                                                    onCheckedChange={() => toggleAssignment(item.id)}
+                                                />
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-black">
+                                                        {item.title}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                        Level: {item.level} • {item.type}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
 
                             <div>
@@ -314,10 +327,10 @@ export default function Assign() {
 
                             <Button
                                 onClick={handleAssign}
-                                disabled={submitting || !selectedCatalogId || selectedStudents.length === 0}
+                                disabled={submitting || selectedCatalogIds.length === 0 || selectedStudents.length === 0}
                                 className="w-full bg-purple-900 hover:bg-purple-800 text-white"
                             >
-                                {submitting ? 'Assigning...' : `Assign to ${selectedStudents.length} Student(s)`}
+                                {submitting ? 'Assigning...' : `Assign ${selectedCatalogIds.length} Lesson(s) to ${selectedStudents.length} Student(s)`}
                             </Button>
                         </div>
                     </div>
