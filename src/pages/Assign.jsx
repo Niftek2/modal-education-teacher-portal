@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, CheckCircle2, Clock } from 'lucide-react';
+import { ArrowLeft, Users, CheckCircle2, Clock, Search, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,10 +11,13 @@ export default function Assign() {
     const [loading, setLoading] = useState(true);
     const [students, setStudents] = useState([]);
     const [catalog, setCatalog] = useState([]);
+    const [filteredCatalog, setFilteredCatalog] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
     const [selectedStudents, setSelectedStudents] = useState([]);
     const [selectedCatalogId, setSelectedCatalogId] = useState('');
     const [dueDate, setDueDate] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [syncing, setSyncing] = useState(false);
     const [existingAssignments, setExistingAssignments] = useState([]);
     const navigate = useNavigate();
 
@@ -49,7 +52,9 @@ export default function Assign() {
 
             // Get catalog
             const catalogResponse = await api.call('getAssignmentCatalog', { sessionToken }, sessionToken);
-            setCatalog(catalogResponse.catalog || []);
+            const catalogData = catalogResponse.catalog || [];
+            setCatalog(catalogData);
+            setFilteredCatalog(catalogData);
 
             // Get existing assignments to show completion status
             const assignmentsResponse = await api.call('getTeacherAssignments', { sessionToken }, sessionToken);
@@ -78,6 +83,40 @@ export default function Assign() {
             setSelectedStudents([]);
         } else {
             setSelectedStudents(students.map(s => s.email));
+        }
+    };
+
+    const handleSearchChange = (e) => {
+        const term = e.target.value;
+        setSearchTerm(term);
+        
+        if (!term) {
+            setFilteredCatalog(catalog);
+        } else {
+            const filtered = catalog.filter(item => 
+                item.title.toLowerCase().includes(term.toLowerCase()) ||
+                item.level.toLowerCase().includes(term.toLowerCase())
+            );
+            setFilteredCatalog(filtered);
+        }
+    };
+
+    const handleSyncLessons = async () => {
+        try {
+            setSyncing(true);
+            const sessionToken = localStorage.getItem('modal_math_session');
+            
+            const result = await api.call('syncThinkificLessons', { sessionToken }, sessionToken);
+            
+            alert(result.message || 'Lessons synced successfully');
+            
+            // Reload catalog
+            await loadData(sessionToken);
+        } catch (error) {
+            console.error('Sync error:', error);
+            alert(error.message || 'Failed to sync lessons');
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -211,9 +250,39 @@ export default function Assign() {
 
                     {/* Right: Assignment Selection */}
                     <div className="bg-white border border-gray-200 rounded-xl p-6">
-                        <h2 className="text-lg font-semibold text-black mb-4">Assignment Details</h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold text-black">Assignment Details</h2>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleSyncLessons}
+                                disabled={syncing}
+                            >
+                                <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                                Sync Lessons
+                            </Button>
+                        </div>
 
                         <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Search Assignments
+                                </label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <Input
+                                        type="text"
+                                        placeholder="Search by title or level..."
+                                        value={searchTerm}
+                                        onChange={handleSearchChange}
+                                        className="pl-10"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {filteredCatalog.length} of {catalog.length} lessons
+                                </p>
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Choose Assignment
@@ -223,9 +292,9 @@ export default function Assign() {
                                         <SelectValue placeholder="Select an assignment..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {catalog.map((item) => (
+                                        {filteredCatalog.map((item) => (
                                             <SelectItem key={item.id} value={item.id}>
-                                                [{item.level}] {item.title} ({item.type})
+                                                [{item.level}] {item.title}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
