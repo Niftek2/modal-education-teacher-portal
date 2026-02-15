@@ -1,9 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { jwtVerify } from 'npm:jose@5.9.6';
 
 const THINKIFIC_API_KEY = Deno.env.get('THINKIFIC_API_KEY');
 const THINKIFIC_SUBDOMAIN = Deno.env.get('THINKIFIC_SUBDOMAIN');
-const JWT_SECRET = Deno.env.get('JWT_SECRET');
 
 const COURSE_IDS = {
     PK: '422595',
@@ -14,12 +12,6 @@ const COURSE_IDS = {
     L4: '496297',
     L5: '496298'
 };
-
-async function verifySession(token) {
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
-    return payload;
-}
 
 async function fetchThinkificLessons(courseId) {
     const response = await fetch(
@@ -59,14 +51,9 @@ async function fetchThinkificLessons(courseId) {
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const { sessionToken } = await req.json();
-
-        // Verify session
-        const session = await verifySession(sessionToken);
-        if (!session.email) {
-            return Response.json({ error: 'Authentication required' }, { status: 403 });
-        }
-
+        
+        // No authentication required - catalog is public
+        
         let totalLessons = 0;
         let totalCreated = 0;
         let totalUpdated = 0;
