@@ -235,16 +235,20 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                            // Recalculate group stats from current group
                                            const scores = group.attempts.map(q => q.percentage).filter(s => typeof s === 'number' && !Number.isNaN(s));
                                            const groupBest = scores.length > 0 ? Math.max(...scores) : null;
+                                           const groupLowest = scores.length > 0 ? Math.min(...scores) : null;
                                            const sortedByTime = [...group.attempts].sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
+                                           const earliestAttempt = sortedByTime[0];
                                            const latestAttempt = sortedByTime[sortedByTime.length - 1];
                                            const groupLatestScore = typeof latestAttempt.percentage === 'number' && !Number.isNaN(latestAttempt.percentage) ? latestAttempt.percentage : null;
+                                           const groupEarliestScore = typeof earliestAttempt.percentage === 'number' && !Number.isNaN(earliestAttempt.percentage) ? earliestAttempt.percentage : null;
+                                           const groupGrowth = (groupEarliestScore !== null && groupLatestScore !== null && sortedByTime.length > 1) ? (groupLatestScore - groupEarliestScore) : null;
 
                                            return (
                                            <div key={groupIdx} className="border border-gray-200 rounded-lg overflow-hidden">
                                                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                                                    <div className="font-medium text-sm">{group.attempts[0].quizName}</div>
                                                    <div className="text-xs text-gray-600 mt-1">
-                                                       Attempts: {group.attempts.length} | Best: {groupBest !== null ? `${Math.round(groupBest)}%` : '—'} | Latest: {groupLatestScore !== null ? `${Math.round(groupLatestScore)}%` : '—'} at {formatDate(latestAttempt.completedAt)}
+                                                       Attempts: {group.attempts.length} | Best: {groupBest !== null ? `${Math.round(groupBest)}%` : '—'} | Lowest: {groupLowest !== null ? `${Math.round(groupLowest)}%` : '—'} | Latest: {groupLatestScore !== null ? `${Math.round(groupLatestScore)}%` : '—'} at {formatDate(latestAttempt.completedAt)}{groupGrowth !== null ? ` | Growth: ${groupGrowth > 0 ? '+' : ''}${Math.round(groupGrowth)}%` : ''}
                                                    </div>
                                                </div>
                                                 <Table>
