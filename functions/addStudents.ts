@@ -223,6 +223,7 @@ Deno.serve(async (req) => {
     try {
         const { students, groupId, sessionToken } = await req.json();
         const session = await verifySession(sessionToken);
+        const base44 = createClientFromRequest(req);
 
         const isActive = await checkActiveEnrollment(session.email);
         if (!isActive) {
@@ -241,6 +242,23 @@ Deno.serve(async (req) => {
 
         if (!groupId) {
             return Response.json({ error: 'Group ID required' }, { status: 400 });
+        }
+
+        const activeCount = await getActiveStudentCount(groupId, base44);
+        const slotsRemaining = 10 - activeCount;
+
+        if (slotsRemaining <= 0) {
+            console.log(`Roster cap blocked: teacher=${session.email}, groupId=${groupId}, activeCount=${activeCount}, requestedAdds=${students.length}`);
+            return Response.json({ 
+                error: 'Roster limit reached (10 active students). Archive or remove a student before adding more.' 
+            }, { status: 400 });
+        }
+
+        if (students.length > slotsRemaining) {
+            console.log(`Roster cap blocked: teacher=${session.email}, groupId=${groupId}, activeCount=${activeCount}, requestedAdds=${students.length}`);
+            return Response.json({ 
+                error: `You can only add ${slotsRemaining} more student(s). Roster max is 10 active students.` 
+            }, { status: 400 });
         }
 
         const results = [];
