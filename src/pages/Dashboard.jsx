@@ -29,6 +29,7 @@ export default function Dashboard() {
     const [showQuizImport, setShowQuizImport] = useState(false);
     const [showSnapshot, setShowSnapshot] = useState(false);
     const [showArchived, setShowArchived] = useState(false);
+    const [dashboardMetrics, setDashboardMetrics] = useState({ totalQuizAttemptsAllTime: 0, activeStudentsThisWeek: 0 });
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -92,6 +93,10 @@ export default function Dashboard() {
                 
                 // Store activities for last active tracking
                 setStudentActivities(activityResponse.events || []);
+
+                // Fetch dashboard metrics
+                const metricsResponse = await api.call('getTeacherDashboardMetrics', { sessionToken }, sessionToken);
+                setDashboardMetrics(metricsResponse);
             }
         } catch (error) {
             console.error('Dashboard error:', error);
@@ -233,22 +238,15 @@ export default function Dashboard() {
                         <p className="text-3xl font-bold text-black">{students.length}</p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                        <p className="text-sm text-gray-600 mb-1">Average Progress</p>
+                        <p className="text-sm text-gray-600 mb-1">Number of Activities Completed</p>
                         <p className="text-3xl font-bold text-black">
-                            {students.length > 0 
-                                ? Math.round(students.reduce((sum, s) => sum + (s.percentage || 0), 0) / students.length)
-                                : 0}%
+                            {dashboardMetrics.totalQuizAttemptsAllTime}
                         </p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                         <p className="text-sm text-gray-600 mb-1">Active This Week</p>
                         <p className="text-3xl font-bold text-black">
-                            {students.filter(s => {
-                                if (!s.lastActivity) return false;
-                                const weekAgo = new Date();
-                                weekAgo.setDate(weekAgo.getDate() - 7);
-                                return new Date(s.lastActivity) > weekAgo;
-                            }).length}
+                            {dashboardMetrics.activeStudentsThisWeek}
                         </p>
                     </div>
                 </div>
