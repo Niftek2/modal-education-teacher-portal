@@ -6,13 +6,13 @@ const THINKIFIC_SUBDOMAIN = Deno.env.get('THINKIFIC_SUBDOMAIN');
 const JWT_SECRET = Deno.env.get('JWT_SECRET');
 
 const COURSE_IDS = {
-    PK: Deno.env.get('COURSE_ID_PK'),
-    K: Deno.env.get('COURSE_ID_K'),
-    L1: Deno.env.get('COURSE_ID_L1'),
-    L2: Deno.env.get('COURSE_ID_L2'),
-    L3: Deno.env.get('COURSE_ID_L3'),
-    L4: Deno.env.get('COURSE_ID_L4'),
-    L5: Deno.env.get('COURSE_ID_L5')
+    PK: '422595',
+    K: '422618',
+    L1: '422620',
+    L2: '496294',
+    L3: '496295',
+    L4: '496297',
+    L5: '496298'
 };
 
 async function verifySession(token) {
