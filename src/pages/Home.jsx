@@ -71,7 +71,7 @@ export default function Home() {
                         We've sent a magic link to <span className="font-medium text-black">{email}</span>
                     </p>
                     <p className="text-sm text-gray-500">
-                        Click the link in your email to access the portal. The link expires in 15 minutes.
+                        Click the link in your email to access the portal. The link expires in 45 minutes.
                     </p>
                 </div>
             </div>
