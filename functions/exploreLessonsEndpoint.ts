@@ -19,21 +19,38 @@ Deno.serve(async (req) => {
         const chaptersData = await chaptersResponse.json();
         const firstChapter = chaptersData.items?.[0];
         
-        // Try to get individual chapter details
-        let chapterDetailData = null;
-        if (firstChapter?.id) {
-            const chapterDetailResponse = await fetch(
-                `https://api.thinkific.com/api/public/v1/chapters/${firstChapter.id}`,
-                {
+        // Try to get individual lesson/content details using content_ids
+        const contentDetails = [];
+        if (firstChapter?.content_ids && firstChapter.content_ids.length > 0) {
+            const contentId = firstChapter.content_ids[0];
+            
+            // Try different endpoints for getting content details
+            const endpoints = [
+                `https://api.thinkific.com/api/public/v1/lessons/${contentId}`,
+                `https://api.thinkific.com/api/public/v1/quizzes/${contentId}`,
+                `https://api.thinkific.com/api/public/v1/content/${contentId}`
+            ];
+            
+            for (const endpoint of endpoints) {
+                const response = await fetch(endpoint, {
                     headers: {
                         'X-Auth-API-Key': THINKIFIC_API_KEY,
                         'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
                     }
+                });
+                
+                const status = response.status;
+                let data = null;
+                if (response.ok) {
+                    data = await response.json();
                 }
-            );
-            
-            if (chapterDetailResponse.ok) {
-                chapterDetailData = await chapterDetailResponse.json();
+                
+                contentDetails.push({
+                    endpoint: endpoint,
+                    status: status,
+                    ok: response.ok,
+                    data: data
+                });
             }
         }
 
@@ -43,11 +60,7 @@ Deno.serve(async (req) => {
                 firstChapter: firstChapter,
                 chapterKeys: firstChapter ? Object.keys(firstChapter) : null
             },
-            chapterDetail: {
-                attempted: !!firstChapter?.id,
-                chapterId: firstChapter?.id,
-                data: chapterDetailData
-            }
+            contentEndpoints: contentDetails
         });
 
     } catch (error) {
