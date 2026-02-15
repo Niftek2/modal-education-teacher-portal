@@ -79,6 +79,9 @@ Deno.serve(async (req) => {
             case 'user.signin':
                 await handleUserSignin(base44, evt, webhookId);
                 break;
+            case 'subscription.canceled':
+                await handleSubscriptionCanceled(base44, evt, webhookId);
+                break;
             default:
                 console.log(`[WEBHOOK] Unhandled event type: ${eventType}`);
         }
@@ -306,5 +309,156 @@ async function handleUserSignin(base44, evt, webhookId) {
     } catch (error) {
         console.error(`[WEBHOOK] ❌ Failed to track signin:`, error);
         return { status: 'error', reason: error.message };
+    }
+}
+
+async function handleSubscriptionCanceled(base44, evt, webhookId) {
+    const { payload } = evt;
+    const teacherEmail = (payload?.user?.email || '').trim().toLowerCase();
+    const thinkificUserId = String(payload?.user?.id || '');
+    const subscriptionId = String(payload?.id || '');
+
+    console.log(`[WEBHOOK] Processing subscription.canceled: teacher=${teacherEmail}, subscriptionId=${subscriptionId}`);
+
+    // Audit: Store event regardless
+    try {
+        await base44.asServiceRole.entities.ActivityEvent.create({
+            studentUserId: thinkificUserId,
+            thinkificUserId: thinkificUserId ? Number(thinkificUserId) : null,
+            studentEmail: teacherEmail,
+            studentDisplayName: teacherEmail.split('@')[0],
+            courseId: '',
+            courseName: '',
+            eventType: 'subscription_canceled',
+            contentId: subscriptionId,
+            contentTitle: 'Subscription Canceled',
+            occurredAt: extractOccurredAt(evt).toISOString(),
+            source: 'webhook',
+            rawEventId: webhookId,
+            rawPayload: JSON.stringify(payload),
+            dedupeKey: `subscription_canceled:${subscriptionId}`,
+            metadata: { subscriptionId }
+        });
+    } catch (error) {
+        console.error('[WEBHOOK] ❌ Failed to audit subscription.canceled:', error);
+    }
+
+    // Only proceed for real teachers
+    if (!teacherEmail || teacherEmail.endsWith('@modalmath.com')) {
+        console.log('[WEBHOOK] ⚠️ Skipping: internal email');
+        return { status: 'skipped', reason: 'internal_email' };
+    }
+
+    // Check if teacher has Classroom entitlement and group
+    let teacherData = null;
+    try {
+        const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
+        const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
+        const CLASSROOM_PRODUCT_ID = Deno.env.get("CLASSROOM_PRODUCT_ID");
+
+        // Fetch user enrollments
+        const enrollmentsResponse = await fetch(
+            `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${thinkificUserId}`,
+            {
+                headers: {
+                    'X-Auth-API-Key': THINKIFIC_API_KEY,
+                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                }
+            }
+        );
+
+        if (!enrollmentsResponse.ok) {
+            console.error('[WEBHOOK] ❌ Failed to fetch teacher enrollments');
+            return { status: 'error', reason: 'enrollment_check_failed' };
+        }
+
+        const enrollments = await enrollmentsResponse.json();
+        const hasClassroom = enrollments.items?.some(e => String(e.product_id) === String(CLASSROOM_PRODUCT_ID));
+
+        if (!hasClassroom) {
+            console.log('[WEBHOOK] ⚠️ Teacher does not have Classroom bundle');
+            return { status: 'skipped', reason: 'no_classroom_bundle' };
+        }
+
+        // Check for group
+        const teacherGroups = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail });
+        if (teacherGroups.length === 0) {
+            console.log('[WEBHOOK] ⚠️ Teacher has no group');
+            return { status: 'skipped', reason: 'no_group' };
+        }
+
+        teacherData = {
+            email: teacherEmail,
+            groupId: teacherGroups[0].thinkificGroupId
+        };
+
+    } catch (error) {
+        console.error('[WEBHOOK] ❌ Failed teacher validation:', error);
+        return { status: 'error', reason: 'validation_failed' };
+    }
+
+    // Compute period end: now + 1 month
+    const occurredAt = extractOccurredAt(evt);
+    const periodEndAt = new Date(occurredAt);
+    periodEndAt.setMonth(periodEndAt.getMonth() + 1);
+    const periodEndAtIso = periodEndAt.toISOString();
+
+    console.log(`[WEBHOOK] Computed period end: ${periodEndAtIso}`);
+
+    // Upsert TeacherAccess
+    try {
+        const existingAccess = await base44.asServiceRole.entities.TeacherAccess.filter({ teacherEmail });
+        
+        if (existingAccess.length > 0) {
+            await base44.asServiceRole.entities.TeacherAccess.update(existingAccess[0].id, {
+                status: 'canceling',
+                currentPeriodEndAt: periodEndAtIso,
+                currentPeriodEndSource: 'fixed_plus_1_month',
+                subscriptionId,
+                lastWebhookId: webhookId
+            });
+            console.log('[WEBHOOK] ✓ Updated TeacherAccess');
+        } else {
+            await base44.asServiceRole.entities.TeacherAccess.create({
+                teacherEmail,
+                thinkificUserId,
+                subscriptionId,
+                status: 'canceling',
+                currentPeriodEndAt: periodEndAtIso,
+                currentPeriodEndSource: 'fixed_plus_1_month',
+                lastWebhookId: webhookId
+            });
+            console.log('[WEBHOOK] ✓ Created TeacherAccess');
+        }
+    } catch (error) {
+        console.error('[WEBHOOK] ❌ Failed to upsert TeacherAccess:', error);
+        return { status: 'error', reason: 'teacher_access_failed' };
+    }
+
+    // Create ScheduledUnenrollment (idempotent)
+    const dedupeKey = `scheduled_unenroll:${teacherEmail}:${periodEndAtIso}`;
+    try {
+        const existingJob = await base44.asServiceRole.entities.ScheduledUnenrollment.filter({ dedupeKey });
+        
+        if (existingJob.length > 0) {
+            console.log('[WEBHOOK] ⚠️ Unenrollment job already scheduled');
+            return { status: 'duplicate', dedupeKey };
+        }
+
+        await base44.asServiceRole.entities.ScheduledUnenrollment.create({
+            dedupeKey,
+            teacherEmail,
+            groupId: teacherData.groupId,
+            runAt: periodEndAtIso,
+            status: 'scheduled',
+            sourceWebhookId: webhookId
+        });
+
+        console.log(`[WEBHOOK] ✓ Scheduled unenrollment for ${periodEndAtIso}`);
+        return { status: 'scheduled', runAt: periodEndAtIso };
+
+    } catch (error) {
+        console.error('[WEBHOOK] ❌ Failed to schedule unenrollment:', error);
+        return { status: 'error', reason: 'schedule_failed' };
     }
 }
