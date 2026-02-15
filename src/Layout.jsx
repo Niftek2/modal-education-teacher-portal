@@ -1,3 +1,5 @@
+import PrivacyPolicy from './components/PrivacyPolicy';
+
 export default function Layout({ children, currentPageName }) {
   return (
     <div className="min-h-screen flex flex-col">
@@ -17,6 +19,11 @@ export default function Layout({ children, currentPageName }) {
       <main className="flex-grow">
         {children}
       </main>
+
+      {/* Footer */}
+      <footer className="py-4 px-6 text-center bg-gray-50 border-t border-gray-200">
+        <PrivacyPolicy />
+      </footer>
     </div>
   );
 }
