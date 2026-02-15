@@ -5,6 +5,7 @@ const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const STUDENT_PRODUCT_ID = Deno.env.get("STUDENT_PRODUCT_ID");
 const JWT_SECRET = Deno.env.get("JWT_SECRET");
+const CLASSROOM_COURSE_ID = '552235';
 
 const COURSE_IDS = {
     PK: Deno.env.get("COURSE_ID_PK"),
@@ -137,10 +138,61 @@ async function enrollInCourses(userId) {
     return enrollments;
 }
 
+async function checkActiveEnrollment(userEmail) {
+    const response = await fetch(
+        `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(userEmail)}`,
+        {
+            headers: {
+                'X-Auth-API-Key': THINKIFIC_API_KEY,
+                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+            }
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch user');
+    }
+
+    const userData = await response.json();
+    const userId = userData.items?.[0]?.id;
+    
+    if (!userId) {
+        throw new Error('User not found');
+    }
+
+    const enrollmentsResponse = await fetch(
+        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}`,
+        {
+            headers: {
+                'X-Auth-API-Key': THINKIFIC_API_KEY,
+                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+            }
+        }
+    );
+
+    if (!enrollmentsResponse.ok) {
+        throw new Error('Failed to fetch enrollments');
+    }
+
+    const enrollmentsData = await enrollmentsResponse.json();
+    const hasActiveClassroomEnrollment = enrollmentsData.items?.some(
+        e => String(e.course_id) === CLASSROOM_COURSE_ID && e.status === 'active'
+    );
+
+    return hasActiveClassroomEnrollment;
+}
+
 Deno.serve(async (req) => {
     try {
         const { students, groupId, sessionToken } = await req.json();
-        await verifySession(sessionToken);
+        const session = await verifySession(sessionToken);
+
+        const isActive = await checkActiveEnrollment(session.email);
+        if (!isActive) {
+            return Response.json({ 
+                error: 'Your enrollment is not active. You can only view the dashboard but cannot add students.' 
+            }, { status: 403 });
+        }
 
         if (!students || !Array.isArray(students) || students.length === 0) {
             return Response.json({ error: 'Students array required' }, { status: 400 });
