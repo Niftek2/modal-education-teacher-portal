@@ -31,7 +31,7 @@ async function getTeacherGroupsIndex() {
     }
 
     const validTeachersByEmail = new Map();
-    const CLASSROOM_PRODUCT_ID = Deno.env.get("CLASSROOM_PRODUCT_ID");
+    const CLASSROOM_COURSE_ID = '552235';
 
     let groupsScannedCount = allGroups.length;
     let totalTeacherCandidatesFound = 0;
@@ -66,7 +66,7 @@ async function getTeacherGroupsIndex() {
                 if (!email.endsWith('@modalmath.com')) {
                     totalTeacherCandidatesFound++;
                     const enrollmentsResponse = await fetch(
-                        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[product_id]=${CLASSROOM_PRODUCT_ID}`,
+                        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}`,
                         {
                             headers: {
                                 'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -75,7 +75,7 @@ async function getTeacherGroupsIndex() {
                         }
                     );
                     const enrollmentsData = await enrollmentsResponse.json();
-                    const hasClassroomEnrollment = enrollmentsData.items?.some(e => String(e.product_id) === CLASSROOM_PRODUCT_ID && e.status === 'active');
+                    const hasClassroomEnrollment = enrollmentsData.items?.some(e => String(e.course_id) === CLASSROOM_COURSE_ID && e.status === 'active');
 
                     if (hasClassroomEnrollment) {
                         validTeachersFound++;
