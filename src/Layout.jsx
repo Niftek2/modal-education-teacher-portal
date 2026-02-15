@@ -22,7 +22,10 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Footer */}
       <footer className="py-4 px-6 text-center bg-gray-50 border-t border-gray-200">
-        <PrivacyPolicy />
+        <div className="flex flex-col gap-2">
+          <PrivacyPolicy />
+          <p className="text-xs text-gray-500">© 2026 Modal Education. All rights reserved.</p>
+        </div>
       </footer>
     </div>
   );
