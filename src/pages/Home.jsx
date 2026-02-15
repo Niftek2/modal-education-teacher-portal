@@ -11,6 +11,7 @@ export default function Home() {
     const [sent, setSent] = useState(false);
     const [error, setError] = useState('');
     const [verifying, setVerifying] = useState(false);
+    const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -113,10 +114,26 @@ export default function Home() {
                             </div>
                         )}
 
+                        <div className="flex items-start gap-3">
+                            <input
+                                type="checkbox"
+                                id="privacy-policy"
+                                checked={agreedToPrivacy}
+                                onChange={(e) => setAgreedToPrivacy(e.target.checked)}
+                                className="mt-1 h-4 w-4 rounded border-gray-300 text-purple-900 focus:ring-purple-900"
+                            />
+                            <label htmlFor="privacy-policy" className="text-sm text-gray-600">
+                                I agree to the{' '}
+                                <a href="#privacy" className="text-purple-900 hover:underline font-medium">
+                                    Privacy Policy
+                                </a>
+                            </label>
+                        </div>
+
                         <Button
                             type="submit"
-                            disabled={loading}
-                            className="w-full h-12 bg-purple-900 hover:bg-purple-800 text-white font-medium rounded-lg transition-colors"
+                            disabled={loading || !agreedToPrivacy}
+                            className="w-full h-12 bg-purple-900 hover:bg-purple-800 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? (
                                 'Sending...'
