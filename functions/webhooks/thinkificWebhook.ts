@@ -110,6 +110,9 @@ async function handleLessonCompleted(base44, payload) {
         });
 
         console.log(`[WEBHOOK] ✓ Lesson saved: DB ID=${created.id}`);
+        
+        // Call assignment completion matcher
+        await base44.functions.invoke('markAssignmentComplete', { activityEventId: created.id });
     } catch (error) {
         console.error(`[WEBHOOK] Failed to save lesson completion:`, error.message);
     }
@@ -177,6 +180,9 @@ async function handleQuizAttempted(base44, payload) {
         });
 
         console.log(`[WEBHOOK] ✓ Quiz saved: DB ID=${created.id}`);
+        
+        // Call assignment completion matcher
+        await base44.functions.invoke('markAssignmentComplete', { activityEventId: created.id });
     } catch (error) {
         console.error(`[WEBHOOK] Failed to save quiz attempt:`, error.message);
     }
