@@ -13,7 +13,7 @@ const COURSE_IDS = {
     L5: '496298'
 };
 
-async function fetchThinkificLessons(courseId) {
+async function fetchThinkificLessons(courseId, base44) {
     const chaptersResponse = await fetch(
         `https://api.thinkific.com/api/public/v1/courses/${courseId}/chapters`,
         {
@@ -33,18 +33,38 @@ async function fetchThinkificLessons(courseId) {
     const chaptersData = await chaptersResponse.json();
     const lessons = [];
 
-    // Chapters API returns content_ids array - treat these as lesson IDs
-    // The chapter name serves as a grouping, individual lessons need to be fetched separately
+    // Collect all content IDs first
+    const contentIds = [];
     for (const chapter of chaptersData.items || []) {
         if (chapter.content_ids && Array.isArray(chapter.content_ids)) {
-            // Use chapter name as base, but we need lesson titles from somewhere
-            // Since we can't fetch individual content details, use content_id as lesson ID
-            // and chapter name as the lesson title base
+            contentIds.push(...chapter.content_ids.map(id => String(id)));
+        }
+    }
+
+    // Fetch actual lesson titles from ActivityEvent records
+    const titleMap = {};
+    if (contentIds.length > 0) {
+        const events = await base44.asServiceRole.entities.ActivityEvent.filter({
+            contentId: { $in: contentIds }
+        });
+        
+        for (const event of events || []) {
+            if (event.contentId && event.contentTitle && !titleMap[event.contentId]) {
+                titleMap[event.contentId] = event.contentTitle;
+            }
+        }
+    }
+
+    // Build lessons with actual titles where available
+    for (const chapter of chaptersData.items || []) {
+        if (chapter.content_ids && Array.isArray(chapter.content_ids)) {
             for (let i = 0; i < chapter.content_ids.length; i++) {
                 const contentId = chapter.content_ids[i];
+                const contentIdStr = String(contentId);
+                
                 lessons.push({
-                    lessonId: String(contentId),
-                    title: `${chapter.name} - Item ${i + 1}`,
+                    lessonId: contentIdStr,
+                    title: titleMap[contentIdStr] || `${chapter.name} - Item ${i + 1}`,
                     courseId: String(courseId)
                 });
             }
@@ -68,7 +88,7 @@ Deno.serve(async (req) => {
             if (!courseId) continue;
 
             try {
-                const lessons = await fetchThinkificLessons(courseId);
+                const lessons = await fetchThinkificLessons(courseId, base44);
                 totalLessons += lessons.length;
 
             for (const lesson of lessons) {
