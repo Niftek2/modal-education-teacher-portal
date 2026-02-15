@@ -16,29 +16,133 @@ async function verifySession(token) {
     return payload;
 }
 
-async function getTeacherGroupMemberships(thinkificUserId) {
-    const response = await fetch(
-        `https://api.thinkific.com/api/public/v1/group_memberships?user_id=${thinkificUserId}`,
-        {
-            headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-            }
-        }
-    );
+async function getTeacherGroupsIndex() {
+    const allGroups = [];
+    let page = 1;
+    let hasMoreGroups = true;
 
-    if (!response.ok) {
-        throw new Error('Failed to fetch teacher groups');
+    while (hasMoreGroups) {
+        const groupsResponse = await fetch(
+            `https://api.thinkific.com/api/public/v1/groups?page=${page}&limit=25`,
+            {
+                headers: {
+                    'X-Auth-API-Key': THINKIFIC_API_KEY,
+                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                }
+            }
+        );
+
+        if (!groupsResponse.ok) {
+            console.error('Failed to fetch groups:', await groupsResponse.text());
+            throw new Error('Failed to fetch groups');
+        }
+
+        const groupsData = await groupsResponse.json();
+        allGroups.push(...groupsData.items);
+        hasMoreGroups = groupsData.meta.pagination.current_page < groupsData.meta.pagination.total_pages;
+        page++;
     }
 
-    const data = await response.json();
-    return data.items || [];
+    const validTeachersByEmail = new Map();
+    const CLASSROOM_PRODUCT_ID = Deno.env.get("CLASSROOM_PRODUCT_ID");
+
+    for (const group of allGroups) {
+        let membersPage = 1;
+        let hasMoreMembers = true;
+        while (hasMoreMembers) {
+            const membersResponse = await fetch(
+                `https://api.thinkific.com/api/public/v1/group_memberships?group_id=${group.id}&page=${membersPage}&limit=25`,
+                {
+                    headers: {
+                        'X-Auth-API-Key': THINKIFIC_API_KEY,
+                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                    }
+                }
+            );
+
+            if (!membersResponse.ok) {
+                console.warn(`Failed to fetch members for group ${group.id}:`, await membersResponse.text());
+                break;
+            }
+
+            const membersData = await membersResponse.json();
+            for (const member of membersData.items) {
+                const email = member.user?.email?.toLowerCase().trim();
+                const userId = String(member.user?.id);
+
+                if (!email || !userId) continue;
+
+                if (!email.endsWith('@modalmath.com')) {
+                    const enrollmentsResponse = await fetch(
+                        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[product_id]=${CLASSROOM_PRODUCT_ID}`,
+                        {
+                            headers: {
+                                'X-Auth-API-Key': THINKIFIC_API_KEY,
+                                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                            }
+                        }
+                    );
+                    const enrollmentsData = await enrollmentsResponse.json();
+                    const hasClassroomEnrollment = enrollmentsData.items?.some(e => String(e.product_id) === CLASSROOM_PRODUCT_ID && e.status === 'active');
+
+                    if (hasClassroomEnrollment) {
+                        if (!validTeachersByEmail.has(email)) {
+                            validTeachersByEmail.set(email, { userId, groups: [] });
+                        }
+                        validTeachersByEmail.get(email).groups.push({ groupId: group.id, groupName: group.name });
+                    }
+                }
+            }
+            hasMoreMembers = membersData.meta.pagination.current_page < membersData.meta.pagination.total_pages;
+            membersPage++;
+        }
+    }
+
+    const teacherGroupsIndex = new Map();
+
+    for (const [teacherEmail, teacherInfo] of validTeachersByEmail.entries()) {
+        const teacherGroups = [];
+        for (const teacherGroup of teacherInfo.groups) {
+            const studentEmails = new Set();
+            let membersPage = 1;
+            let hasMoreMembers = true;
+            while (hasMoreMembers) {
+                const membersResponse = await fetch(
+                    `https://api.thinkific.com/api/public/v1/group_memberships?group_id=${teacherGroup.groupId}&page=${membersPage}&limit=25`,
+                    {
+                        headers: {
+                            'X-Auth-API-Key': THINKIFIC_API_KEY,
+                            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                        }
+                    }
+                );
+
+                if (!membersResponse.ok) {
+                    console.warn(`Failed to fetch members for group ${teacherGroup.groupId}:`, await membersResponse.text());
+                    break;
+                }
+
+                const membersData = await membersResponse.json();
+                for (const member of membersData.items) {
+                    const email = member.user?.email?.toLowerCase().trim();
+                    if (email && email.endsWith('@modalmath.com')) {
+                        studentEmails.add(email);
+                    }
+                }
+                hasMoreMembers = membersData.meta.pagination.current_page < membersData.meta.pagination.total_pages;
+                membersPage++;
+            }
+            teacherGroups.push({ ...teacherGroup, studentEmails: Array.from(studentEmails) });
+        }
+        teacherGroupsIndex.set(teacherEmail, teacherGroups);
+    }
+    return teacherGroupsIndex;
 }
 
 function getWeekStart() {
     const now = new Date();
     const dayOfWeek = now.getUTCDay();
-    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday = 0
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const monday = new Date(now);
     monday.setUTCDate(now.getUTCDate() - diff);
     monday.setUTCHours(0, 0, 0, 0);
@@ -52,59 +156,22 @@ Deno.serve(async (req) => {
         
         const base44 = createClientFromRequest(req);
 
-        // Get teacher's Thinkific user ID
-        const response = await fetch(
-            `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(session.email)}`,
-            {
-                headers: {
-                    'X-Auth-API-Key': THINKIFIC_API_KEY,
-                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-                }
-            }
-        );
+        const teacherGroupsIndex = await getTeacherGroupsIndex();
+        const teacherEmail = session.email.toLowerCase().trim();
+        const teacherGroups = teacherGroupsIndex.get(teacherEmail);
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch teacher data');
+        if (!teacherGroups || teacherGroups.length === 0) {
+            return Response.json({
+                totalQuizAttemptsAllTime: 0,
+                activeStudentsThisWeek: 0,
+                error: 'Teacher not found in any group with Classroom entitlement.'
+            });
         }
 
-        const userData = await response.json();
-        const teacher = userData.items?.[0];
-        
-        if (!teacher) {
-            throw new Error('Teacher not found');
-        }
-
-        // Get all groups teacher belongs to
-        const groupMemberships = await getTeacherGroupMemberships(teacher.id);
-        const groupIds = groupMemberships.map(m => m.group_id);
-
-        // Get roster: all students in those groups (email ends with @modalmath.com)
         const rosterEmailsSet = new Set();
-        
-        for (const groupId of groupIds) {
-            const groupResponse = await fetch(
-                `https://api.thinkific.com/api/public/v1/group_memberships?group_id=${groupId}`,
-                {
-                    headers: {
-                        'X-Auth-API-Key': THINKIFIC_API_KEY,
-                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-                    }
-                }
-            );
-
-            if (groupResponse.ok) {
-                const groupData = await groupResponse.json();
-                const members = groupData.items || [];
-                
-                for (const member of members) {
-                    const email = member.user?.email;
-                    if (email && email.toLowerCase().trim().endsWith('@modalmath.com')) {
-                        rosterEmailsSet.add(email.toLowerCase().trim());
-                    }
-                }
-            }
+        for (const group of teacherGroups) {
+            group.studentEmails.forEach(email => rosterEmailsSet.add(email));
         }
-
         const rosterEmails = Array.from(rosterEmailsSet);
 
         if (rosterEmails.length === 0) {
@@ -114,19 +181,16 @@ Deno.serve(async (req) => {
             });
         }
 
-        // Get all activity events for roster students
         const allEvents = await base44.asServiceRole.entities.ActivityEvent.filter({});
         const rosterEvents = allEvents.filter(e => 
             rosterEmails.includes(e.studentEmail?.toLowerCase().trim())
         );
 
-        // Count quiz attempts (all time)
         const quizEvents = rosterEvents.filter(e => 
             e.eventType === 'quiz_attempted' || e.eventType === 'quiz.attempted'
         );
         const totalQuizAttemptsAllTime = quizEvents.length;
 
-        // Count unique students who signed in this week
         const weekStart = getWeekStart();
         const now = new Date().toISOString();
         
