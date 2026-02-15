@@ -25,7 +25,9 @@ async function fetchThinkificLessons(courseId) {
     );
 
     if (!chaptersResponse.ok) {
-        throw new Error(`Failed to fetch chapters for course ${courseId}`);
+        const errorText = await chaptersResponse.text();
+        console.error(`Failed to fetch chapters for course ${courseId}: ${chaptersResponse.status} - ${errorText}`);
+        throw new Error(`Failed to fetch chapters for course ${courseId}: ${chaptersResponse.status}`);
     }
 
     const chaptersData = await chaptersResponse.json();
