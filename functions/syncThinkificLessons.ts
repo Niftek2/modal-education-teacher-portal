@@ -77,8 +77,9 @@ Deno.serve(async (req) => {
         for (const [level, courseId] of Object.entries(COURSE_IDS)) {
             if (!courseId) continue;
 
-            const lessons = await fetchThinkificLessons(courseId);
-            totalLessons += lessons.length;
+            try {
+                const lessons = await fetchThinkificLessons(courseId);
+                totalLessons += lessons.length;
 
             for (const lesson of lessons) {
                 const thinkificUrl = `https://${THINKIFIC_SUBDOMAIN}.thinkific.com/courses/take/${courseId}/lessons/${lesson.lessonId}`;
