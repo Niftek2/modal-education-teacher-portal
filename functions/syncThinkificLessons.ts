@@ -14,8 +14,9 @@ const COURSE_IDS = {
 };
 
 async function fetchThinkificLessons(courseId) {
-    const chaptersResponse = await fetch(
-        `https://api.thinkific.com/api/public/v1/courses/${courseId}/chapters`,
+    // Fetch curriculum which includes lesson details
+    const curriculumResponse = await fetch(
+        `https://api.thinkific.com/api/public/v1/courses/${courseId}/curriculum`,
         {
             headers: {
                 'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -24,39 +25,24 @@ async function fetchThinkificLessons(courseId) {
         }
     );
 
-    if (!chaptersResponse.ok) {
-        const errorText = await chaptersResponse.text();
-        console.error(`Failed to fetch chapters for course ${courseId}: ${chaptersResponse.status} - ${errorText}`);
-        throw new Error(`Failed to fetch chapters for course ${courseId}: ${chaptersResponse.status}`);
+    if (!curriculumResponse.ok) {
+        const errorText = await curriculumResponse.text();
+        console.error(`Failed to fetch curriculum for course ${courseId}: ${curriculumResponse.status} - ${errorText}`);
+        throw new Error(`Failed to fetch curriculum for course ${courseId}: ${curriculumResponse.status}`);
     }
 
-    const chaptersData = await chaptersResponse.json();
+    const curriculumData = await curriculumResponse.json();
     const lessons = [];
 
-    for (const chapter of chaptersData.items || []) {
-        if (chapter.content_ids && Array.isArray(chapter.content_ids)) {
-            for (const contentId of chapter.content_ids) {
-                // Fetch content details
-                const contentResponse = await fetch(
-                    `https://api.thinkific.com/api/public/v1/courses/${courseId}/contents/${contentId}`,
-                    {
-                        headers: {
-                            'X-Auth-API-Key': THINKIFIC_API_KEY,
-                            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-                        }
-                    }
-                );
-
-                if (contentResponse.ok) {
-                    const content = await contentResponse.json();
-                    if (content.contentable_type === 'Lesson') {
-                        lessons.push({
-                            lessonId: String(content.contentable_id),
-                            title: content.name,
-                            courseId: String(courseId)
-                        });
-                    }
-                }
+    // Curriculum structure: chapters array with lessons inside
+    for (const chapter of curriculumData.items || []) {
+        if (chapter.lessons && Array.isArray(chapter.lessons)) {
+            for (const lesson of chapter.lessons) {
+                lessons.push({
+                    lessonId: String(lesson.id),
+                    title: lesson.name,
+                    courseId: String(courseId)
+                });
             }
         }
     }
