@@ -14,7 +14,7 @@ const COURSE_IDS = {
 };
 
 async function fetchThinkificLessons(courseId) {
-    const response = await fetch(
+    const chaptersResponse = await fetch(
         `https://api.thinkific.com/api/public/v1/courses/${courseId}/chapters`,
         {
             headers: {
@@ -24,22 +24,36 @@ async function fetchThinkificLessons(courseId) {
         }
     );
 
-    if (!response.ok) {
+    if (!chaptersResponse.ok) {
         throw new Error(`Failed to fetch chapters for course ${courseId}`);
     }
 
-    const data = await response.json();
+    const chaptersData = await chaptersResponse.json();
     const lessons = [];
 
-    for (const chapter of data.items || []) {
-        if (chapter.contents && Array.isArray(chapter.contents)) {
-            for (const content of chapter.contents) {
-                if (content.contentable_type === 'Lesson') {
-                    lessons.push({
-                        lessonId: String(content.contentable_id),
-                        title: content.name,
-                        courseId: String(courseId)
-                    });
+    for (const chapter of chaptersData.items || []) {
+        if (chapter.content_ids && Array.isArray(chapter.content_ids)) {
+            for (const contentId of chapter.content_ids) {
+                // Fetch content details
+                const contentResponse = await fetch(
+                    `https://api.thinkific.com/api/public/v1/courses/${courseId}/contents/${contentId}`,
+                    {
+                        headers: {
+                            'X-Auth-API-Key': THINKIFIC_API_KEY,
+                            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                        }
+                    }
+                );
+
+                if (contentResponse.ok) {
+                    const content = await contentResponse.json();
+                    if (content.contentable_type === 'Lesson') {
+                        lessons.push({
+                            lessonId: String(content.contentable_id),
+                            title: content.name,
+                            courseId: String(courseId)
+                        });
+                    }
                 }
             }
         }
