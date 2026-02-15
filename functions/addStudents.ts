@@ -176,7 +176,7 @@ async function checkActiveEnrollment(userEmail) {
 
     const enrollmentsData = await enrollmentsResponse.json();
     const hasActiveClassroomEnrollment = enrollmentsData.items?.some(
-        e => String(e.course_id) === CLASSROOM_COURSE_ID
+        e => String(e.course_id) === CLASSROOM_COURSE_ID && e.status === 'active'
     );
 
     return hasActiveClassroomEnrollment;
