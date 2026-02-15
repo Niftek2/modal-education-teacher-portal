@@ -130,7 +130,7 @@ export default function Dashboard() {
     };
 
     const eventDate = (e) => {
-        const timestamp = e.createdAt || e.created_at || e.timestamp || e.occurredAt;
+        const timestamp = e.occurredAt;
         if (!timestamp) return null;
         try {
             return new Date(timestamp);
@@ -150,7 +150,7 @@ export default function Dashboard() {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         
-        const signinTypes = ['user.signin', 'user_signin', 'signin', 'login', 'user.signedin'];
+        const signinTypes = ['user_signin', 'user.signin'];
         const signinsLast7Days = studentActivities.filter(e => {
             const date = eventDate(e);
             return date && date >= sevenDaysAgo && signinTypes.includes(normalizeType(e));
