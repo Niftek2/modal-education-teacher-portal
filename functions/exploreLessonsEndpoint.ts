@@ -5,9 +5,9 @@ Deno.serve(async (req) => {
     try {
         const courseId = '422595'; // PK course
         
-        // Try lessons endpoint
-        const lessonsResponse = await fetch(
-            `https://api.thinkific.com/api/public/v1/courses/${courseId}/lessons`,
+        // Get chapters first
+        const chaptersResponse = await fetch(
+            `https://api.thinkific.com/api/public/v1/courses/${courseId}/chapters`,
             {
                 headers: {
                     'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -16,21 +16,37 @@ Deno.serve(async (req) => {
             }
         );
 
-        const lessonsStatus = lessonsResponse.status;
-        const lessonsText = await lessonsResponse.text();
-        let lessonsData;
-        try {
-            lessonsData = JSON.parse(lessonsText);
-        } catch {
-            lessonsData = null;
+        const chaptersData = await chaptersResponse.json();
+        const firstChapter = chaptersData.items?.[0];
+        
+        // Try to get individual chapter details
+        let chapterDetailData = null;
+        if (firstChapter?.id) {
+            const chapterDetailResponse = await fetch(
+                `https://api.thinkific.com/api/public/v1/chapters/${firstChapter.id}`,
+                {
+                    headers: {
+                        'X-Auth-API-Key': THINKIFIC_API_KEY,
+                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                    }
+                }
+            );
+            
+            if (chapterDetailResponse.ok) {
+                chapterDetailData = await chapterDetailResponse.json();
+            }
         }
 
         return Response.json({
-            lessonsEndpoint: {
-                status: lessonsStatus,
-                ok: lessonsResponse.ok,
-                data: lessonsData,
-                firstItem: lessonsData?.items?.[0] || null
+            chapters: {
+                status: chaptersResponse.status,
+                firstChapter: firstChapter,
+                chapterKeys: firstChapter ? Object.keys(firstChapter) : null
+            },
+            chapterDetail: {
+                attempted: !!firstChapter?.id,
+                chapterId: firstChapter?.id,
+                data: chapterDetailData
             }
         });
 
