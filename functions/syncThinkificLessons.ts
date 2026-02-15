@@ -115,6 +115,10 @@ Deno.serve(async (req) => {
                     totalCreated++;
                 }
             }
+            } catch (error) {
+                console.error(`Error syncing course ${courseId} (${level}):`, error.message);
+                // Continue with next course instead of failing completely
+            }
         }
 
         return Response.json({
