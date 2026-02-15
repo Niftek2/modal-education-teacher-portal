@@ -137,7 +137,7 @@ export default function Assign() {
                 dueAt: dueDate ? new Date(dueDate).toISOString() : null
             }, sessionToken);
 
-            alert(`Successfully assigned to ${result.assigned} student(s)`);
+            alert(`Successfully assigned ${selectedCatalogIds.length} lesson(s) to ${selectedStudents.length} student(s)`);
             
             // Reload data
             await loadData(sessionToken);
