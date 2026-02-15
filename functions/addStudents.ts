@@ -182,6 +182,43 @@ async function checkActiveEnrollment(userEmail) {
     return hasActiveClassroomEnrollment;
 }
 
+async function getActiveStudentCount(groupId, base44) {
+    let allMembers = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+        const response = await fetch(
+            `https://api.thinkific.com/api/public/v1/group_memberships?group_id=${groupId}&page=${page}&limit=25`,
+            {
+                headers: {
+                    'X-Auth-API-Key': THINKIFIC_API_KEY,
+                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch group members');
+        }
+
+        const data = await response.json();
+        allMembers.push(...data.items);
+        hasMore = data.meta.pagination.current_page < data.meta.pagination.total_pages;
+        page++;
+    }
+
+    const studentEmails = allMembers
+        .map(m => m.user?.email?.toLowerCase().trim())
+        .filter(email => email && email.endsWith('@modalmath.com'));
+
+    const archivedStudents = await base44.asServiceRole.entities.ArchivedStudent.filter({ groupId: groupId });
+    const archivedEmailSet = new Set(archivedStudents.map(s => s.studentEmail?.toLowerCase().trim()));
+
+    const activeStudents = studentEmails.filter(email => !archivedEmailSet.has(email));
+    return activeStudents.length;
+}
+
 Deno.serve(async (req) => {
     try {
         const { students, groupId, sessionToken } = await req.json();
