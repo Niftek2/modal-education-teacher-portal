@@ -19,39 +19,35 @@ Deno.serve(async (req) => {
         const chaptersData = await chaptersResponse.json();
         const firstChapter = chaptersData.items?.[0];
         
-        // Try to get individual lesson/content details using content_ids
+        // Try the Contents endpoint (saw it in the API docs)
         const contentDetails = [];
         if (firstChapter?.content_ids && firstChapter.content_ids.length > 0) {
             const contentId = firstChapter.content_ids[0];
             
-            // Try different endpoints for getting content details
-            const endpoints = [
-                `https://api.thinkific.com/api/public/v1/lessons/${contentId}`,
-                `https://api.thinkific.com/api/public/v1/quizzes/${contentId}`,
-                `https://api.thinkific.com/api/public/v1/content/${contentId}`
-            ];
-            
-            for (const endpoint of endpoints) {
-                const response = await fetch(endpoint, {
+            // Try the Contents endpoint
+            const contentsResponse = await fetch(
+                `https://api.thinkific.com/api/public/v1/contents/${contentId}`,
+                {
                     headers: {
                         'X-Auth-API-Key': THINKIFIC_API_KEY,
                         'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
                     }
-                });
-                
-                const status = response.status;
-                let data = null;
-                if (response.ok) {
-                    data = await response.json();
                 }
-                
-                contentDetails.push({
-                    endpoint: endpoint,
-                    status: status,
-                    ok: response.ok,
-                    data: data
-                });
+            );
+            
+            const status = contentsResponse.status;
+            let data = null;
+            if (contentsResponse.ok) {
+                data = await contentsResponse.json();
             }
+            
+            contentDetails.push({
+                endpoint: 'Contents API',
+                status: status,
+                ok: contentsResponse.ok,
+                data: data,
+                dataKeys: data ? Object.keys(data) : null
+            });
         }
 
         return Response.json({
