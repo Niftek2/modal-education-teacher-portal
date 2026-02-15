@@ -1,13 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import * as jose from 'npm:jose@5.2.0';
 
-async function hashCode(code) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(code);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
+
 
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
@@ -278,13 +272,9 @@ Deno.serve(async (req) => {
                 // Create user
                 const user = await createThinkificUser(student.firstName, student.lastInitial, email);
                 
-                // Generate access code for student portal login
-                const accessCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-                const hashedCode = await hashCode(accessCode);
-                
+                // Create student record for portal access
                 await base44.asServiceRole.entities.StudentAccessCode.create({
                     studentEmail: email.toLowerCase().trim(),
-                    codeHash: hashedCode,
                     createdAt: new Date().toISOString(),
                     createdByTeacherEmail: session.email
                 });
@@ -305,8 +295,7 @@ Deno.serve(async (req) => {
                         firstName: student.firstName,
                         lastInitial: student.lastInitial,
                         email: email,
-                        password: 'Math1234!',
-                        accessCode: accessCode
+                        password: 'Math1234!'
                     }
                 });
 

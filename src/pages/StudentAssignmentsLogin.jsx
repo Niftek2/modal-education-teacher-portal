@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, Mail, Key } from 'lucide-react';
+import { LogIn, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/components/api';
 
 export default function StudentAssignmentsLogin() {
     const [studentEmail, setStudentEmail] = useState('');
-    const [accessCode, setAccessCode] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const navigate = useNavigate();
@@ -16,8 +15,8 @@ export default function StudentAssignmentsLogin() {
         e.preventDefault();
         setError('');
 
-        if (!studentEmail || !accessCode) {
-            setError('Please enter both email and access code');
+        if (!studentEmail) {
+            setError('Please enter your email');
             return;
         }
 
@@ -25,8 +24,7 @@ export default function StudentAssignmentsLogin() {
             setLoading(true);
 
             const result = await api.call('studentLogin', {
-                studentEmail,
-                accessCode
+                studentEmail
             });
 
             // Store session token
@@ -38,7 +36,7 @@ export default function StudentAssignmentsLogin() {
 
         } catch (error) {
             console.error('Login error:', error);
-            setError(error.message || 'Invalid credentials. Please check your email and access code.');
+            setError(error.message || 'Student not found. Please check your email.');
         } finally {
             setLoading(false);
         }
@@ -78,23 +76,6 @@ export default function StudentAssignmentsLogin() {
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Access Code
-                            </label>
-                            <div className="relative">
-                                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <Input
-                                    type="text"
-                                    placeholder="Enter your access code"
-                                    value={accessCode}
-                                    onChange={(e) => setAccessCode(e.target.value)}
-                                    className="pl-10"
-                                    disabled={loading}
-                                />
-                            </div>
-                        </div>
-
                         {error && (
                             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                                 <p className="text-sm text-red-600">{error}</p>
@@ -113,7 +94,7 @@ export default function StudentAssignmentsLogin() {
                     {/* Help Text */}
                     <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                         <p className="text-xs text-gray-600 text-center">
-                            Ask your teacher for your access code if you don't have it.
+                            Use your @modalmath.com email provided by your teacher.
                         </p>
                     </div>
                 </div>
