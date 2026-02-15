@@ -61,10 +61,10 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const { sessionToken } = await req.json();
 
-        // Verify admin session
+        // Verify teacher session
         const session = await verifySession(sessionToken);
         if (!session.email || !session.email.endsWith('@modalmath.com')) {
-            return Response.json({ error: 'Admin access required' }, { status: 403 });
+            return Response.json({ error: 'Teacher access required' }, { status: 403 });
         }
 
         let totalLessons = 0;
