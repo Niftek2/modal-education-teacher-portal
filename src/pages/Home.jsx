@@ -130,7 +130,7 @@ export default function Home() {
                     </form>
 
                     <p className="text-xs text-gray-500 mt-6 text-center">
-                        A login link will be sent to your email. Only teachers with an active Classroom bundle can access the portal.
+                        A login link will be sent to your email. Only teachers with an active classroom subscription can access the portal.
                     </p>
                 </div>
 
