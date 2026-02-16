@@ -262,6 +262,18 @@ export default function Dashboard() {
                     onStudentSelected={handleStudentSelected}
                     activities={studentActivities}
                 />
+
+                {/* CSV Import Link - discreet at bottom */}
+                {teacher?.email?.toLowerCase() === 'nadia.todhh@gmail.com' && (
+                    <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+                        <button
+                            onClick={() => setShowCSVImport(true)}
+                            className="text-sm text-gray-500 hover:text-purple-900 underline"
+                        >
+                            Import CSV
+                        </button>
+                    </div>
+                )}
             </main>
 
             {/* Add Student Modal */}
@@ -299,6 +311,18 @@ export default function Dashboard() {
                 <ArchivedStudentsModal
                     isOpen={showArchived}
                     onClose={() => setShowArchived(false)}
+                    sessionToken={localStorage.getItem('modal_math_session')}
+                />
+            )}
+
+            {/* CSV Import Modal */}
+            {showCSVImport && (
+                <CSVImportModal
+                    isOpen={showCSVImport}
+                    onClose={() => {
+                        setShowCSVImport(false);
+                        handleStudentsAdded(); // Reload dashboard after import
+                    }}
                     sessionToken={localStorage.getItem('modal_math_session')}
                 />
             )}
