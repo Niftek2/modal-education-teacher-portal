@@ -50,7 +50,7 @@ export default function CSVImportModal({ isOpen, onClose, sessionToken }) {
                 return;
             }
 
-            const response = await api.call('importThinkificQuizExport', { csvText, sessionToken }, sessionToken);
+            const response = await api.call('importThinkificQuizExport', { csvText }, sessionToken);
 
             setResult(response);
         } catch (err) {

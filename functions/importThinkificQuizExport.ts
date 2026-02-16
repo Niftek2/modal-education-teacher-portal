@@ -1,21 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.9.6';
+import { requireSession } from './lib/auth.js';
 
 /**
  * Import Thinkific quiz export CSV format
  * Columns: Course Name, Survey/Quiz Name, Student Email, Date Completed (UTC), % Score
  * Transforms to ActivityEvent format and delegates to importStudentActivityCSV
  */
-
-async function verifySession(token) {
-    const secret = new TextEncoder().encode(Deno.env.get('JWT_SECRET'));
-    try {
-        const { payload } = await jose.jwtVerify(token, secret);
-        return payload;
-    } catch {
-        return null;
-    }
-}
 
 function parseCSVLine(line) {
     const result = [];
@@ -51,6 +41,12 @@ function parseThinkificDate(dateStr) {
 }
 
 Deno.serve(async (req) => {
+    const session = await requireSession(req);
+
+    if (!session) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     try {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
