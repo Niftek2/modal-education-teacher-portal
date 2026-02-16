@@ -1,24 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.2.0';
-
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
-
-async function verifySession(token) {
-    if (!token) {
-        throw new Error('Unauthorized');
-    }
-
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jose.jwtVerify(token, secret);
-    
-    return payload;
-}
+import { requireSession } from './lib/auth.js';
 
 Deno.serve(async (req) => {
+    const session = await requireSession(req);
+
+    if (!session) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     try {
         const base44 = createClientFromRequest(req);
-        const { sessionToken } = await req.json();
-        const session = await verifySession(sessionToken);
 
         // Fetch archived students for this teacher
         const archived = await base44.asServiceRole.entities.ArchivedStudent.filter({

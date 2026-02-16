@@ -1,14 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.2.0';
+import { requireSession } from './lib/auth.js';
 import * as thinkific from './lib/thinkificClient.js';
-
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
-
-async function verifySession(token) {
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jose.jwtVerify(token, secret);
-    return payload;
-}
 
 async function getTeacherStudentIds(teacherId, teacherEmail) {
     // Get all groups where teacher is a member
@@ -45,11 +37,16 @@ function normalizeEventType(eventType) {
 }
 
 Deno.serve(async (req) => {
+    const session = await requireSession(req);
+
+    if (!session) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     try {
         const body = await req.json();
-        const { sessionToken, limit = 5000 } = body;
+        const { limit = 5000 } = body;
         
-        const session = await verifySession(sessionToken);
         const teacherId = session.userId;
         
         const teacherUser = await thinkific.getUser(teacherId);
