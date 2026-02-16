@@ -1,9 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.2.0';
+import { requireSession } from './lib/auth.js';
 
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
 const COURSE_IDS = {
     PK: Deno.env.get("COURSE_ID_PK"),
@@ -13,19 +12,6 @@ const COURSE_IDS = {
     L4: Deno.env.get("COURSE_ID_L4"),
     L5: Deno.env.get("COURSE_ID_L5")
 };
-
-async function verifySession(req) {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-        throw new Error('Unauthorized');
-    }
-
-    const token = authHeader.substring(7);
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jose.jwtVerify(token, secret);
-    
-    return payload;
-}
 
 async function findGroupMembership(userId, groupId) {
     const response = await fetch(`https://api.thinkific.com/api/public/v1/group_memberships?query[user_id]=${userId}&query[group_id]=${groupId}`, {
@@ -115,9 +101,14 @@ async function getStudentInfo(userId) {
 }
 
 Deno.serve(async (req) => {
+    const session = await requireSession(req);
+
+    if (!session) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     try {
         const base44 = createClientFromRequest(req);
-        const session = await verifySession(req);
         const { studentId, groupId, teacherId } = await req.json();
 
         if (!studentId || !groupId) {

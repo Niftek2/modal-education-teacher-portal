@@ -1,20 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.2.0';
+import { requireSession } from './lib/auth.js';
 
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
-
-async function verifySession(token) {
-    if (!token) {
-        throw new Error('Unauthorized');
-    }
-
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jose.jwtVerify(token, secret);
-    
-    return payload;
-}
 
 async function getTeacherGroupsIndex() {
     const allGroups = [];
@@ -140,10 +128,13 @@ async function getTeacherGroupsIndex() {
 }
 
 Deno.serve(async (req) => {
+    const session = await requireSession(req);
+
+    if (!session) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     try {
-        const { sessionToken } = await req.json();
-        const session = await verifySession(sessionToken);
-        
         const base44 = createClientFromRequest(req);
 
         const teacherGroupsIndex = await getTeacherGroupsIndex();

@@ -1,25 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.2.0';
+import { requireSession } from './lib/auth.js';
 import * as thinkific from './lib/thinkificClient.js';
-
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
-
-async function verifySession(token) {
-    if (!token) {
-        throw new Error('Unauthorized - no token provided');
-    }
-
-    try {
-        console.log('Verifying session token...');
-        const secret = new TextEncoder().encode(JWT_SECRET);
-        const { payload } = await jose.jwtVerify(token, secret);
-        console.log('Token verified. UserId:', payload.userId);
-        return payload;
-    } catch (err) {
-        console.error('Token verification failed:', err.message);
-        throw new Error('Invalid or expired session token');
-    }
-}
 
 async function getTeacherGroups(userId) {
     try {
@@ -48,9 +29,13 @@ async function getTeacherGroups(userId) {
 }
 
 Deno.serve(async (req) => {
+    const session = await requireSession(req);
+
+    if (!session) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     try {
-        const { sessionToken } = await req.json();
-        const session = await verifySession(sessionToken);
         
         // Get teacher user details using Thinkific SDK
         const user = await thinkific.getUser(session.userId);
