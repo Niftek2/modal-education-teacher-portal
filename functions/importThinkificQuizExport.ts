@@ -54,15 +54,7 @@ Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
-        const { csvText, sessionToken } = body;
-        
-        // Verify session token
-        if (sessionToken) {
-            const session = await verifySession(sessionToken);
-            if (!session) {
-                return Response.json({ error: 'Invalid session' }, { status: 401 });
-            }
-        }
+        const { csvText } = body;
         
         if (!csvText || !csvText.trim()) {
             return Response.json({ error: 'CSV text required' }, { status: 400 });
