@@ -119,34 +119,29 @@ async function handleLessonCompleted(base44, payload) {
 }
 
 async function handleQuizAttempted(base44, payload) {
-    const {
-        id: webhook_id,
-        user_id,
-        email,
-        first_name,
-        last_name,
-        quiz_id,
-        quiz_name,
-        course_id,
-        course_name,
-        score,
-        max_score,
-        percentage_score,
-        attempt_number,
-        completed_at,
-        time_spent_seconds
-    } = payload;
+    const user_id = payload.payload?.user?.id;
+    const email = payload.payload?.user?.email;
+    const first_name = payload.payload?.user?.first_name;
+    const last_name = payload.payload?.user?.last_name;
+    const quiz_id = payload.payload?.quiz?.id;
+    const quiz_name = payload.payload?.quiz?.name;
+    const lesson_id = payload.payload?.lesson?.id;
+    const grade = payload.payload?.grade;
+    const correct_count = payload.payload?.correct_count;
+    const incorrect_count = payload.payload?.incorrect_count;
+    const attempt_number = payload.payload?.attempts;
+    const webhook_id = payload.id;
+    const completed_at = payload.created_at;
 
-    console.log(`[WEBHOOK] quiz.attempted: user=${user_id}, quiz=${quiz_id}, score=${score}/${max_score}`);
+    console.log(`[WEBHOOK] quiz.attempted: user=${user_id}, quiz=${quiz_id}, grade=${grade}%`);
 
-    if (!user_id || !quiz_id || score === undefined || max_score === undefined) {
+    if (!user_id || !quiz_id || grade === undefined) {
         console.error('[WEBHOOK] Missing required fields for quiz.attempted');
         return;
     }
 
-    const percentage = percentage_score || Math.round((score / max_score) * 100);
     const occurredAt = completed_at || new Date().toISOString();
-    const dedupeKey = await createDedupeKey('quiz', user_id, quiz_id, course_id, occurredAt);
+    const dedupeKey = await createDedupeKey('quiz', user_id, quiz_id, null, occurredAt);
 
     // Check if already exists
     const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
@@ -158,24 +153,25 @@ async function handleQuizAttempted(base44, payload) {
     try {
         const created = await base44.asServiceRole.entities.ActivityEvent.create({
             studentUserId: String(user_id),
-            studentEmail: email || '',
+            thinkificUserId: user_id,
+            studentEmail: (email || '').toLowerCase().trim(),
             studentDisplayName: `${first_name || ''} ${last_name || ''}`.trim(),
-            courseId: String(course_id || ''),
-            courseName: course_name || '',
+            courseId: '',
+            courseName: '',
             eventType: 'quiz_attempted',
             contentId: String(quiz_id),
-            contentTitle: quiz_name || 'Unknown Quiz',
+            contentTitle: quiz_name || '',
             occurredAt,
             source: 'webhook',
             rawEventId: String(webhook_id || ''),
             rawPayload: JSON.stringify(payload),
             dedupeKey,
+            scorePercent: grade,
             metadata: {
-                score,
-                maxScore: max_score,
-                percentage,
-                attemptNumber: attempt_number || 1,
-                timeSpentSeconds: time_spent_seconds || 0
+                lessonId: lesson_id,
+                correctCount: correct_count,
+                incorrectCount: incorrect_count,
+                attemptNumber: attempt_number || 1
             }
         });
 

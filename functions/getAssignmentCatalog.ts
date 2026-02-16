@@ -6,10 +6,10 @@ Deno.serve(async (req) => {
         
         // No authentication required - catalog is public
         
-        // Get active catalog items
+        // Get active catalog items (limit 1000 to get all PK-L5 lessons)
         const catalog = await base44.asServiceRole.entities.AssignmentCatalog.filter({ 
             isActive: true 
-        });
+        }, null, 1000);
 
         // Sort by level then title
         const sorted = (catalog || []).sort((a, b) => {
