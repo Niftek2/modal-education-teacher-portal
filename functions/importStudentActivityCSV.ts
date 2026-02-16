@@ -68,12 +68,6 @@ async function checkWebhookDuplicate(base44, thinkificUserId, eventType, lessonI
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
-        
-        // Only nadia.todhh@gmail.com can import CSV
-        if (user?.email?.toLowerCase() !== 'nadia.todhh@gmail.com') {
-            return Response.json({ error: 'Forbidden: CSV import access denied' }, { status: 403 });
-        }
         
         const body = await req.json();
         const { csvText } = body;
