@@ -263,17 +263,15 @@ export default function Dashboard() {
                     activities={studentActivities}
                 />
 
-                {/* CSV Import Link - discreet at bottom */}
-                {teacher?.role === 'admin' && (
-                    <div className="mt-8 pt-6 border-t border-gray-200 text-center">
-                        <button
-                            onClick={() => setShowCSVImport(true)}
-                            className="text-sm text-gray-500 hover:text-purple-900 underline"
-                        >
-                            Import CSV
-                        </button>
-                    </div>
-                )}
+                {/* CSV Import Link - discrete at bottom right */}
+                <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end">
+                    <button
+                        onClick={() => setShowCSVImport(true)}
+                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        Import CSV
+                    </button>
+                </div>
             </main>
 
             {/* Add Student Modal */}
