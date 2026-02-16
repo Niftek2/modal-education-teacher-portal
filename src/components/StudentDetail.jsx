@@ -41,6 +41,11 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             // Split into quizzes and lessons
             const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted');
             
+            // Debug: log first quiz event to see exact field structure
+            if (quizAttempts.length > 0) {
+                console.log('[StudentDetail] Sample quiz event:', quizAttempts[0]);
+            }
+            
             const quizList = quizAttempts.map(e => {
                 const metadata = e.metadata || {};
                 // Grade is already normalized to percentage by webhook handler
