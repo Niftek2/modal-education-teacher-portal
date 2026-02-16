@@ -30,13 +30,12 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const events = response.events || [];
             console.log(`[StudentDetail] Total events returned: ${events.length}`);
             
-            // Filter to this specific student's events by email (case-insensitive)
-            const studentEmail = student.email?.toLowerCase?.() || '';
+            // Filter to this specific student's events by thinkificUserId (canonical identity)
+            const studentUserId = student.userId || student.thinkificUserId;
             const studentEvents = events.filter(e => {
-                const eventEmail = e.studentEmail?.toLowerCase?.() || '';
-                return eventEmail === studentEmail;
+                return e.thinkificUserId === studentUserId;
             });
-            console.log(`[StudentDetail] Filtered to ${studentEvents.length} events for ${student.email}`);
+            console.log(`[StudentDetail] Filtered to ${studentEvents.length} events for user ${studentUserId}`);
             
             // Split into quizzes and lessons
             const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted');
