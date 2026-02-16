@@ -264,7 +264,7 @@ export default function Dashboard() {
                 />
 
                 {/* CSV Import Link - discreet at bottom */}
-                {teacher?.email?.toLowerCase() === 'nadia.todhh@gmail.com' && (
+                {teacher?.role === 'admin' && (
                     <div className="mt-8 pt-6 border-t border-gray-200 text-center">
                         <button
                             onClick={() => setShowCSVImport(true)}
