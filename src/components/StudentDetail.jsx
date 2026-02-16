@@ -43,7 +43,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             
             const quizList = quizAttempts.map(e => {
                 const metadata = e.metadata || {};
-                const percentage = Number.isFinite(e.scorePercent) ? Number(e.scorePercent) : null;
+                // Use scorePercent directly from the event
+                const percentage = typeof e.scorePercent === 'number' ? e.scorePercent : null;
                 const courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim()) ? e.courseName.trim() : 'Elementary';
                 
                 return {
@@ -270,16 +271,11 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                                                 <TableCell className="text-sm text-gray-600">{quiz.level}</TableCell>
                                                                 <TableCell className="text-center text-sm">{attemptIndex}</TableCell>
                                                                 <TableCell>
-                                                                    <div className="flex flex-col gap-1">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Target className="w-4 h-4 text-gray-400" />
-                                                                            <span className="font-semibold text-sm">{quiz.percentage !== null && quiz.percentage !== undefined ? `${Math.round(quiz.percentage)}%` : '—'}</span>
-                                                                        </div>
-                                                                        {quiz.correctCount !== undefined && quiz.correctCount !== null && (
-                                                                            <div className="text-xs text-gray-500">
-                                                                                ✓ {quiz.correctCount} {quiz.incorrectCount !== undefined && quiz.incorrectCount !== null && `✗ ${quiz.incorrectCount}`}
-                                                                            </div>
-                                                                        )}
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Target className="w-4 h-4 text-gray-400" />
+                                                                        <span className="font-semibold text-sm">
+                                                                            {quiz.percentage !== null && quiz.percentage !== undefined ? `${Math.round(quiz.percentage)}%` : '—'}
+                                                                        </span>
                                                                     </div>
                                                                 </TableCell>
                                                                 <TableCell className="text-sm">
