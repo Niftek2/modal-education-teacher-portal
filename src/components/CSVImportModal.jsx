@@ -66,7 +66,7 @@ export default function CSVImportModal({ isOpen, onClose, sessionToken }) {
                 <DialogHeader>
                     <DialogTitle>Import Student Activity CSV</DialogTitle>
                     <DialogDescription>
-                        Upload Thinkific quiz export CSV with columns: Course Name, Survey/Quiz Name, Student Email, Date Completed (UTC), % Score
+                        Upload a quiz export CSV file to import historical student activity data
                     </DialogDescription>
                 </DialogHeader>
 
@@ -105,7 +105,7 @@ export default function CSVImportModal({ isOpen, onClose, sessionToken }) {
                             </div>
                         )}
 
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <div className="relative">
                             <input
                                 type="file"
                                 accept=".csv"
@@ -113,10 +113,18 @@ export default function CSVImportModal({ isOpen, onClose, sessionToken }) {
                                 className="hidden"
                                 id="csv-upload"
                             />
-                            <label htmlFor="csv-upload" className="cursor-pointer">
-                                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                                <p className="text-sm font-medium text-gray-700">
-                                    {csvText ? 'File loaded' : 'Click to upload CSV or paste below'}
+                            <label 
+                                htmlFor="csv-upload" 
+                                className="flex flex-col items-center justify-center border-2 border-dashed border-purple-300 rounded-lg p-8 bg-purple-50 hover:bg-purple-100 cursor-pointer transition-colors"
+                            >
+                                <div className="w-12 h-12 rounded-full bg-purple-900 flex items-center justify-center mb-3">
+                                    <Upload className="w-6 h-6 text-white" />
+                                </div>
+                                <p className="text-sm font-semibold text-purple-900 mb-1">
+                                    {csvText ? '✓ File loaded successfully' : 'Upload CSV File'}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                    Click to browse or drag and drop
                                 </p>
                             </label>
                         </div>
@@ -128,9 +136,9 @@ export default function CSVImportModal({ isOpen, onClose, sessionToken }) {
                             className="w-full h-40 p-3 border border-gray-300 rounded-lg font-mono text-sm"
                         />
 
-                        <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
-                            <p className="font-semibold mb-2">Expected Thinkific quiz export format:</p>
-                            <code className="block overflow-x-auto whitespace-pre">Course Name,Survey/Quiz Name,Student Email,Date Completed (UTC),% Score
+                        <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 border border-gray-200">
+                            <p className="font-semibold mb-2 text-gray-700">Expected CSV format:</p>
+                            <code className="block overflow-x-auto whitespace-pre text-gray-600">Course Name,Survey/Quiz Name,Student Email,Date Completed (UTC),% Score
 L2,Adding Quiz,student@example.com,"February 12, 2026 16:31",85
 PK,Quiz 1,student@example.com,"February 11, 2026 14:20",92</code>
                         </div>
