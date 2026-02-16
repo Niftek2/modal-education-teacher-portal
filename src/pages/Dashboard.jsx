@@ -124,42 +124,7 @@ export default function Dashboard() {
         setShowStudentDetail(true);
     };
 
-    // Helper functions for stats calculations
-    const normalizeType = (e) => {
-        return (e.eventType || e.event_type || '').toLowerCase();
-    };
 
-    const eventDate = (e) => {
-        const timestamp = e.occurredAt;
-        if (!timestamp) return null;
-        try {
-            return new Date(timestamp);
-        } catch {
-            return null;
-        }
-    };
-
-    const calculateStats = () => {
-        // Total quiz attempts
-        const quizTypes = ['quiz.attempted', 'quiz_attempted', 'quiz.attempt', 'quiz_attempt'];
-        const quizzesTaken = studentActivities.filter(e => 
-            quizTypes.includes(normalizeType(e))
-        ).length;
-
-        // Sign-ins in last 7 days
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        
-        const signinTypes = ['user_signin', 'user.signin'];
-        const signinsLast7Days = studentActivities.filter(e => {
-            const date = eventDate(e);
-            return date && date >= sevenDaysAgo && signinTypes.includes(normalizeType(e));
-        }).length;
-
-        return { quizzesTaken, signinsLast7Days };
-    };
-
-    const stats = calculateStats();
 
     const handleSyncQuizzes = async () => {
         try {
@@ -249,26 +214,6 @@ export default function Dashboard() {
 
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-6 py-8">
-                {/* Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                        <p className="text-sm text-gray-600 mb-1">Total Students</p>
-                        <p className="text-3xl font-bold text-black">{students.length}</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                        <p className="text-sm text-gray-600 mb-1">Quizzes Taken</p>
-                        <p className="text-3xl font-bold text-black">
-                            {stats.quizzesTaken}
-                        </p>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                        <p className="text-sm text-gray-600 mb-1">Sign-ins (7 days)</p>
-                        <p className="text-3xl font-bold text-black">
-                            {stats.signinsLast7Days}
-                        </p>
-                    </div>
-                </div>
-
                 {/* Actions Bar */}
                 <div className="flex flex-col sm:flex-row gap-4 mb-6">
                     <div className="relative flex-1">
