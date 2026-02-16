@@ -50,7 +50,7 @@ export default function CSVImportModal({ isOpen, onClose, sessionToken }) {
                 return;
             }
 
-            const response = await api.call('importStudentActivityCSV', { csvText }, sessionToken);
+            const response = await api.call('importThinkificQuizExport', { csvText }, sessionToken);
 
             setResult(response);
         } catch (err) {
@@ -66,7 +66,7 @@ export default function CSVImportModal({ isOpen, onClose, sessionToken }) {
                 <DialogHeader>
                     <DialogTitle>Import Student Activity CSV</DialogTitle>
                     <DialogDescription>
-                        Upload a CSV with columns: thinkificUserId, eventType, occurredAt (required), plus optional fields like lessonName, grade, etc.
+                        Upload Thinkific quiz export CSV with columns: Course Name, Survey/Quiz Name, Student Email, Date Completed (UTC), % Score
                     </DialogDescription>
                 </DialogHeader>
 
@@ -129,10 +129,10 @@ export default function CSVImportModal({ isOpen, onClose, sessionToken }) {
                         />
 
                         <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
-                            <p className="font-semibold mb-2">Expected CSV format (required: thinkificUserId, eventType, occurredAt):</p>
-                            <code className="block overflow-x-auto whitespace-pre">thinkificUserId,eventType,occurredAt,lessonName,grade
-12345,lesson.completed,2025-02-10T14:30:00Z,Lesson 5,
-67890,quiz.attempted,2025-02-11T10:00:00Z,Quiz 1,85</code>
+                            <p className="font-semibold mb-2">Expected Thinkific quiz export format:</p>
+                            <code className="block overflow-x-auto whitespace-pre">Course Name,Survey/Quiz Name,Student Email,Date Completed (UTC),% Score
+L2,Adding Quiz,student@example.com,"February 12, 2026 16:31",85
+PK,Quiz 1,student@example.com,"February 11, 2026 14:20",92</code>
                         </div>
 
                         <div className="flex gap-2 justify-end">
