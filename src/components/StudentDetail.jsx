@@ -43,20 +43,20 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             
             const quizList = quizAttempts.map(e => {
                 const metadata = e.metadata || {};
-                // Use scorePercent directly from the event
-                const percentage = typeof e.scorePercent === 'number' ? e.scorePercent : null;
+                // Use grade directly from the event (already normalized to percentage in webhook)
+                const percentage = typeof e.grade === 'number' ? e.grade : null;
                 const courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim()) ? e.courseName.trim() : 'Elementary';
                 
                 return {
-                    quizName: e.contentTitle || 'Unknown Quiz',
-                    quizId: e.contentId || null,
+                    quizName: e.lessonName || 'Unknown Quiz',
+                    quizId: e.lessonId || null,
                     courseName: courseName,
                     level: courseName,
                     percentage: percentage,
                     completedAt: e.occurredAt,
-                    attempts: metadata.attemptNumber,
-                    correctCount: metadata.correctCount,
-                    incorrectCount: metadata.incorrectCount
+                    attempts: e.attemptNumber || metadata.attemptNumber,
+                    correctCount: e.correctCount || metadata.correctCount,
+                    incorrectCount: e.incorrectCount || metadata.incorrectCount
                 };
             });
             
@@ -103,7 +103,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const lessonEvents = studentEvents
                 .filter(e => e.eventType === 'lesson_completed')
                 .map(e => ({
-                    lessonName: e.contentTitle || 'Unknown Lesson',
+                    lessonName: e.lessonName || 'Unknown Lesson',
                     courseName: e.courseName || 'Elementary',
                     completedAt: e.occurredAt,
                     source: e.source
