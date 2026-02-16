@@ -40,18 +40,13 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             // Split into quizzes and lessons
             const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted');
             
-            // Debug: log first quiz event to see exact field structure
-            if (quizAttempts.length > 0) {
-                console.log('[StudentDetail] Sample quiz event:', quizAttempts[0]);
-            }
-            
-            const quizList = quizAttempts.map(e => {
+            const quizList = quizAttempts.map((e, idx) => {
                 const metadata = e.metadata || {};
                 // Grade is already normalized to percentage by webhook handler
                 const displayPercentage = typeof e.grade === 'number' ? e.grade : null;
                 const courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim()) ? e.courseName.trim() : 'Elementary';
                 
-                return {
+                const mapped = {
                     quizName: e.lessonName || 'Unknown Quiz',
                     quizId: e.lessonId || null,
                     courseName: courseName,
@@ -60,8 +55,18 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     completedAt: e.occurredAt,
                     attempts: e.attemptNumber || metadata.attemptNumber,
                     correctCount: e.correctCount || metadata.correctCount,
-                    incorrectCount: e.incorrectCount || metadata.incorrectCount
+                    incorrectCount: e.incorrectCount || metadata.incorrectCount,
+                    source: e.source
                 };
+                
+                if (idx < 3) {
+                    console.log(`[StudentDetail] Quiz ${idx}:`, {
+                        rawFields: { lessonName: e.lessonName, grade: e.grade, attemptNumber: e.attemptNumber, source: e.source },
+                        mappedFields: { quizName: mapped.quizName, percentage: mapped.percentage, attempts: mapped.attempts }
+                    });
+                }
+                
+                return mapped;
             });
             
             console.log(`[StudentDetail] Found ${quizList.length} quiz attempts:`, quizList.slice(0, 3));
