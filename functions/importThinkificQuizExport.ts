@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
         
         // Call importStudentActivityCSV
         const transformedCSV = transformedRows.join('\n');
-        const importResult = await base44.functions.invoke('importStudentActivityCSV', { csvText: transformedCSV });
+        const importResult = await base44.asServiceRole.functions.invoke('importStudentActivityCSV', { csvText: transformedCSV });
         
         return Response.json({
             ...importResult.data,
