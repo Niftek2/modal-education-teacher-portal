@@ -1,9 +1,6 @@
-import { useState } from 'react';
 import PrivacyPolicy from './components/PrivacyPolicy';
-import CSVImportModal from './components/CSVImportModal';
 
 export default function Layout({ children, currentPageName }) {
-  const [showCSVImport, setShowCSVImport] = useState(false);
   return (
     <div className="min-h-screen flex flex-col">
       {/* Sticky Header */}
@@ -25,28 +22,11 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Footer */}
       <footer className="py-4 px-6 bg-gray-50 border-t border-gray-200">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-2">
-            <PrivacyPolicy />
-            <p className="text-xs text-gray-500">© 2026 Modal Education. All rights reserved.</p>
-          </div>
-          <button
-            onClick={() => setShowCSVImport(true)}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            Import CSV
-          </button>
+        <div className="flex flex-col gap-2">
+          <PrivacyPolicy />
+          <p className="text-xs text-gray-500">© 2026 Modal Education. All rights reserved.</p>
         </div>
       </footer>
-
-      {/* CSV Import Modal */}
-      {showCSVImport && (
-        <CSVImportModal
-          isOpen={showCSVImport}
-          onClose={() => setShowCSVImport(false)}
-          sessionToken={localStorage.getItem('modal_math_session')}
-        />
-      )}
     </div>
   );
 }
