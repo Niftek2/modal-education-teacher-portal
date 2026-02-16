@@ -137,7 +137,7 @@ async function handleLessonCompleted(base44, payload, webhookId, dedupeKey, occu
         chapterName: chapter?.name || null,
         lessonId: lesson?.id || null,
         lessonName: lesson?.name || null,
-        lessonType: lesson?.lesson_type || null,
+        lessonType: lesson?.type || null,
         lessonPosition: lesson?.position || null,
         studentEmail: (email || '').toLowerCase().trim(),
         studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
