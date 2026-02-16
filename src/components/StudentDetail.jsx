@@ -22,6 +22,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const loadData = async () => {
         setLoading(true);
         try {
+            console.log(`[StudentDetail] Props received - student:`, student);
+            
             // Use teacher-scoped activity endpoint
             const response = await api.call('getStudentActivityForTeacher', {
                 sessionToken
@@ -31,7 +33,13 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             console.log(`[StudentDetail] Total events returned: ${events.length}`);
             
             // Filter to this specific student's events by thinkificUserId (canonical identity)
-            const studentUserId = student.userId || student.thinkificUserId;
+            const studentUserId = student?.thinkificUserId || student?.userId;
+            console.log(`[StudentDetail] Using studentUserId: ${studentUserId}`, { 
+                studentThinkificUserId: student?.thinkificUserId, 
+                studentUserId: student?.userId,
+                allStudentProps: Object.keys(student || {})
+            });
+            
             const studentEvents = events.filter(e => {
                 return e.thinkificUserId === studentUserId;
             });
