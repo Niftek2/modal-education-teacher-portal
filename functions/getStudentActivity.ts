@@ -30,15 +30,29 @@ Deno.serve(async (req) => {
                 ? JSON.parse(event.metadata) 
                 : (event.metadata || {});
 
+            // Normalize eventType and compute display grade for quiz attempts
+            const normalizedEventType = event.eventType === 'quiz.attempted' ? 'quiz_attempted' : event.eventType;
+            let displayGrade = event.grade;
+            
+            if (normalizedEventType === 'quiz_attempted' && displayGrade === null && event.rawPayload) {
+                try {
+                    const rawData = JSON.parse(event.rawPayload);
+                    const payloadGrade = rawData?.payload?.grade;
+                    if (typeof payloadGrade === 'number') {
+                        displayGrade = payloadGrade <= 1 ? payloadGrade * 100 : payloadGrade;
+                    }
+                } catch {}
+            }
+
             return {
                 id: event.id,
-                type: event.eventType,
+                type: normalizedEventType,
                 courseName: event.courseName,
                 contentTitle: event.contentTitle,
                 occurredAt: event.occurredAt,
                 source: event.source,
-                score: metadata.score,
-                percentage: metadata.percentage,
+                score: metadata.score || displayGrade,
+                percentage: metadata.percentage || displayGrade,
                 percentageCompleted: metadata.percentageCompleted
             };
         });

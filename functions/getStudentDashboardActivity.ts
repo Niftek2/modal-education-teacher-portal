@@ -24,13 +24,13 @@ async function getTeacherStudentIds(teacherId, teacherEmail) {
 }
 
 function normalizeEventType(eventType) {
-    // Support backward compatibility: convert underscore to dot style
+    // Support backward compatibility: treat both formats as same event
     const aliasMap = {
-        'quiz_attempted': 'quiz.attempted',
-        'lesson_completed': 'lesson.completed',
-        'user_signin': 'user.signin',
-        'user_signup': 'user.signup',
-        'enrollment_created': 'enrollment.created'
+        'quiz.attempted': 'quiz_attempted',
+        'lesson.completed': 'lesson_completed',
+        'user.signin': 'user_signin',
+        'user.signup': 'user_signup',
+        'enrollment.created': 'enrollment_created'
     };
     
     return aliasMap[eventType] || eventType;
@@ -61,11 +61,28 @@ Deno.serve(async (req) => {
         // Filter to only events for students in this teacher's roster
         const filtered = allEvents
             .filter(e => studentIds.includes(e.thinkificUserId))
-            .map(e => ({
-                ...e,
-                // Apply eventType aliasing for backward compatibility
-                eventType: normalizeEventType(e.eventType)
-            }))
+            .map(e => {
+                // Normalize eventType for backward compatibility
+                const normalizedEventType = normalizeEventType(e.eventType);
+                
+                // Compute display grade for quiz attempts (fallback for old data)
+                let displayGrade = e.grade;
+                if ((normalizedEventType === 'quiz_attempted') && displayGrade === null && e.rawPayload) {
+                    try {
+                        const rawData = JSON.parse(e.rawPayload);
+                        const payloadGrade = rawData?.payload?.grade;
+                        if (typeof payloadGrade === 'number') {
+                            displayGrade = payloadGrade <= 1 ? payloadGrade * 100 : payloadGrade;
+                        }
+                    } catch {}
+                }
+                
+                return {
+                    ...e,
+                    eventType: normalizedEventType,
+                    grade: displayGrade
+                };
+            })
             .slice(0, limit);
         
         return Response.json({

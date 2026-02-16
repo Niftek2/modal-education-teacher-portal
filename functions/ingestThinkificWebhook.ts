@@ -169,10 +169,22 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
 
     await upsertStudentProfile(base44, userId, email, firstName, lastName, occurredAt);
 
+    // Normalize grade to percentage
+    let gradePercent = null;
+    if (typeof payload?.grade === 'number') {
+        if (payload.grade <= 1) {
+            // Treat as fraction: 1 → 100%, 0.5 → 50%
+            gradePercent = payload.grade * 100;
+        } else {
+            // Already a percentage
+            gradePercent = payload.grade;
+        }
+    }
+
     const activity = {
         thinkificUserId: userId,
         source: 'webhook',
-        eventType: 'quiz.attempted',
+        eventType: 'quiz_attempted',
         occurredAt,
         dedupeKey,
         webhookEventId: String(webhookId),
@@ -181,8 +193,8 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
         lessonId: lesson?.id || null,
         lessonName: quiz?.name || null,
         attemptNumber: payload?.attempts || 1,
-        grade: typeof payload?.grade === 'number' ? payload.grade : null,
-        correctCount: typeof payload?.correct_count === 'number' ? payload.correct_count : null,
+        grade: gradePercent,
+        correctCount: typeof payload?.correct_count === 'number' ? payload.correct_count : (payload?.correct_count === true ? 1 : null),
         incorrectCount: typeof payload?.incorrect_count === 'number' ? payload.incorrect_count : null,
         studentEmail: (email || '').toLowerCase().trim(),
         studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
