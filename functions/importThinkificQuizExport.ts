@@ -44,8 +44,8 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const user = await base44.auth.me();
         
-        if (user?.email?.toLowerCase() !== 'nadia.todhh@gmail.com') {
-            return Response.json({ error: 'Forbidden: CSV import access denied' }, { status: 403 });
+        if (!user) {
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
         
         const body = await req.json();
