@@ -4,17 +4,17 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
  * Admin-only: Import historical activity from CSV (additive only, never overwrites webhooks)
  * 
  * Required CSV columns: thinkificUserId, eventType, occurredAt
- * Optional CSV columns: studentEmail, contentTitle, courseId, courseName, score, maxScore
+ * Optional CSV columns: studentEmail, contentTitle, courseId, courseName, % Score
  * 
  * eventType: quiz_attempted | lesson_completed | enrollment_progress
  * occurredAt: ISO 8601 timestamp
  * 
- * Deduplicates on (thinkificUserId + eventType + contentTitle + occurredAt) hash
+ * Deduplicates on (studentEmail + eventType + contentTitle + occurredAt) hash
  * Creates ActivityEvent with source='csv' only, never updates/deletes webhook data
  */
 
-async function createDedupeKey(thinkificUserId, eventType, contentTitle, occurredAt) {
-    const data = `${thinkificUserId}-${eventType}-${contentTitle}-${occurredAt}`;
+async function createDedupeKey(studentEmail, eventType, contentTitle, occurredAt) {
+    const data = `${studentEmail}-${eventType}-${contentTitle}-${occurredAt}`;
     const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
     const hashArray = Array.from(new Uint8Array(buffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
@@ -67,7 +67,10 @@ Deno.serve(async (req) => {
         const courseIdIdx = header.indexOf('courseId');
         const courseNameIdx = header.indexOf('courseName');
         const occurredIdx = header.indexOf('occurredAt');
-        const scoreIdx = header.indexOf('score');
+        const scoreIdx = header.indexOf('% Score') !== -1 ? header.indexOf('% Score')
+            : header.indexOf('score') !== -1 ? header.indexOf('score')
+            : header.indexOf('Score') !== -1 ? header.indexOf('Score')
+            : -1;
         const maxScoreIdx = header.indexOf('maxScore');
         
         if (thinkificUserIdIdx === -1 || typeIdx === -1 || occurredIdx === -1) {
@@ -128,7 +131,7 @@ Deno.serve(async (req) => {
                     continue; // Do NOT create ActivityEvent
                 }
                 
-                const dedupeKey = await createDedupeKey(thinkificUserId, eventType, contentTitle, occurredAt);
+                const dedupeKey = await createDedupeKey(studentEmail, eventType, contentTitle, occurredAt);
                 
                 // Check if exists (prevents duplicate CSV rows on reupload)
                 const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
@@ -137,11 +140,13 @@ Deno.serve(async (req) => {
                     continue;
                 }
                 
+                // Parse score percent from CSV
+                const scorePercent = (scoreIdx !== -1 && fields[scoreIdx] !== '')
+                    ? Number(String(fields[scoreIdx]).replace('%', '').trim())
+                    : null;
+                
                 // Create activity event (CSV is additive only, never updates/deletes)
                 const metadata = {};
-                if (scoreIdx !== -1 && fields[scoreIdx]) {
-                    metadata.score = parseFloat(fields[scoreIdx]);
-                }
                 if (maxScoreIdx !== -1 && fields[maxScoreIdx]) {
                     metadata.maxScore = parseFloat(fields[maxScoreIdx]);
                 }
@@ -157,10 +162,11 @@ Deno.serve(async (req) => {
                     contentId: '',
                     contentTitle: contentTitle,
                     occurredAt: occurredAt,
-                    source: 'csv', // Changed from 'csv_import' to 'csv'
+                    source: 'csv',
                     rawEventId: '',
                     rawPayload: JSON.stringify({ line }),
                     dedupeKey: dedupeKey,
+                    scorePercent: scorePercent,
                     metadata: metadata
                 });
                 
