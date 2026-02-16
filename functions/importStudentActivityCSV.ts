@@ -78,8 +78,6 @@ async function checkWebhookDuplicate(base44, thinkificUserId, eventType, lessonI
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        
         // Authenticate using magic key token
         const authHeader = req.headers.get('Authorization');
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -89,10 +87,11 @@ Deno.serve(async (req) => {
         const token = authHeader.substring(7);
         const payload = await verifyMagicToken(token);
         
-        if (!payload || payload.email?.toLowerCase() !== 'nadia.todhh@gmail.com') {
+        if (!payload) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
         
+        const base44 = createClientFromRequest(req);
         const body = await req.json();
         const { csvText } = body;
         
