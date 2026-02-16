@@ -56,6 +56,28 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'CSV text required' }, { status: 400 });
         }
         
+        // Build roster lookup from local data only (no Thinkific API calls)
+        const teacherEmail = session.email;
+        
+        // Get all students created by this teacher
+        const studentAccessCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({ 
+            createdByTeacherEmail: teacherEmail 
+        });
+        
+        const studentEmails = studentAccessCodes.map(s => s.studentEmail.toLowerCase().trim());
+        
+        // Get StudentProfile for all roster students
+        const allProfiles = await base44.asServiceRole.entities.StudentProfile.list('-created_date', 10000);
+        const rosterProfiles = allProfiles.filter(p => p.email && studentEmails.includes(p.email.toLowerCase().trim()));
+        
+        // Build email -> thinkificUserId lookup map
+        const emailToUserId = {};
+        for (const profile of rosterProfiles) {
+            if (profile.email && profile.thinkificUserId) {
+                emailToUserId[profile.email.toLowerCase().trim()] = profile.thinkificUserId;
+            }
+        }
+        
         const lines = csvText.trim().split('\n');
         const header = parseCSVLine(lines[0]);
         
@@ -92,14 +114,13 @@ Deno.serve(async (req) => {
                 continue;
             }
             
-            // Look up thinkificUserId from StudentProfile
-            const profiles = await base44.asServiceRole.entities.StudentProfile.filter({ email: studentEmail });
-            if (profiles.length === 0) {
-                errors.push(`Row ${i + 1}: no profile found for ${studentEmail}`);
+            // Look up thinkificUserId from roster map
+            const thinkificUserId = emailToUserId[studentEmail];
+            if (!thinkificUserId) {
+                errors.push(`Row ${i + 1}: ${studentEmail} not in teacher's roster`);
                 continue;
             }
             
-            const thinkificUserId = profiles[0].thinkificUserId;
             const occurredAt = parseThinkificDate(dateCompleted);
             
             // Build CSV row (escape quiz name if it contains commas)
