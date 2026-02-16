@@ -56,9 +56,9 @@ Deno.serve(async (req) => {
         const studentEmails = studentRoster.map(s => s.email.toLowerCase());
         const studentIdMap = Object.fromEntries(studentRoster.map(s => [s.id, s.email.toLowerCase()]));
         
-        // Fetch all activity events (no limit, we'll filter by student)
+        // Fetch all activity events sorted by occurredAt (most recent first)
         const base44 = createClientFromRequest(req);
-        const allEvents = await base44.asServiceRole.entities.ActivityEvent.list('-created_date', 5000);
+        const allEvents = await base44.asServiceRole.entities.ActivityEvent.list('-occurredAt', 5000);
         
         // Normalize event types for backward compatibility
         const normalizedEvents = allEvents.map(event => {
