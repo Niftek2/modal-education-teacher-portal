@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
 
                 const occurredAt = parseDate(dateCompleted);
                 const dedupeKey = await hashString(
-                    `historical_csv_import:${studentEmail}:${quizName}:${dateCompleted}`
+                    `csv-historical-quiz-import:${studentEmail}:${quizName}:${dateCompleted}`
                 );
 
                 // Check if already exists
