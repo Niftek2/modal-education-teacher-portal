@@ -74,37 +74,46 @@ Deno.serve(async (req) => {
                 
                 const rawPercentScore = rawRow['% Score'];
                 
-                if (!rawPercentScore) {
+                // If no % Score in raw data, skip
+                if (!rawPercentScore && rawPercentScore !== 0) {
                     skipped++;
                     continue;
                 }
                 
                 const correctScorePercent = parsePercentScore(rawPercentScore);
                 
-                // Check if the current scorePercent is suspiciously wrong
-                // If it matches correctCount (indicating "Total Correct" was used), repair it
+                // Check if the current scorePercent looks suspicious
                 const metadata = event.metadata || {};
                 const correctCount = metadata.correctCount;
-                const isWrong = (correctCount && event.scorePercent === correctCount);
+                const totalQuestions = metadata.totalQuestions;
                 
-                // Or if scorePercent is null/undefined
+                // Signs that scorePercent is wrong:
+                // 1. It matches correctCount exactly (e.g., scorePercent=6 when correctCount=6)
+                // 2. It's null/undefined
+                // 3. totalQuestions is suspiciously high (e.g., 2025 when it should be 7)
+                const isWrong = 
+                    (correctCount !== null && correctCount !== undefined && event.scorePercent === correctCount) ||
+                    (totalQuestions !== null && totalQuestions > 100); // Quiz questions shouldn't be > 100
+                
                 const needsFix = 
                     event.scorePercent === null || 
                     event.scorePercent === undefined ||
                     isWrong;
                 
-                if (needsFix && correctScorePercent !== null) {
+                if (needsFix && correctScorePercent !== null && correctScorePercent !== undefined) {
                     // Also fix metadata to have correct totalQuestions
-                    const totalQuestions = rawRow['Total Number of Questions'] ? Number(rawRow['Total Number of Questions']) : null;
+                    const fixedTotalQuestions = rawRow['Total Number of Questions'] ? Number(rawRow['Total Number of Questions']) : null;
                     
                     await base44.asServiceRole.entities.ActivityEvent.update(event.id, {
                         scorePercent: correctScorePercent,
                         metadata: {
                             ...metadata,
-                            totalQuestions: totalQuestions,
+                            totalQuestions: fixedTotalQuestions,
+                            correctCount: rawRow['Total Correct'] ? Number(rawRow['Total Correct']) : metadata.correctCount,
                             rawPercentScore: rawPercentScore,
                             repairedAt: new Date().toISOString(),
-                            previousScore: event.scorePercent
+                            previousScore: event.scorePercent,
+                            previousTotalQuestions: metadata.totalQuestions
                         }
                     });
                     repaired++;
