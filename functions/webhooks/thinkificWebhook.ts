@@ -4,7 +4,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
  * Thinkific Webhook Receiver
  * 
  * Responds fast (< 1s), stores raw payloads, normalizes to ActivityEvent.
- * Topics: lesson.completed, quiz.attempted, user.signin
+ * Topics: lesson.completed, quiz.attempted, user.signin, enrollment.created, user.signup, subscription.canceled
+ * 
+ * Idempotency: Dedupes by webhook ID to prevent duplicate ActivityEvent records on retries.
  */
 
 async function createDedupeKey(type, userId, contentId, courseId, timestamp) {
@@ -12,6 +14,22 @@ async function createDedupeKey(type, userId, contentId, courseId, timestamp) {
     const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
     const hashArray = Array.from(new Uint8Array(buffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+}
+
+function normalizeEventType(resource, action) {
+    const incomingType = `${resource}.${action}`;
+    
+    // Canonical mapping
+    const typeMap = {
+        'quiz.attempted': 'quiz_attempted',
+        'lesson.completed': 'lesson_completed',
+        'enrollment.created': 'enrollment_created',
+        'user.signin': 'user_signin',
+        'user.signup': 'user_signup',
+        'user.sign_up': 'user_signup' // Alias handling
+    };
+    
+    return typeMap[incomingType] || incomingType.replace('.', '_');
 }
 
 Deno.serve(async (req) => {
@@ -24,8 +42,10 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
         
-        const topic = body.topic || req.headers.get('x-thinkific-topic');
-        webhookId = body.id || crypto.randomUUID();
+        webhookId = body.id;
+        const resource = body.resource;
+        const action = body.action;
+        const topic = resource && action ? `${resource}.${action}` : (body.topic || req.headers.get('x-thinkific-topic'));
         
         console.log(`[WEBHOOK] Received ${topic}, ID: ${webhookId}`);
 
@@ -40,13 +60,19 @@ Deno.serve(async (req) => {
                     payloadJson: JSON.stringify(body)
                 });
 
-                // Route to handler
+                // Route to handler based on topic
                 if (topic === 'lesson.completed') {
                     await handleLessonCompleted(base44, body);
                 } else if (topic === 'quiz.attempted') {
                     await handleQuizAttempted(base44, body);
                 } else if (topic === 'user.signin') {
                     await handleUserSignin(base44, body);
+                } else if (topic === 'enrollment.created') {
+                    await handleEnrollmentCreated(base44, body);
+                } else if (topic === 'user.signup' || topic === 'user.sign_up') {
+                    await handleUserSignup(base44, body);
+                } else if (topic === 'subscription.canceled') {
+                    await handleSubscriptionCanceled(base44, body);
                 }
             } catch (err) {
                 console.error(`[WEBHOOK] Async error (${topic}):`, err.message);
@@ -60,155 +86,195 @@ Deno.serve(async (req) => {
     }
 });
 
-async function handleLessonCompleted(base44, payload) {
-    const {
-        id: webhook_id,
-        user_id,
-        email,
-        first_name,
-        last_name,
-        lesson_id,
-        lesson_name,
-        course_id,
-        course_name,
-        completed_at
-    } = payload;
+async function handleLessonCompleted(base44, body) {
+    const webhookId = body.id;
+    const payload = body.payload;
+    const user = payload?.user;
+    const lesson = payload?.lesson;
+    const course = payload?.course;
+    
+    const userId = user?.id;
+    const email = user?.email;
+    const firstName = user?.first_name;
+    const lastName = user?.last_name;
+    const lessonId = lesson?.id;
+    const lessonName = lesson?.name;
+    const courseId = course?.id;
+    const courseName = course?.name;
+    const occurredAt = body.created_at || new Date().toISOString();
 
-    console.log(`[WEBHOOK] lesson.completed: user=${user_id}, lesson=${lesson_id}`);
+    console.log(`[WEBHOOK] lesson.completed: user=${userId}, lesson=${lessonId}`);
 
-    if (!user_id || !lesson_id) {
+    if (!webhookId || !userId || !lessonId) {
         console.error('[WEBHOOK] Missing required fields for lesson.completed');
         return;
     }
 
-    const occurredAt = completed_at || new Date().toISOString();
-    const dedupeKey = await createDedupeKey('lesson', user_id, lesson_id, course_id, occurredAt);
-
-    // Check if already exists
-    const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
-    if (existing.length > 0) {
-        console.log('[WEBHOOK] Lesson completion already stored (duplicate)');
+    // Idempotency: Check by webhook ID
+    const existingByWebhook = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: String(webhookId) });
+    if (existingByWebhook.length > 0) {
+        console.log('[WEBHOOK] Lesson completion already stored (duplicate by webhook ID)');
         return;
     }
 
+    const dedupeKey = await createDedupeKey('lesson', userId, lessonId, courseId, occurredAt);
+
     try {
+        // Update LessonCourseMap
+        if (lessonId && courseId && courseName) {
+            const existingMap = await base44.asServiceRole.entities.LessonCourseMap.filter({ lessonId: String(lessonId) });
+            if (existingMap.length > 0) {
+                await base44.asServiceRole.entities.LessonCourseMap.update(existingMap[0].id, {
+                    courseId: String(courseId),
+                    courseName: courseName,
+                    lastSeenAt: new Date().toISOString()
+                });
+            } else {
+                await base44.asServiceRole.entities.LessonCourseMap.create({
+                    lessonId: String(lessonId),
+                    courseId: String(courseId),
+                    courseName: courseName,
+                    lastSeenAt: new Date().toISOString()
+                });
+            }
+        }
+
         const created = await base44.asServiceRole.entities.ActivityEvent.create({
-            studentUserId: String(user_id),
-            studentEmail: email || '',
-            studentDisplayName: `${first_name || ''} ${last_name || ''}`.trim(),
-            courseId: String(course_id || ''),
-            courseName: course_name || '',
+            studentUserId: String(userId),
+            thinkificUserId: userId,
+            studentEmail: (email || '').toLowerCase().trim(),
+            studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
+            courseId: String(courseId || ''),
+            courseName: courseName || '',
             eventType: 'lesson_completed',
-            contentId: String(lesson_id),
-            contentTitle: lesson_name || 'Unknown Lesson',
+            contentId: String(lessonId),
+            contentTitle: lessonName || 'Unknown Lesson',
             occurredAt,
             source: 'webhook',
-            rawEventId: String(webhook_id || ''),
-            rawPayload: JSON.stringify(payload),
+            rawEventId: String(webhookId),
+            rawPayload: JSON.stringify(body),
             dedupeKey,
             metadata: {}
         });
 
         console.log(`[WEBHOOK] ✓ Lesson saved: DB ID=${created.id}`);
         
-        // Call assignment completion matcher
         await base44.functions.invoke('markAssignmentComplete', { activityEventId: created.id });
     } catch (error) {
         console.error(`[WEBHOOK] Failed to save lesson completion:`, error.message);
     }
 }
 
-async function handleQuizAttempted(base44, payload) {
-    const user_id = payload.payload?.user?.id;
-    const email = payload.payload?.user?.email;
-    const first_name = payload.payload?.user?.first_name;
-    const last_name = payload.payload?.user?.last_name;
-    const quiz_id = payload.payload?.quiz?.id;
-    const quiz_name = payload.payload?.quiz?.name;
-    const lesson_id = payload.payload?.lesson?.id;
-    const grade = payload.payload?.grade;
-    const correct_count = payload.payload?.correct_count;
-    const incorrect_count = payload.payload?.incorrect_count;
-    const attempt_number = payload.payload?.attempts;
-    const webhook_id = payload.id;
-    const completed_at = payload.created_at;
+async function handleQuizAttempted(base44, body) {
+    const webhookId = body.id;
+    const payload = body.payload;
+    const user = payload?.user;
+    const quiz = payload?.quiz;
+    const lesson = payload?.lesson;
+    
+    const userId = user?.id;
+    const email = user?.email;
+    const firstName = user?.first_name;
+    const lastName = user?.last_name;
+    const quizId = quiz?.id;
+    const quizName = quiz?.name;
+    const lessonId = lesson?.id;
+    const grade = payload?.grade;
+    const correctCount = payload?.correct_count;
+    const incorrectCount = payload?.incorrect_count;
+    const attemptNumber = payload?.attempts;
+    const occurredAt = body.created_at || new Date().toISOString();
 
-    console.log(`[WEBHOOK] quiz.attempted: user=${user_id}, quiz=${quiz_id}, grade=${grade}%`);
+    console.log(`[WEBHOOK] quiz.attempted: user=${userId}, quiz=${quizId}, grade=${grade}`);
 
-    if (!user_id || !quiz_id || grade === undefined) {
+    if (!webhookId || !userId || !quizId) {
         console.error('[WEBHOOK] Missing required fields for quiz.attempted');
         return;
     }
 
-    const occurredAt = completed_at || new Date().toISOString();
-    const dedupeKey = await createDedupeKey('quiz', user_id, quiz_id, null, occurredAt);
-
-    // Check if already exists
-    const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
-    if (existing.length > 0) {
-        console.log('[WEBHOOK] Quiz attempt already stored (duplicate)');
+    // Idempotency: Check by webhook ID
+    const existingByWebhook = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: String(webhookId) });
+    if (existingByWebhook.length > 0) {
+        console.log('[WEBHOOK] Quiz attempt already stored (duplicate by webhook ID)');
         return;
     }
 
+    const dedupeKey = await createDedupeKey('quiz', userId, quizId, null, occurredAt);
+
+    // Score calculation: prioritize grade, do not coerce non-numeric correct_count
+    let scorePercent = null;
+    if (typeof grade === 'number') {
+        scorePercent = grade;
+    }
+    
+    // Clean correctCount/incorrectCount - only store if numeric
+    const cleanCorrectCount = typeof correctCount === 'number' ? correctCount : null;
+    const cleanIncorrectCount = typeof incorrectCount === 'number' ? incorrectCount : null;
+
     try {
         const created = await base44.asServiceRole.entities.ActivityEvent.create({
-            studentUserId: String(user_id),
-            thinkificUserId: user_id,
+            studentUserId: String(userId),
+            thinkificUserId: userId,
             studentEmail: (email || '').toLowerCase().trim(),
-            studentDisplayName: `${first_name || ''} ${last_name || ''}`.trim(),
+            studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
             courseId: '',
             courseName: '',
             eventType: 'quiz_attempted',
-            contentId: String(quiz_id),
-            contentTitle: quiz_name || '',
+            contentId: String(quizId),
+            contentTitle: quizName || '',
             occurredAt,
             source: 'webhook',
-            rawEventId: String(webhook_id || ''),
-            rawPayload: JSON.stringify(payload),
+            rawEventId: String(webhookId),
+            rawPayload: JSON.stringify(body),
             dedupeKey,
-            scorePercent: grade,
+            scorePercent: scorePercent,
             metadata: {
-                lessonId: lesson_id,
-                correctCount: correct_count,
-                incorrectCount: incorrect_count,
-                attemptNumber: attempt_number || 1
+                lessonId: lessonId,
+                correctCount: cleanCorrectCount,
+                incorrectCount: cleanIncorrectCount,
+                attemptNumber: attemptNumber || 1
             }
         });
 
-        console.log(`[WEBHOOK] ✓ Quiz saved: DB ID=${created.id}`);
+        console.log(`[WEBHOOK] ✓ Quiz saved: DB ID=${created.id}, score=${scorePercent}%`);
         
-        // Call assignment completion matcher
         await base44.functions.invoke('markAssignmentComplete', { activityEventId: created.id });
     } catch (error) {
         console.error(`[WEBHOOK] Failed to save quiz attempt:`, error.message);
     }
 }
 
-async function handleUserSignin(base44, payload) {
-    const { id: webhook_id, user_id, email, first_name, last_name, occurred_at } = payload;
+async function handleUserSignin(base44, body) {
+    const webhookId = body.id;
+    const payload = body.payload;
+    const userId = payload?.id;
+    const email = payload?.email;
+    const firstName = payload?.first_name;
+    const lastName = payload?.last_name;
+    const occurredAt = body.created_at || new Date().toISOString();
 
-    console.log(`[WEBHOOK] user.signin: user=${user_id}, email=${email}`);
+    console.log(`[WEBHOOK] user.signin: user=${userId}, email=${email}`);
 
-    if (!user_id || !email) {
+    if (!webhookId || !userId || !email) {
         console.error('[WEBHOOK] Missing required fields for user.signin');
         return;
     }
 
-    const occurredAt = occurred_at || new Date().toISOString();
-    const dedupeKey = await createDedupeKey('signin', user_id, null, null, occurredAt);
-
-    // Check if already exists
-    const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
-    if (existing.length > 0) {
-        console.log('[WEBHOOK] Signin already stored (duplicate)');
+    // Idempotency: Check by webhook ID
+    const existingByWebhook = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: String(webhookId) });
+    if (existingByWebhook.length > 0) {
+        console.log('[WEBHOOK] Signin already stored (duplicate by webhook ID)');
         return;
     }
 
+    const dedupeKey = await createDedupeKey('signin', userId, null, null, occurredAt);
+
     try {
         await base44.asServiceRole.entities.ActivityEvent.create({
-            studentUserId: String(user_id),
-            studentEmail: email,
-            studentDisplayName: `${first_name || ''} ${last_name || ''}`.trim(),
+            studentUserId: String(userId),
+            thinkificUserId: userId,
+            studentEmail: (email || '').toLowerCase().trim(),
+            studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
             courseId: '',
             courseName: '',
             eventType: 'user_signin',
@@ -216,8 +282,8 @@ async function handleUserSignin(base44, payload) {
             contentTitle: '',
             occurredAt,
             source: 'webhook',
-            rawEventId: String(webhook_id || ''),
-            rawPayload: JSON.stringify(payload),
+            rawEventId: String(webhookId),
+            rawPayload: JSON.stringify(body),
             dedupeKey,
             metadata: {}
         });
@@ -225,5 +291,150 @@ async function handleUserSignin(base44, payload) {
         console.log(`[WEBHOOK] ✓ Signin logged`);
     } catch (error) {
         console.error(`[WEBHOOK] Failed to log signin:`, error.message);
+    }
+}
+
+async function handleEnrollmentCreated(base44, body) {
+    const webhookId = body.id;
+    const payload = body.payload;
+    const user = payload?.user;
+    const course = payload?.course;
+    
+    const userId = user?.id;
+    const email = user?.email;
+    const firstName = user?.first_name;
+    const lastName = user?.last_name;
+    const enrollmentId = payload?.id;
+    const courseId = course?.id;
+    const courseName = course?.name;
+    const occurredAt = body.created_at || payload?.created_at || new Date().toISOString();
+
+    console.log(`[WEBHOOK] enrollment.created: user=${userId}, course=${courseId}`);
+
+    if (!webhookId || !userId || !courseId) {
+        console.error('[WEBHOOK] Missing required fields for enrollment.created');
+        return;
+    }
+
+    // Idempotency: Check by webhook ID
+    const existingByWebhook = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: String(webhookId) });
+    if (existingByWebhook.length > 0) {
+        console.log('[WEBHOOK] Enrollment already stored (duplicate by webhook ID)');
+        return;
+    }
+
+    const dedupeKey = await createDedupeKey('enrollment', userId, enrollmentId, courseId, occurredAt);
+
+    try {
+        await base44.asServiceRole.entities.ActivityEvent.create({
+            studentUserId: String(userId),
+            thinkificUserId: userId,
+            studentEmail: (email || '').toLowerCase().trim(),
+            studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
+            courseId: String(courseId),
+            courseName: courseName || '',
+            eventType: 'enrollment_created',
+            contentId: String(enrollmentId || ''),
+            contentTitle: '',
+            occurredAt,
+            source: 'webhook',
+            rawEventId: String(webhookId),
+            rawPayload: JSON.stringify(body),
+            dedupeKey,
+            metadata: {
+                enrollmentId: enrollmentId
+            }
+        });
+
+        console.log(`[WEBHOOK] ✓ Enrollment logged`);
+    } catch (error) {
+        console.error(`[WEBHOOK] Failed to log enrollment:`, error.message);
+    }
+}
+
+async function handleUserSignup(base44, body) {
+    const webhookId = body.id;
+    const payload = body.payload;
+    const userId = payload?.id;
+    const email = payload?.email;
+    const firstName = payload?.first_name;
+    const lastName = payload?.last_name;
+    const occurredAt = body.created_at || payload?.created_at || new Date().toISOString();
+
+    console.log(`[WEBHOOK] user.signup: user=${userId}, email=${email}`);
+
+    if (!webhookId || !userId || !email) {
+        console.error('[WEBHOOK] Missing required fields for user.signup');
+        return;
+    }
+
+    // Idempotency: Check by webhook ID
+    const existingByWebhook = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: String(webhookId) });
+    if (existingByWebhook.length > 0) {
+        console.log('[WEBHOOK] Signup already stored (duplicate by webhook ID)');
+        return;
+    }
+
+    const dedupeKey = await createDedupeKey('signup', userId, null, null, occurredAt);
+
+    try {
+        await base44.asServiceRole.entities.ActivityEvent.create({
+            studentUserId: String(userId),
+            thinkificUserId: userId,
+            studentEmail: (email || '').toLowerCase().trim(),
+            studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
+            courseId: '',
+            courseName: '',
+            eventType: 'user_signup',
+            contentId: '',
+            contentTitle: '',
+            occurredAt,
+            source: 'webhook',
+            rawEventId: String(webhookId),
+            rawPayload: JSON.stringify(body),
+            dedupeKey,
+            metadata: {}
+        });
+
+        console.log(`[WEBHOOK] ✓ Signup logged`);
+    } catch (error) {
+        console.error(`[WEBHOOK] Failed to log signup:`, error.message);
+    }
+}
+
+async function handleSubscriptionCanceled(base44, body) {
+    const webhookId = body.id;
+    const payload = body.payload;
+    const user = payload?.user;
+    
+    const userId = user?.id;
+    const email = user?.email;
+    const subscriptionId = payload?.id;
+    const occurredAt = body.created_at || new Date().toISOString();
+
+    console.log(`[WEBHOOK] subscription.canceled: user=${userId}, subscription=${subscriptionId}`);
+
+    if (!userId || !email) {
+        console.error('[WEBHOOK] Missing required fields for subscription.canceled');
+        return;
+    }
+
+    try {
+        // Update TeacherAccess
+        const existingAccess = await base44.asServiceRole.entities.TeacherAccess.filter({ 
+            teacherEmail: email.toLowerCase().trim() 
+        });
+
+        if (existingAccess.length > 0) {
+            await base44.asServiceRole.entities.TeacherAccess.update(existingAccess[0].id, {
+                status: 'ended',
+                lastWebhookId: String(webhookId)
+            });
+            console.log(`[WEBHOOK] ✓ TeacherAccess updated to 'ended'`);
+        } else {
+            console.log(`[WEBHOOK] No TeacherAccess record found for ${email}`);
+        }
+    } catch (error) {
+        console.error(`[WEBHOOK] Failed to handle subscription cancellation:`, error.message);
     }
 }
