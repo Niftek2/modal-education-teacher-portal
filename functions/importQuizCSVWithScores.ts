@@ -1,10 +1,37 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
-async function createDedupeKey(type, userId, contentId, courseId, timestamp) {
-    const data = `${type}-${userId}-${contentId || 'none'}-${courseId || 'none'}-${timestamp}`;
+async function createDedupeKey(data) {
     const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
     const hashArray = Array.from(new Uint8Array(buffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+    return 'csv_quiz_attempted:' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 40);
+}
+
+function parsePercentScore(value) {
+    if (value === null || value === undefined || value === '') return null;
+    
+    let stringVal = String(value).trim();
+    
+    // Handle "NA" or similar
+    if (stringVal.toLowerCase() === 'na' || stringVal.toLowerCase() === 'n/a') return null;
+    
+    // Remove % sign if present
+    stringVal = stringVal.replace('%', '');
+    
+    const num = Number(stringVal);
+    if (Number.isNaN(num)) return null;
+    
+    // If value is between 0 and 1, treat as decimal (0.7 = 70%)
+    if (num > 0 && num < 1) {
+        return num * 100;
+    }
+    
+    // If value is between 1 and 100, treat as percentage
+    if (num >= 0 && num <= 100) {
+        return num;
+    }
+    
+    // Invalid range
+    return null;
 }
 
 Deno.serve(async (req) => {
@@ -30,7 +57,8 @@ Deno.serve(async (req) => {
             const studentEmail = row['Student Email']?.trim().toLowerCase();
             const courseName = row['Course Name']?.trim() || '';
             const contentTitle = row['Survey/Quiz Name']?.trim() || '';
-            const scorePercent = row['% Score'] ? Number(row['% Score']) : null;
+            const rawPercentScore = row['% Score'];
+            const scorePercent = parsePercentScore(rawPercentScore);
             
             // Parse date: "February 12, 2026 21:16"
             let occurredAt = null;
@@ -54,14 +82,9 @@ Deno.serve(async (req) => {
                 continue;
             }
 
-            // Create dedupeKey based on email + quiz name + date
-            const dedupeKey = await createDedupeKey(
-                'quiz',
-                studentEmail,
-                contentTitle,
-                courseName,
-                occurredAt
-            );
+            // Create CSV-specific dedupeKey to avoid collision with webhook events
+            const dedupeData = `${studentEmail}|${courseName}|${contentTitle}|${occurredAt}|${scorePercent}`;
+            const dedupeKey = await createDedupeKey(dedupeData);
 
             // Check if already exists
             const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ 
@@ -84,14 +107,15 @@ Deno.serve(async (req) => {
                     contentId: '',
                     contentTitle: contentTitle,
                     occurredAt: occurredAt,
-                    source: 'rest_backfill',
+                    source: 'csv_import',
                     rawEventId: '',
                     rawPayload: JSON.stringify(row),
                     dedupeKey: dedupeKey,
                     scorePercent: scorePercent,
                     metadata: {
                         totalQuestions: row['Total Number of Questions'] ? Number(row['Total Number of Questions']) : null,
-                        correctCount: row['Total Correct'] ? Number(row['Total Correct']) : null
+                        correctCount: row['Total Correct'] ? Number(row['Total Correct']) : null,
+                        rawPercentScore: rawPercentScore
                     }
                 });
                 imported++;
