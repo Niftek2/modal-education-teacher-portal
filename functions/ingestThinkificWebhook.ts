@@ -127,7 +127,7 @@ async function handleLessonCompleted(base44, payload, webhookId, dedupeKey, occu
     const activity = {
         thinkificUserId: userId,
         source: 'webhook',
-        eventType: 'lesson.completed',
+        eventType: 'lesson_completed',
         occurredAt,
         dedupeKey,
         webhookEventId: String(webhookId),
@@ -224,7 +224,7 @@ async function handleUserSignin(base44, payload, webhookId, dedupeKey, occurredA
     const activity = {
         thinkificUserId: userId,
         source: 'webhook',
-        eventType: 'user.signin',
+        eventType: 'user_signin',
         occurredAt,
         dedupeKey,
         webhookEventId: String(webhookId),
@@ -255,7 +255,7 @@ async function handleEnrollmentCreated(base44, payload, webhookId, dedupeKey, oc
     const activity = {
         thinkificUserId: userId,
         source: 'webhook',
-        eventType: 'enrollment.created',
+        eventType: 'enrollment_created',
         occurredAt,
         dedupeKey,
         webhookEventId: String(webhookId),
@@ -286,7 +286,7 @@ async function handleUserSignup(base44, payload, webhookId, dedupeKey, occurredA
     const activity = {
         thinkificUserId: userId,
         source: 'webhook',
-        eventType: 'user.signup',
+        eventType: 'user_signup',
         occurredAt,
         dedupeKey,
         webhookEventId: String(webhookId),
