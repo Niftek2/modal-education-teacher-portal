@@ -22,8 +22,6 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const loadData = async () => {
         setLoading(true);
         try {
-            console.log(`[StudentDetail] Props received - student:`, student);
-            
             // Use teacher-scoped activity endpoint
             const response = await api.call('getStudentActivityForTeacher', {
                 sessionToken
@@ -32,18 +30,15 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const events = response.events || [];
             console.log(`[StudentDetail] Total events returned: ${events.length}`);
             
-            // Filter to this specific student's events by thinkificUserId (canonical identity)
-            const studentUserId = student?.thinkificUserId || student?.userId;
-            console.log(`[StudentDetail] Using studentUserId: ${studentUserId}`, { 
-                studentThinkificUserId: student?.thinkificUserId, 
-                studentUserId: student?.userId,
-                allStudentProps: Object.keys(student || {})
-            });
+            // Filter to this specific student's events by email (works for both webhook and csv sources)
+            const studentEmail = (student?.email || student?.studentEmail || '').toLowerCase().trim();
+            console.log(`[StudentDetail] Filtering for studentEmail: ${studentEmail}`);
             
             const studentEvents = events.filter(e => {
-                return e.thinkificUserId === studentUserId;
+                const eventEmail = (e.studentEmail || '').toLowerCase().trim();
+                return eventEmail === studentEmail;
             });
-            console.log(`[StudentDetail] Filtered to ${studentEvents.length} events for user ${studentUserId}`);
+            console.log(`[StudentDetail] Filtered to ${studentEvents.length} events for ${studentEmail}`);
             
             // Split into quizzes and lessons
             const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted');
