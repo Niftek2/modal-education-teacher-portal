@@ -9,6 +9,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
  * occurredAt: ISO 8601 timestamp
  * 
  * Deduplicates on (studentEmail + eventType + contentTitle + occurredAt) hash
+ * Links to StudentProfile by thinkificUserId if found, otherwise stores as unlinked
  */
 
 async function createDedupeKey(studentEmail, eventType, contentTitle, occurredAt) {
@@ -19,7 +20,6 @@ async function createDedupeKey(studentEmail, eventType, contentTitle, occurredAt
 }
 
 function parseCSVLine(line) {
-    // Simple CSV parse (handle quoted fields)
     const result = [];
     let current = '';
     let insideQuotes = false;
@@ -59,7 +59,6 @@ Deno.serve(async (req) => {
         const lines = csvText.trim().split('\n');
         const header = parseCSVLine(lines[0]);
         
-        // Expected: studentEmail, eventType, contentTitle, courseId, courseName, occurredAt, [score, maxScore]
         const emailIdx = header.indexOf('studentEmail');
         const typeIdx = header.indexOf('eventType');
         const titleIdx = header.indexOf('contentTitle');
@@ -77,6 +76,7 @@ Deno.serve(async (req) => {
         
         let imported = 0;
         let skipped = 0;
+        let unlinked = 0;
         const errors = [];
         
         for (let i = 1; i < lines.length; i++) {
@@ -111,6 +111,17 @@ Deno.serve(async (req) => {
                     continue;
                 }
                 
+                // Try to match StudentProfile by email
+                const normalizedEmail = studentEmail.toLowerCase().trim();
+                const profiles = await base44.asServiceRole.entities.StudentProfile.filter({ email: normalizedEmail });
+                
+                let thinkificUserId = null;
+                if (profiles.length > 0) {
+                    thinkificUserId = profiles[0].thinkificUserId;
+                } else {
+                    unlinked++;
+                }
+                
                 // Create activity event
                 const metadata = {};
                 if (scoreIdx !== -1 && fields[scoreIdx]) {
@@ -120,9 +131,14 @@ Deno.serve(async (req) => {
                     metadata.maxScore = parseFloat(fields[maxScoreIdx]);
                 }
                 
+                if (!thinkificUserId) {
+                    metadata.unlinked = true;
+                }
+                
                 await base44.asServiceRole.entities.ActivityEvent.create({
-                    studentUserId: '', // Not always available from CSV
-                    studentEmail: studentEmail,
+                    studentUserId: thinkificUserId ? String(thinkificUserId) : '',
+                    thinkificUserId: thinkificUserId,
+                    studentEmail: normalizedEmail,
                     studentDisplayName: studentEmail.split('@')[0],
                     courseId: courseId,
                     courseName: courseName,
@@ -146,8 +162,9 @@ Deno.serve(async (req) => {
         return Response.json({
             imported,
             skipped,
+            unlinked,
             total: lines.length - 1,
-            errors: errors.slice(0, 20) // First 20 errors
+            errors: errors.slice(0, 20)
         }, { status: 200 });
     } catch (error) {
         console.error('[CSV IMPORT] Error:', error.message);
