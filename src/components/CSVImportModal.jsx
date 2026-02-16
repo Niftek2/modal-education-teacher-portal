@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertCircle, Upload } from 'lucide-react';
 import { api } from '@/components/api';
 
-export default function CSVImportModal({ onClose, onSuccess }) {
+export default function CSVImportModal({ isOpen, onClose, sessionToken }) {
     const [csvText, setCsvText] = useState('');
     const [importing, setImporting] = useState(false);
     const [result, setResult] = useState(null);
@@ -45,32 +45,14 @@ export default function CSVImportModal({ onClose, onSuccess }) {
             setError('');
             setImporting(true);
 
-            const parsed = parseCSV(csvText);
-            if (parsed.length === 0) {
-                setError('No valid rows found in CSV');
+            if (!csvText || !csvText.trim()) {
+                setError('CSV content is required');
                 return;
             }
 
-            // Map CSV columns to expected format
-            const rows = parsed.map(row => ({
-                eventType: row.eventtype || row.event_type || 'lesson_completed',
-                studentEmail: row.studentemail || row.email || '',
-                courseName: row.coursename || row.course || '',
-                contentTitle: row.contenttitle || row.lesson || row.quiz || '',
-                score: row.score ? parseFloat(row.score) : undefined,
-                maxScore: row.maxscore || row.max_score ? parseFloat(row.maxscore || row.max_score) : undefined,
-                occurredAt: row.occurredat || row.occurred_at || row.date || new Date().toISOString()
-            }));
-
-            const sessionToken = localStorage.getItem('modal_math_session');
-            const response = await api.call('importHistoricalCSV', { rows, sessionToken }, sessionToken);
+            const response = await api.call('importStudentActivityCSV', { csvText }, sessionToken);
 
             setResult(response);
-            if (response.imported > 0) {
-                setTimeout(() => {
-                    onSuccess();
-                }, 1500);
-            }
         } catch (err) {
             setError(err.message || 'Import failed');
         } finally {
@@ -79,37 +61,38 @@ export default function CSVImportModal({ onClose, onSuccess }) {
     };
 
     return (
-        <Dialog open={true} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>Import Historical Activity</DialogTitle>
+                    <DialogTitle>Import Student Activity CSV</DialogTitle>
                     <DialogDescription>
-                        Upload a CSV file with columns: studentEmail, eventType, courseName, contentTitle, score, maxScore, occurredAt
+                        Upload a CSV with columns: thinkificUserId, eventType, occurredAt (required), plus optional fields like lessonName, grade, etc.
                     </DialogDescription>
                 </DialogHeader>
 
                 {result ? (
                     <div className="space-y-4">
-                        <div className={`p-4 rounded-lg ${result.imported > 0 ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'}`}>
+                        <div className={`p-4 rounded-lg ${result.added > 0 ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'}`}>
                             <p className="font-semibold text-black mb-2">Import Results</p>
                             <div className="space-y-1 text-sm">
-                                <p>✓ Imported: {result.imported}</p>
-                                <p>- Duplicates skipped: {result.duplicates}</p>
-                                <p>✗ Errors: {result.errors}</p>
+                                <p>✓ Added: {result.added}</p>
+                                <p>- CSV duplicates skipped: {result.skippedDuplicates}</p>
+                                <p>- Webhook duplicates skipped: {result.skippedAsWebhookDuplicate}</p>
+                                {result.errors && result.errors.length > 0 && <p>✗ Errors: {result.errors.length}</p>}
                             </div>
                         </div>
-                        {result.errorDetails.length > 0 && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        {result.errors && result.errors.length > 0 && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-40 overflow-y-auto">
                                 <p className="text-sm font-semibold text-red-800 mb-2">Errors:</p>
                                 <ul className="text-xs text-red-700 space-y-1">
-                                    {result.errorDetails.map((err, i) => (
+                                    {result.errors.map((err, i) => (
                                         <li key={i}>• {err}</li>
                                     ))}
                                 </ul>
                             </div>
                         )}
                         <div className="flex gap-2">
-                            <Button onClick={() => setCsvText('')} variant="outline">Import Another</Button>
+                            <Button onClick={() => { setCsvText(''); setResult(null); }} variant="outline">Import Another</Button>
                             <Button onClick={onClose} className="bg-green-600 hover:bg-green-700 text-white">Done</Button>
                         </div>
                     </div>
@@ -146,10 +129,10 @@ export default function CSVImportModal({ onClose, onSuccess }) {
                         />
 
                         <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
-                            <p className="font-semibold mb-2">Expected CSV format:</p>
-                            <code className="block overflow-x-auto">studentEmail,eventType,courseName,contentTitle,occurredAt
-jane@modalmath.com,quiz_attempted,Modal Math 101,Lesson 5 Quiz,2025-02-10T14:30:00Z
-                            </code>
+                            <p className="font-semibold mb-2">Expected CSV format (required: thinkificUserId, eventType, occurredAt):</p>
+                            <code className="block overflow-x-auto whitespace-pre">thinkificUserId,eventType,occurredAt,lessonName,grade
+12345,lesson.completed,2025-02-10T14:30:00Z,Lesson 5,
+67890,quiz.attempted,2025-02-11T10:00:00Z,Quiz 1,85</code>
                         </div>
 
                         <div className="flex gap-2 justify-end">
