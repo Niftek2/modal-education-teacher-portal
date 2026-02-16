@@ -34,8 +34,29 @@ Deno.serve(async (req) => {
         }
 
         if (action === 'list') {
-            const catalog = await base44.asServiceRole.entities.AssignmentCatalog.list();
-            return Response.json({ success: true, catalog });
+            const PAGE_SIZE = 100;
+            let all = [];
+            let offset = 0;
+
+            while (true) {
+                const page = await base44.asServiceRole.entities.AssignmentCatalog.list('title', PAGE_SIZE, offset);
+
+                // Base44 returns array directly
+                const items = Array.isArray(page) ? page : [];
+                all = all.concat(items);
+
+                if (items.length < PAGE_SIZE) break;
+                offset += PAGE_SIZE;
+            }
+
+            // Stable ordering for UI
+            all.sort((a, b) =>
+                (a.level || '').localeCompare(b.level || '') ||
+                (a.title || '').localeCompare(b.title || '')
+            );
+
+            console.log(`[manageCatalog] Returning ${all.length} total catalog items`);
+            return Response.json({ success: true, catalog: all });
         }
 
         if (action === 'toggle' && catalogId) {
