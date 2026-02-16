@@ -32,6 +32,34 @@ function normalizeEventType(resource, action) {
     return typeMap[incomingType] || null;
 }
 
+async function upsertStudentProfile(base44, userId, email, firstName, lastName, occurredAt) {
+    if (!userId) return;
+    
+    const displayName = `${firstName || ''} ${lastName || ''}`.trim();
+    const normalizedEmail = (email || '').toLowerCase().trim();
+    
+    const existing = await base44.asServiceRole.entities.StudentProfile.filter({ thinkificUserId: userId });
+    
+    if (existing.length > 0) {
+        await base44.asServiceRole.entities.StudentProfile.update(existing[0].id, {
+            displayName: displayName || existing[0].displayName,
+            email: normalizedEmail || existing[0].email,
+            firstName: firstName || existing[0].firstName,
+            lastName: lastName || existing[0].lastName,
+            lastSeenAt: occurredAt
+        });
+    } else {
+        await base44.asServiceRole.entities.StudentProfile.create({
+            thinkificUserId: userId,
+            displayName: displayName || normalizedEmail,
+            email: normalizedEmail,
+            firstName: firstName || '',
+            lastName: lastName || '',
+            lastSeenAt: occurredAt
+        });
+    }
+}
+
 Deno.serve(async (req) => {
     if (req.method !== 'POST') {
         return Response.json({ error: 'Method not allowed' }, { status: 405 });
@@ -117,6 +145,9 @@ async function handleLessonCompleted(base44, body, eventType) {
         return;
     }
 
+    // Upsert StudentProfile
+    await upsertStudentProfile(base44, userId, email, firstName, lastName, occurredAt);
+
     // Idempotency: Check by webhook ID
     const existingByWebhook = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: String(webhookId) });
     if (existingByWebhook.length > 0) {
@@ -199,6 +230,9 @@ async function handleQuizAttempted(base44, body, eventType) {
         return;
     }
 
+    // Upsert StudentProfile
+    await upsertStudentProfile(base44, userId, email, firstName, lastName, occurredAt);
+
     // Idempotency: Check by webhook ID
     const existingByWebhook = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: String(webhookId) });
     if (existingByWebhook.length > 0) {
@@ -267,6 +301,9 @@ async function handleUserSignin(base44, body, eventType) {
         return;
     }
 
+    // Upsert StudentProfile
+    await upsertStudentProfile(base44, userId, email, firstName, lastName, occurredAt);
+
     // Idempotency: Check by webhook ID
     const existingByWebhook = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: String(webhookId) });
     if (existingByWebhook.length > 0) {
@@ -323,6 +360,9 @@ async function handleEnrollmentCreated(base44, body, eventType) {
         return;
     }
 
+    // Upsert StudentProfile
+    await upsertStudentProfile(base44, userId, email, firstName, lastName, occurredAt);
+
     // Idempotency: Check by webhook ID
     const existingByWebhook = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: String(webhookId) });
     if (existingByWebhook.length > 0) {
@@ -374,6 +414,9 @@ async function handleUserSignup(base44, body, eventType) {
         console.error('[WEBHOOK] Missing required fields for user.signup');
         return;
     }
+
+    // Upsert StudentProfile
+    await upsertStudentProfile(base44, userId, email, firstName, lastName, occurredAt);
 
     // Idempotency: Check by webhook ID
     const existingByWebhook = await base44.asServiceRole.entities.ActivityEvent.filter({ rawEventId: String(webhookId) });
