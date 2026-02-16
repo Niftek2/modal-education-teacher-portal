@@ -262,9 +262,11 @@ export default function Dashboard() {
                     onStudentSelected={handleStudentSelected}
                     activities={studentActivities}
                 />
+            </main>
 
-                {/* CSV Import Link - discrete at bottom right */}
-                <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end">
+            {/* CSV Import Link - discrete at bottom right */}
+            <div className="max-w-7xl mx-auto px-6 pb-8">
+                <div className="pt-6 border-t border-gray-200 flex justify-end">
                     <button
                         onClick={() => setShowCSVImport(true)}
                         className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
@@ -272,7 +274,7 @@ export default function Dashboard() {
                         Import CSV
                     </button>
                 </div>
-            </main>
+            </div>
 
             {/* Add Student Modal */}
             {showAddModal && (
