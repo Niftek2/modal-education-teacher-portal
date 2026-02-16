@@ -19,7 +19,7 @@ async function createDedupeKey(type, userId, contentId, courseId, timestamp) {
 function normalizeEventType(resource, action) {
     const incomingType = `${resource}.${action}`;
     
-    // Canonical mapping
+    // Canonical mapping - strict, returns null if unknown
     const typeMap = {
         'quiz.attempted': 'quiz_attempted',
         'lesson.completed': 'lesson_completed',
@@ -29,7 +29,7 @@ function normalizeEventType(resource, action) {
         'user.sign_up': 'user_signup' // Alias handling
     };
     
-    return typeMap[incomingType] || incomingType.replace('.', '_');
+    return typeMap[incomingType] || null;
 }
 
 Deno.serve(async (req) => {
@@ -45,48 +45,55 @@ Deno.serve(async (req) => {
         webhookId = body.id;
         const resource = body.resource;
         const action = body.action;
-        const topic = resource && action ? `${resource}.${action}` : (body.topic || req.headers.get('x-thinkific-topic'));
+        const canonicalTopic = resource && action ? `${resource}.${action}` : (body.topic || req.headers.get('x-thinkific-topic'));
+        const eventType = resource && action ? normalizeEventType(resource, action) : null;
         
-        console.log(`[WEBHOOK] Received ${topic}, ID: ${webhookId}`);
+        console.log(`[WEBHOOK] Received ${canonicalTopic}, ID: ${webhookId}, eventType: ${eventType}`);
 
-        // Return 200 immediately, process async
-        setTimeout(async () => {
-            try {
-                // Store raw event
-                await base44.asServiceRole.entities.WebhookEvent.create({
-                    webhookId: String(webhookId),
-                    topic: topic,
-                    receivedAt: new Date().toISOString(),
-                    payloadJson: JSON.stringify(body)
-                });
+        // Idempotent WebhookEvent storage
+        const existingWebhook = await base44.asServiceRole.entities.WebhookEvent.filter({ webhookId: String(webhookId) });
+        if (existingWebhook.length === 0) {
+            await base44.asServiceRole.entities.WebhookEvent.create({
+                webhookId: String(webhookId),
+                topic: canonicalTopic,
+                receivedAt: new Date().toISOString(),
+                payloadJson: JSON.stringify(body)
+            });
+        }
 
-                // Route to handler based on topic
-                if (topic === 'lesson.completed') {
-                    await handleLessonCompleted(base44, body);
-                } else if (topic === 'quiz.attempted') {
-                    await handleQuizAttempted(base44, body);
-                } else if (topic === 'user.signin') {
-                    await handleUserSignin(base44, body);
-                } else if (topic === 'enrollment.created') {
-                    await handleEnrollmentCreated(base44, body);
-                } else if (topic === 'user.signup' || topic === 'user.sign_up') {
-                    await handleUserSignup(base44, body);
-                } else if (topic === 'subscription.canceled') {
-                    await handleSubscriptionCanceled(base44, body);
-                }
-            } catch (err) {
-                console.error(`[WEBHOOK] Async error (${topic}):`, err.message);
-            }
-        }, 0);
+        // Handle subscription.canceled first (no eventType needed)
+        if (canonicalTopic === 'subscription.canceled') {
+            await handleSubscriptionCanceled(base44, body);
+            return Response.json({ success: true, webhookId }, { status: 200 });
+        }
+
+        // If eventType is null (unknown), log and return 200 without creating ActivityEvent
+        if (!eventType) {
+            console.log(`[WEBHOOK] Unknown event type for ${canonicalTopic}, stored raw but skipping ActivityEvent`);
+            return Response.json({ success: true, webhookId, skipped: true }, { status: 200 });
+        }
+
+        // Route to handler based on canonicalTopic, pass eventType
+        if (canonicalTopic === 'lesson.completed') {
+            await handleLessonCompleted(base44, body, eventType);
+        } else if (canonicalTopic === 'quiz.attempted') {
+            await handleQuizAttempted(base44, body, eventType);
+        } else if (canonicalTopic === 'user.signin') {
+            await handleUserSignin(base44, body, eventType);
+        } else if (canonicalTopic === 'enrollment.created') {
+            await handleEnrollmentCreated(base44, body, eventType);
+        } else if (canonicalTopic === 'user.signup' || canonicalTopic === 'user.sign_up') {
+            await handleUserSignup(base44, body, eventType);
+        }
 
         return Response.json({ success: true, webhookId }, { status: 200 });
     } catch (error) {
-        console.error('[WEBHOOK] Parse error:', error.message);
-        return Response.json({ success: true }, { status: 200 }); // Still return 200 to prevent Thinkific retries
+        console.error('[WEBHOOK] Error:', error.message);
+        return Response.json({ success: true }, { status: 200 });
     }
 });
 
-async function handleLessonCompleted(base44, body) {
+async function handleLessonCompleted(base44, body, eventType) {
     const webhookId = body.id;
     const payload = body.payload;
     const user = payload?.user;
@@ -146,7 +153,7 @@ async function handleLessonCompleted(base44, body) {
             studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
             courseId: String(courseId || ''),
             courseName: courseName || '',
-            eventType: 'lesson_completed',
+            eventType: eventType,
             contentId: String(lessonId),
             contentTitle: lessonName || 'Unknown Lesson',
             occurredAt,
@@ -165,7 +172,7 @@ async function handleLessonCompleted(base44, body) {
     }
 }
 
-async function handleQuizAttempted(base44, body) {
+async function handleQuizAttempted(base44, body, eventType) {
     const webhookId = body.id;
     const payload = body.payload;
     const user = payload?.user;
@@ -219,7 +226,7 @@ async function handleQuizAttempted(base44, body) {
             studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
             courseId: '',
             courseName: '',
-            eventType: 'quiz_attempted',
+            eventType: eventType,
             contentId: String(quizId),
             contentTitle: quizName || '',
             occurredAt,
@@ -244,7 +251,7 @@ async function handleQuizAttempted(base44, body) {
     }
 }
 
-async function handleUserSignin(base44, body) {
+async function handleUserSignin(base44, body, eventType) {
     const webhookId = body.id;
     const payload = body.payload;
     const userId = payload?.id;
@@ -277,7 +284,7 @@ async function handleUserSignin(base44, body) {
             studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
             courseId: '',
             courseName: '',
-            eventType: 'user_signin',
+            eventType: eventType,
             contentId: '',
             contentTitle: '',
             occurredAt,
@@ -294,7 +301,7 @@ async function handleUserSignin(base44, body) {
     }
 }
 
-async function handleEnrollmentCreated(base44, body) {
+async function handleEnrollmentCreated(base44, body, eventType) {
     const webhookId = body.id;
     const payload = body.payload;
     const user = payload?.user;
@@ -333,7 +340,7 @@ async function handleEnrollmentCreated(base44, body) {
             studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
             courseId: String(courseId),
             courseName: courseName || '',
-            eventType: 'enrollment_created',
+            eventType: eventType,
             contentId: String(enrollmentId || ''),
             contentTitle: '',
             occurredAt,
@@ -352,7 +359,7 @@ async function handleEnrollmentCreated(base44, body) {
     }
 }
 
-async function handleUserSignup(base44, body) {
+async function handleUserSignup(base44, body, eventType) {
     const webhookId = body.id;
     const payload = body.payload;
     const userId = payload?.id;
@@ -385,7 +392,7 @@ async function handleUserSignup(base44, body) {
             studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
             courseId: '',
             courseName: '',
-            eventType: 'user_signup',
+            eventType: eventType,
             contentId: '',
             contentTitle: '',
             occurredAt,
