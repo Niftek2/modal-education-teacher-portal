@@ -43,7 +43,7 @@ async function getTeacherStudentEmails(teacherId, teacherEmail) {
 Deno.serve(async (req) => {
     try {
         const body = await req.json();
-        const { sessionToken, limit = 50 } = body;
+        const { sessionToken, limit = 5000 } = body;
         
         const session = await verifySession(sessionToken);
         const teacherId = session.userId;

@@ -139,16 +139,6 @@ async function getTeacherGroupsIndex() {
     return teacherGroupsIndex;
 }
 
-function getWeekStart() {
-    const now = new Date();
-    const dayOfWeek = now.getUTCDay();
-    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const monday = new Date(now);
-    monday.setUTCDate(now.getUTCDate() - diff);
-    monday.setUTCHours(0, 0, 0, 0);
-    return monday.toISOString();
-}
-
 Deno.serve(async (req) => {
     try {
         const { sessionToken } = await req.json();
@@ -191,12 +181,14 @@ Deno.serve(async (req) => {
         );
         const totalQuizAttemptsAllTime = quizEvents.length;
 
-        const weekStart = getWeekStart();
-        const now = new Date().toISOString();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const sevenDaysAgoISO = sevenDaysAgo.toISOString();
+        const nowISO = new Date().toISOString();
         
         const signinEvents = rosterEvents.filter(e => {
             const isSignin = e.eventType === 'user_signin' || e.eventType === 'user.signin';
-            const inTimeWindow = e.occurredAt >= weekStart && e.occurredAt <= now;
+            const inTimeWindow = e.occurredAt >= sevenDaysAgoISO && e.occurredAt <= nowISO;
             return isSignin && inTimeWindow;
         });
 
