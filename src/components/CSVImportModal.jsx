@@ -62,13 +62,15 @@ export default function CSVImportModal({ isOpen, onClose, sessionToken }) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Import Student Activity CSV</DialogTitle>
                     <DialogDescription>
                         Upload a quiz export CSV file to import historical student activity data
                     </DialogDescription>
                 </DialogHeader>
+                
+                <div className="flex-1 overflow-y-auto pr-2">
 
                 {result ? (
                     <div className="space-y-4">
@@ -133,7 +135,7 @@ export default function CSVImportModal({ isOpen, onClose, sessionToken }) {
                             value={csvText}
                             onChange={(e) => setCsvText(e.target.value)}
                             placeholder="Or paste CSV content here..."
-                            className="w-full h-40 p-3 border border-gray-300 rounded-lg font-mono text-sm"
+                            className="w-full h-32 p-3 border border-gray-300 rounded-lg font-mono text-xs resize-none"
                         />
 
                         <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 border border-gray-200">
@@ -155,6 +157,7 @@ PK,Quiz 1,student@example.com,"February 11, 2026 14:20",92</code>
                         </div>
                     </div>
                 )}
+                </div>
             </DialogContent>
         </Dialog>
     );
