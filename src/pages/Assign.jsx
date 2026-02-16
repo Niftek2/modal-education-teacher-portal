@@ -14,7 +14,7 @@ export default function Assign() {
     const [filteredCatalog, setFilteredCatalog] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStudents, setSelectedStudents] = useState([]);
-    const [selectedCatalogIds, setSelectedCatalogIds] = useState([]);
+    const [selectedAssignmentIds, setSelectedAssignmentIds] = useState([]);
     const [dueDate, setDueDate] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [syncing, setSyncing] = useState(false);
@@ -86,6 +86,14 @@ export default function Assign() {
         }
     };
 
+    const toggleAssignment = (catalogId) => {
+        setSelectedAssignmentIds(prev =>
+            prev.includes(catalogId)
+                ? prev.filter(id => id !== catalogId)
+                : [...prev, catalogId]
+        );
+    };
+
     const handleSearchChange = (e) => {
         const term = e.target.value;
         setSearchTerm(term);
@@ -121,30 +129,37 @@ export default function Assign() {
     };
 
     const handleAssign = async () => {
-        if (!selectedCatalogId || selectedStudents.length === 0) {
-            alert('Please select students and an assignment');
+        if (selectedAssignmentIds.length === 0 || selectedStudents.length === 0) {
+            alert('Please select at least one student and one assignment.');
             return;
         }
 
         try {
             setSubmitting(true);
             const sessionToken = localStorage.getItem('modal_math_session');
+            
+            const assignmentsToCreate = [];
+            for (const studentEmail of selectedStudents) {
+                for (const catalogId of selectedAssignmentIds) {
+                    assignmentsToCreate.push(api.call('createAssignments', {
+                        sessionToken,
+                        studentEmails: [studentEmail],
+                        catalogId: catalogId,
+                        dueAt: dueDate ? new Date(dueDate).toISOString() : null
+                    }, sessionToken));
+                }
+            }
+            
+            await Promise.all(assignmentsToCreate);
 
-            const result = await api.call('createAssignments', {
-                sessionToken,
-                studentEmails: selectedStudents,
-                catalogId: selectedCatalogId,
-                dueAt: dueDate ? new Date(dueDate).toISOString() : null
-            }, sessionToken);
-
-            alert(`Successfully assigned ${selectedCatalogIds.length} lesson(s) to ${selectedStudents.length} student(s)`);
+            alert(`Successfully assigned ${selectedAssignmentIds.length} lesson(s) to ${selectedStudents.length} student(s)`);
             
             // Reload data
             await loadData(sessionToken);
             
             // Reset form
             setSelectedStudents([]);
-            setSelectedCatalogIds([]);
+            setSelectedAssignmentIds([]);
             setDueDate('');
 
         } catch (error) {
@@ -285,7 +300,7 @@ export default function Assign() {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Choose Assignments ({selectedCatalogIds.length} selected)
+                                    Choose Assignments ({selectedAssignmentIds.length} selected)
                                 </label>
                                 <div className="border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto space-y-2">
                                     {filteredCatalog.length === 0 ? (
@@ -297,7 +312,7 @@ export default function Assign() {
                                                 className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50"
                                             >
                                                 <Checkbox
-                                                    checked={selectedCatalogIds.includes(item.id)}
+                                                    checked={selectedAssignmentIds.includes(item.id)}
                                                     onCheckedChange={() => toggleAssignment(item.id)}
                                                 />
                                                 <div className="flex-1">
@@ -327,10 +342,10 @@ export default function Assign() {
 
                             <Button
                                 onClick={handleAssign}
-                                disabled={submitting || selectedCatalogIds.length === 0 || selectedStudents.length === 0}
+                                disabled={submitting || selectedAssignmentIds.length === 0 || selectedStudents.length === 0}
                                 className="w-full bg-purple-900 hover:bg-purple-800 text-white"
                             >
-                                {submitting ? 'Assigning...' : `Assign ${selectedCatalogIds.length} Lesson(s) to ${selectedStudents.length} Student(s)`}
+                                {submitting ? 'Assigning...' : `Assign ${selectedAssignmentIds.length} Lesson(s) to ${selectedStudents.length} Student(s)`}
                             </Button>
                         </div>
                     </div>
