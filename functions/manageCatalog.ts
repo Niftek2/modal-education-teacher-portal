@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
         }
 
         if (action === 'list') {
-            const PAGE_SIZE = 100;
+            const PAGE_SIZE = 2000;
             let all = [];
             let offset = 0;
 
