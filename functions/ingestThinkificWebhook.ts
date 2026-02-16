@@ -169,16 +169,17 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
 
     await upsertStudentProfile(base44, userId, email, firstName, lastName, occurredAt);
 
+    // Extract fields directly from payload
+    const grade = payload.grade;
+    const quizName = quiz.name;
+    const attemptNumber = payload.attempts;
+    const correctCount = payload.correct_count;
+    const incorrectCount = payload.incorrect_count;
+
     // Normalize grade to percentage
     let gradePercent = null;
-    if (typeof payload?.grade === 'number') {
-        if (payload.grade <= 1) {
-            // Treat as fraction: 1 → 100%, 0.5 → 50%
-            gradePercent = payload.grade * 100;
-        } else {
-            // Already a percentage
-            gradePercent = payload.grade;
-        }
+    if (typeof grade === 'number') {
+        gradePercent = grade <= 1 ? grade * 100 : grade;
     }
 
     const activity = {
@@ -191,18 +192,20 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
         courseId: course?.id || null,
         courseName: course?.name || null,
         lessonId: lesson?.id || null,
-        lessonName: quiz?.name || null,
-        attemptNumber: payload?.attempts || 1,
+        lessonName: quizName,
+        attemptNumber: attemptNumber,
         grade: gradePercent,
-        correctCount: typeof payload?.correct_count === 'number' ? payload.correct_count : (payload?.correct_count === true ? 1 : null),
-        incorrectCount: typeof payload?.incorrect_count === 'number' ? payload.incorrect_count : null,
+        correctCount: correctCount,
+        incorrectCount: incorrectCount,
         studentEmail: (email || '').toLowerCase().trim(),
         studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
         rawPayload: JSON.stringify(rawBody)
     };
 
+    console.log(`[WEBHOOK] Quiz data extracted: name="${quizName}", grade=${gradePercent}%, attempt=${attemptNumber}`);
+
     const created = await base44.asServiceRole.entities.ActivityEvent.create(activity);
-    console.log(`[WEBHOOK] ✓ Quiz attempted saved: ${created.id}, grade=${activity.grade}%`);
+    console.log(`[WEBHOOK] ✓ Quiz attempted saved: ${created.id}`);
     
     // Trigger assignment completion check
     await base44.functions.invoke('markAssignmentComplete', { activityEventId: created.id });
