@@ -1,10 +1,21 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import * as jose from 'npm:jose@5.9.6';
 
 /**
  * Import Thinkific quiz export CSV format
  * Columns: Course Name, Survey/Quiz Name, Student Email, Date Completed (UTC), % Score
  * Transforms to ActivityEvent format and delegates to importStudentActivityCSV
  */
+
+async function verifySession(token) {
+    const secret = new TextEncoder().encode(Deno.env.get('JWT_SECRET'));
+    try {
+        const { payload } = await jose.jwtVerify(token, secret);
+        return payload;
+    } catch {
+        return null;
+    }
+}
 
 function parseCSVLine(line) {
     const result = [];
@@ -42,14 +53,16 @@ function parseThinkificDate(dateStr) {
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
-        
-        if (!user) {
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-        
         const body = await req.json();
-        const { csvText } = body;
+        const { csvText, sessionToken } = body;
+        
+        // Verify session token
+        if (sessionToken) {
+            const session = await verifySession(sessionToken);
+            if (!session) {
+                return Response.json({ error: 'Invalid session' }, { status: 401 });
+            }
+        }
         
         if (!csvText || !csvText.trim()) {
             return Response.json({ error: 'CSV text required' }, { status: 400 });
