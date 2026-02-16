@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { parse } from 'npm:csv-parse@5.5.6/sync';
 
 async function createDedupeKey(data) {
     const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
@@ -34,6 +35,42 @@ function parsePercentScore(value) {
     return null;
 }
 
+function preflightValidate(rows) {
+    const errors = [];
+    const warnings = [];
+    
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 1;
+        
+        // Check for missing required columns
+        if (!row['Student Email']) {
+            errors.push(`Row ${rowNum}: Missing 'Student Email'`);
+        }
+        if (!row['Survey/Quiz Name']) {
+            errors.push(`Row ${rowNum}: Missing 'Survey/Quiz Name'`);
+        }
+        if (!row['Date Completed (UTC)']) {
+            errors.push(`Row ${rowNum}: Missing 'Date Completed (UTC)'`);
+        }
+        
+        // Detect column shift issues
+        const totalQuestions = row['Total Number of Questions'];
+        if (totalQuestions && Number(totalQuestions) > 100) {
+            warnings.push(`Row ${rowNum}: Suspicious 'Total Number of Questions' = ${totalQuestions} (expected < 100, possible column shift)`);
+        }
+        
+        // Check if % Score looks like Total Correct
+        const percentScore = row['% Score'];
+        const totalCorrect = row['Total Correct'];
+        if (percentScore && totalCorrect && Number(percentScore) === Number(totalCorrect)) {
+            warnings.push(`Row ${rowNum}: '% Score' (${percentScore}) matches 'Total Correct' (${totalCorrect}) - possible data error`);
+        }
+    }
+    
+    return { errors, warnings };
+}
+
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
@@ -43,20 +80,50 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
         }
 
-        const { csvData } = await req.json();
+        const { csvText } = await req.json();
 
-        if (!Array.isArray(csvData) || csvData.length === 0) {
-            return Response.json({ error: 'Invalid or empty csvData' }, { status: 400 });
+        if (!csvText || typeof csvText !== 'string') {
+            return Response.json({ error: 'Invalid or empty csvText' }, { status: 400 });
+        }
+
+        // Parse CSV using proper CSV parser that handles quotes and commas
+        let records;
+        try {
+            records = parse(csvText, {
+                columns: true,
+                skip_empty_lines: true,
+                trim: true,
+                relax_quotes: true
+            });
+        } catch (parseError) {
+            return Response.json({ error: `CSV Parse Error: ${parseError.message}` }, { status: 400 });
+        }
+
+        if (!Array.isArray(records) || records.length === 0) {
+            return Response.json({ error: 'No valid records found in CSV' }, { status: 400 });
+        }
+
+        // Preflight validation
+        const validation = preflightValidate(records);
+        if (validation.errors.length > 0) {
+            return Response.json({ 
+                error: 'Validation failed', 
+                validationErrors: validation.errors,
+                validationWarnings: validation.warnings
+            }, { status: 400 });
         }
 
         let imported = 0;
         let duplicates = 0;
         let errors = [];
+        const warnings = validation.warnings;
 
-        for (const row of csvData) {
+        for (const row of records) {
             const studentEmail = row['Student Email']?.trim().toLowerCase();
             const courseName = row['Course Name']?.trim() || '';
             const contentTitle = row['Survey/Quiz Name']?.trim() || '';
+            
+            // CRITICAL: % Score must ONLY come from the % Score column
             const rawPercentScore = row['% Score'];
             const scorePercent = parsePercentScore(rawPercentScore);
             
@@ -98,7 +165,8 @@ Deno.serve(async (req) => {
 
             try {
                 await base44.asServiceRole.entities.ActivityEvent.create({
-                    studentUserId: '',
+                    studentUserId: 'historical_import',
+                    thinkificUserId: 0,
                     studentEmail: studentEmail,
                     studentDisplayName: row['Student Name']?.trim() || studentEmail.split('@')[0],
                     courseId: '',
@@ -115,7 +183,9 @@ Deno.serve(async (req) => {
                     metadata: {
                         totalQuestions: row['Total Number of Questions'] ? Number(row['Total Number of Questions']) : null,
                         correctCount: row['Total Correct'] ? Number(row['Total Correct']) : null,
-                        rawPercentScore: rawPercentScore
+                        rawPercentScore: rawPercentScore,
+                        rawCSVRow: row,
+                        importedAt: new Date().toISOString()
                     }
                 });
                 imported++;
@@ -132,7 +202,8 @@ Deno.serve(async (req) => {
             imported,
             duplicates,
             errors,
-            total: csvData.length
+            warnings,
+            total: records.length
         });
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });

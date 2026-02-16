@@ -282,26 +282,6 @@ export default function Dashboard() {
                         />
                     </div>
                     <div className="flex gap-2 flex-wrap">
-                        {teacher?.role === 'admin' && (
-                            <>
-                                <Button
-                                    onClick={() => setShowQuizImport(true)}
-                                    variant="outline"
-                                    className="border-gray-300"
-                                >
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Import Quiz Data
-                                </Button>
-                                <Button
-                                    onClick={() => setShowCSVImport(true)}
-                                    variant="outline"
-                                    className="border-gray-300"
-                                >
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Import CSV
-                                </Button>
-                            </>
-                        )}
                         <Button
                             onClick={() => setShowArchived(true)}
                             variant="outline"
@@ -359,27 +339,7 @@ export default function Dashboard() {
                 sessionToken={localStorage.getItem('modal_math_session')}
             />
 
-            {/* CSV Import Modal */}
-            {showCSVImport && (
-                <CSVImportModal
-                    onClose={() => setShowCSVImport(false)}
-                    onSuccess={() => {
-                        setShowCSVImport(false);
-                        loadDashboard(localStorage.getItem('modal_math_session'));
-                    }}
-                />
-            )}
 
-            {/* Quiz Import Modal */}
-            {showQuizImport && (
-                <QuizImportModal
-                    onClose={() => setShowQuizImport(false)}
-                    onSuccess={() => {
-                        setShowQuizImport(false);
-                        loadDashboard(localStorage.getItem('modal_math_session'));
-                    }}
-                />
-            )}
 
             {/* Snapshot Modal */}
             {showSnapshot && (

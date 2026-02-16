@@ -16,24 +16,7 @@ export default function QuizImportModal({ onClose, onSuccess }) {
     const [results, setResults] = useState(null);
     const [error, setError] = useState(null);
 
-    const parseCSV = (text) => {
-        const lines = text.trim().split('\n');
-        if (lines.length < 2) return [];
-
-        const headers = lines[0].split(',').map(h => h.trim());
-        const rows = [];
-
-        for (let i = 1; i < lines.length; i++) {
-            const values = lines[i].split(',').map(v => v.trim());
-            const row = {};
-            headers.forEach((header, idx) => {
-                row[header] = values[idx] || '';
-            });
-            rows.push(row);
-        }
-
-        return rows;
-    };
+    // CSV parsing now handled by backend with proper CSV parser
 
     const handleFileUpload = (e) => {
         const file = e.target.files?.[0];
@@ -53,8 +36,7 @@ export default function QuizImportModal({ onClose, onSuccess }) {
             setError(null);
             setImporting(true);
 
-            const csvData = parseCSV(csvText);
-            if (csvData.length === 0) {
+            if (!csvText || csvText.trim().length === 0) {
                 setError('No valid CSV data found');
                 setImporting(false);
                 return;
@@ -62,8 +44,19 @@ export default function QuizImportModal({ onClose, onSuccess }) {
 
             const sessionToken = localStorage.getItem('modal_math_session');
             const result = await api.call('importQuizCSVWithScores', {
-                csvData
+                csvText
             }, sessionToken);
+
+            // Check for validation errors
+            if (result.validationErrors || result.validationWarnings) {
+                const errorMsg = [
+                    ...(result.validationErrors || []),
+                    ...(result.validationWarnings || [])
+                ].join('\n');
+                setError(errorMsg);
+                setImporting(false);
+                return;
+            }
 
             setResults(result);
             setCsvText('');
