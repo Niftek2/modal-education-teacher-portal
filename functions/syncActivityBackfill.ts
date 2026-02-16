@@ -1,17 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { requireSession } from './lib/auth.js';
 import { ThinkificGraphQL } from './lib/thinkificGraphQL.js';
-import * as jose from 'npm:jose@5.2.0';
 
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-
-async function verifySession(token) {
-    if (!token) throw new Error('Unauthorized');
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jose.jwtVerify(token, secret);
-    return payload;
-}
 
 async function createDedupeKey(type, userId, contentId, courseId, timestamp) {
     const data = `${type}-${userId}-${contentId || 'none'}-${courseId || 'none'}-${timestamp}`;
@@ -44,10 +36,14 @@ async function makeRequest(endpoint) {
 }
 
 Deno.serve(async (req) => {
+    const session = await requireSession(req);
+
+    if (!session) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     try {
-        const { groupId, sessionToken } = await req.json();
-        
-        await verifySession(sessionToken);
+        const { groupId } = await req.json();
 
         if (!groupId) {
             return Response.json({ error: 'Group ID required' }, { status: 400 });
