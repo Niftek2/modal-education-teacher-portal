@@ -1,12 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.2.0';
-
-
+import { requireSession } from './lib/auth.js';
 
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const STUDENT_PRODUCT_ID = Deno.env.get("STUDENT_PRODUCT_ID");
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
 const CLASSROOM_COURSE_ID = '552235';
 
 const COURSE_IDS = {
@@ -17,17 +14,6 @@ const COURSE_IDS = {
     L3: Deno.env.get("COURSE_ID_L3"),
     L4: Deno.env.get("COURSE_ID_L4"),
     L5: Deno.env.get("COURSE_ID_L5")
-};
-
-async function verifySession(token) {
-    if (!token) {
-        throw new Error('Unauthorized');
-    }
-
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jose.jwtVerify(token, secret);
-    
-    return payload;
 }
 
 function generateStudentEmail(firstName, lastInitial) {
@@ -222,9 +208,14 @@ async function getActiveStudentCount(groupId, base44) {
 }
 
 Deno.serve(async (req) => {
+    const session = await requireSession(req);
+
+    if (!session) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     try {
-        const { students, groupId, sessionToken } = await req.json();
-        const session = await verifySession(sessionToken);
+        const { students, groupId } = await req.json();
         const base44 = createClientFromRequest(req);
 
         const isActive = await checkActiveEnrollment(session.email);
