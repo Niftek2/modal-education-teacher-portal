@@ -43,8 +43,11 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             
             const quizList = quizAttempts.map(e => {
                 const metadata = e.metadata || {};
-                // Use grade directly from the event (already normalized to percentage in webhook)
-                const percentage = typeof e.grade === 'number' ? e.grade : null;
+                // Normalize grade for display: if <= 1, treat as fraction (multiply by 100)
+                let displayPercentage = null;
+                if (typeof e.grade === 'number') {
+                    displayPercentage = e.grade <= 1 ? e.grade * 100 : e.grade;
+                }
                 const courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim()) ? e.courseName.trim() : 'Elementary';
                 
                 return {
@@ -52,7 +55,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     quizId: e.lessonId || null,
                     courseName: courseName,
                     level: courseName,
-                    percentage: percentage,
+                    percentage: displayPercentage,
                     completedAt: e.occurredAt,
                     attempts: e.attemptNumber || metadata.attemptNumber,
                     correctCount: e.correctCount || metadata.correctCount,
