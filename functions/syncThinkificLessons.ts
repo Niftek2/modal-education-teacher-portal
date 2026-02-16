@@ -33,38 +33,39 @@ async function fetchThinkificLessons(courseId, base44) {
     const chaptersData = await chaptersResponse.json();
     const lessons = [];
 
-    // Collect all content IDs first
-    const contentIds = [];
-    for (const chapter of chaptersData.items || []) {
-        if (chapter.content_ids && Array.isArray(chapter.content_ids)) {
-            contentIds.push(...chapter.content_ids.map(id => String(id)));
-        }
-    }
-
-    // Fetch actual lesson titles from ActivityEvent records
-    const titleMap = {};
-    if (contentIds.length > 0) {
-        const events = await base44.asServiceRole.entities.ActivityEvent.filter({
-            contentId: { $in: contentIds }
-        });
-        
-        for (const event of events || []) {
-            if (event.contentId && event.contentTitle && !titleMap[event.contentId]) {
-                titleMap[event.contentId] = event.contentTitle;
-            }
-        }
-    }
-
-    // Build lessons with actual titles where available
+    // Fetch actual lesson names from Thinkific API
     for (const chapter of chaptersData.items || []) {
         if (chapter.content_ids && Array.isArray(chapter.content_ids)) {
             for (let i = 0; i < chapter.content_ids.length; i++) {
                 const contentId = chapter.content_ids[i];
                 const contentIdStr = String(contentId);
+
+                let lessonTitle = `${chapter.name} - Item ${i + 1}`; // Fallback
+                
+                try {
+                    const contentResponse = await fetch(
+                        `https://api.thinkific.com/api/public/v1/courses/${courseId}/content_elements/${contentId}`,
+                        {
+                            headers: {
+                                'X-Auth-API-Key': THINKIFIC_API_KEY,
+                                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                            }
+                        }
+                    );
+
+                    if (contentResponse.ok) {
+                        const contentData = await contentResponse.json();
+                        if (contentData.name) {
+                            lessonTitle = contentData.name;
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Could not fetch name for content ${contentId}:`, error.message);
+                }
                 
                 lessons.push({
                     lessonId: contentIdStr,
-                    title: titleMap[contentIdStr] || `${chapter.name} - Item ${i + 1}`,
+                    title: lessonTitle,
                     courseId: String(courseId)
                 });
             }
