@@ -6,8 +6,6 @@ import { Input } from '@/components/ui/input';
 import StudentTable from '../components/StudentTable';
 import StudentDetail from '../components/StudentDetail';
 import AddStudentModal from '../components/AddStudentModal';
-import CSVImportModal from '../components/CSVImportModal';
-import QuizImportModal from '../components/QuizImportModal';
 import SnapshotModal from '../components/SnapshotModal';
 import ArchivedStudentsModal from '../components/ArchivedStudentsModal';
 import { api } from '@/components/api';
@@ -25,8 +23,6 @@ export default function Dashboard() {
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [showStudentDetail, setShowStudentDetail] = useState(false);
     const [syncingQuizzes, setSyncingQuizzes] = useState(false);
-    const [showCSVImport, setShowCSVImport] = useState(false);
-    const [showQuizImport, setShowQuizImport] = useState(false);
     const [showSnapshot, setShowSnapshot] = useState(false);
     const [showArchived, setShowArchived] = useState(false);
     const [dashboardMetrics, setDashboardMetrics] = useState({ totalQuizAttemptsAllTime: 0, activeStudentsThisWeek: 0 });
@@ -264,18 +260,6 @@ export default function Dashboard() {
                 />
             </main>
 
-            {/* CSV Import Link - discrete at bottom right */}
-            <div className="max-w-7xl mx-auto px-6 pb-8">
-                <div className="pt-6 border-t border-gray-200 flex justify-end">
-                    <button
-                        onClick={() => setShowCSVImport(true)}
-                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        Import CSV
-                    </button>
-                </div>
-            </div>
-
             {/* Add Student Modal */}
             {showAddModal && (
                 <AddStudentModal
@@ -311,18 +295,6 @@ export default function Dashboard() {
                 <ArchivedStudentsModal
                     isOpen={showArchived}
                     onClose={() => setShowArchived(false)}
-                    sessionToken={localStorage.getItem('modal_math_session')}
-                />
-            )}
-
-            {/* CSV Import Modal */}
-            {showCSVImport && (
-                <CSVImportModal
-                    isOpen={showCSVImport}
-                    onClose={() => {
-                        setShowCSVImport(false);
-                        handleStudentsAdded(); // Reload dashboard after import
-                    }}
                     sessionToken={localStorage.getItem('modal_math_session')}
                 />
             )}
