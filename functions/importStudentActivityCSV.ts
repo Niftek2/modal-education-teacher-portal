@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import * as jose from 'npm:jose@5.9.6';
 
 /**
  * PRODUCTION LOCKED: CSV import for historical/missing student activity
@@ -8,6 +9,16 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
  * - Checks for webhook duplicates and skips them
  * - Returns detailed counts
  */
+
+async function verifyMagicToken(token) {
+    const secret = new TextEncoder().encode(Deno.env.get('JWT_SECRET'));
+    try {
+        const { payload } = await jose.jwtVerify(token, secret);
+        return payload;
+    } catch {
+        return null;
+    }
+}
 
 function parseCSVLine(line) {
     const result = [];
@@ -56,7 +67,7 @@ async function checkWebhookDuplicate(base44, thinkificUserId, eventType, lessonI
             if (eventType === 'lesson.completed' && event.lessonId === lessonId) {
                 return true;
             }
-            if (eventType === 'quiz.attempted' && event.lessonId === quizId) {
+            if (eventType === 'quiz.attempted' && event.quizId === quizId) {
                 return true;
             }
         }
@@ -68,6 +79,19 @@ async function checkWebhookDuplicate(base44, thinkificUserId, eventType, lessonI
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
+        
+        // Authenticate using magic key token
+        const authHeader = req.headers.get('Authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        
+        const token = authHeader.substring(7);
+        const payload = await verifyMagicToken(token);
+        
+        if (!payload || payload.email?.toLowerCase() !== 'nadia.todhh@gmail.com') {
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
         
         const body = await req.json();
         const { csvText } = body;
@@ -148,7 +172,8 @@ Deno.serve(async (req) => {
                 }
                 
                 // Check webhook duplicate (meaning-level)
-                const isWebhookDupe = await checkWebhookDuplicate(base44, thinkificUserId, eventType, lessonId, lessonId, occurredAt);
+                const quizId = lessonId; // For quiz events, lessonId holds the quiz ID
+                const isWebhookDupe = await checkWebhookDuplicate(base44, thinkificUserId, eventType, lessonId, quizId, occurredAt);
                 if (isWebhookDupe) {
                     skippedAsWebhookDuplicate++;
                     continue;
