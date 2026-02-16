@@ -1,19 +1,20 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 /**
- * Admin-only: Import historical activity from CSV
+ * Admin-only: Import historical activity from CSV (additive only, never overwrites webhooks)
  * 
- * CSV columns: studentEmail, eventType, contentTitle, courseId, courseName, occurredAt, score, maxScore
+ * Required CSV columns: thinkificUserId, eventType, occurredAt
+ * Optional CSV columns: studentEmail, contentTitle, courseId, courseName, score, maxScore
  * 
  * eventType: quiz_attempted | lesson_completed | enrollment_progress
  * occurredAt: ISO 8601 timestamp
  * 
- * Deduplicates on (studentEmail + eventType + contentTitle + occurredAt) hash
- * Links to StudentProfile by thinkificUserId if found, otherwise stores as unlinked
+ * Deduplicates on (thinkificUserId + eventType + contentTitle + occurredAt) hash
+ * Creates ActivityEvent with source='csv' only, never updates/deletes webhook data
  */
 
-async function createDedupeKey(studentEmail, eventType, contentTitle, occurredAt) {
-    const data = `${studentEmail}-${eventType}-${contentTitle}-${occurredAt}`;
+async function createDedupeKey(thinkificUserId, eventType, contentTitle, occurredAt) {
+    const data = `${thinkificUserId}-${eventType}-${contentTitle}-${occurredAt}`;
     const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
     const hashArray = Array.from(new Uint8Array(buffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
@@ -59,7 +60,8 @@ Deno.serve(async (req) => {
         const lines = csvText.trim().split('\n');
         const header = parseCSVLine(lines[0]);
         
-        const emailIdx = header.indexOf('studentEmail');
+        const thinkificUserIdIdx = header.indexOf('thinkificUserId');
+        const emailIdx = header.indexOf('studentEmail'); // Optional fallback
         const typeIdx = header.indexOf('eventType');
         const titleIdx = header.indexOf('contentTitle');
         const courseIdIdx = header.indexOf('courseId');
@@ -68,9 +70,9 @@ Deno.serve(async (req) => {
         const scoreIdx = header.indexOf('score');
         const maxScoreIdx = header.indexOf('maxScore');
         
-        if (emailIdx === -1 || typeIdx === -1 || occurredIdx === -1) {
+        if (thinkificUserIdIdx === -1 || typeIdx === -1 || occurredIdx === -1) {
             return Response.json({ 
-                error: 'CSV must have: studentEmail, eventType, occurredAt' 
+                error: 'CSV must have: thinkificUserId, eventType, occurredAt' 
             }, { status: 400 });
         }
         
@@ -85,44 +87,57 @@ Deno.serve(async (req) => {
             
             try {
                 const fields = parseCSVLine(line);
-                const studentEmail = fields[emailIdx];
+                let thinkificUserId = fields[thinkificUserIdIdx] ? parseInt(fields[thinkificUserIdIdx], 10) : null;
+                const studentEmailRaw = emailIdx !== -1 ? fields[emailIdx] : '';
                 const eventType = fields[typeIdx];
                 const contentTitle = fields[titleIdx] || '';
                 const courseId = fields[courseIdIdx] || '';
                 const courseName = fields[courseNameIdx] || '';
                 const occurredAt = fields[occurredIdx];
                 
-                if (!studentEmail || !eventType || !occurredAt) {
+                if (!eventType || !occurredAt) {
                     errors.push(`Row ${i + 1}: missing required field`);
                     continue;
                 }
                 
-                if (!studentEmail.toLowerCase().endsWith('@modalmath.com')) {
-                    errors.push(`Row ${i + 1}: student email must end with @modalmath.com`);
-                    continue;
+                let studentEmail = studentEmailRaw ? studentEmailRaw.toLowerCase().trim() : '';
+                let studentDisplayName = '';
+                
+                // If thinkificUserId not provided, try resolving via StudentProfile by email
+                if (!thinkificUserId && studentEmail) {
+                    const profiles = await base44.asServiceRole.entities.StudentProfile.filter({ email: studentEmail });
+                    if (profiles.length > 0) {
+                        thinkificUserId = profiles[0].thinkificUserId;
+                        studentDisplayName = profiles[0].displayName || '';
+                    }
+                } else if (thinkificUserId) {
+                    // Enrich from StudentProfile if thinkificUserId provided
+                    const profiles = await base44.asServiceRole.entities.StudentProfile.filter({ thinkificUserId });
+                    if (profiles.length > 0) {
+                        studentDisplayName = profiles[0].displayName || '';
+                        if (!studentEmail) {
+                            studentEmail = profiles[0].email || '';
+                        }
+                    }
                 }
                 
-                const dedupeKey = await createDedupeKey(studentEmail, eventType, contentTitle, occurredAt);
+                // If thinkificUserId still not resolved, mark as UNLINKED and skip
+                if (!thinkificUserId) {
+                    errors.push(`Row ${i + 1}: UNLINKED - could not resolve thinkificUserId for "${studentEmailRaw}"`);
+                    unlinked++;
+                    continue; // Do NOT create ActivityEvent
+                }
                 
-                // Check if exists
+                const dedupeKey = await createDedupeKey(thinkificUserId, eventType, contentTitle, occurredAt);
+                
+                // Check if exists (prevents duplicate CSV rows on reupload)
                 const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
                 if (existing.length > 0) {
                     skipped++;
                     continue;
                 }
                 
-                // Try to match StudentProfile by email
-                const normalizedEmail = studentEmail.toLowerCase().trim();
-                const profiles = await base44.asServiceRole.entities.StudentProfile.filter({ email: normalizedEmail });
-                
-                let thinkificUserId = null;
-                if (profiles.length > 0) {
-                    thinkificUserId = profiles[0].thinkificUserId;
-                } else {
-                    unlinked++;
-                }
-                
-                // Create activity event
+                // Create activity event (CSV is additive only, never updates/deletes)
                 const metadata = {};
                 if (scoreIdx !== -1 && fields[scoreIdx]) {
                     metadata.score = parseFloat(fields[scoreIdx]);
@@ -131,22 +146,18 @@ Deno.serve(async (req) => {
                     metadata.maxScore = parseFloat(fields[maxScoreIdx]);
                 }
                 
-                if (!thinkificUserId) {
-                    metadata.unlinked = true;
-                }
-                
                 await base44.asServiceRole.entities.ActivityEvent.create({
-                    studentUserId: thinkificUserId ? String(thinkificUserId) : '',
                     thinkificUserId: thinkificUserId,
-                    studentEmail: normalizedEmail,
-                    studentDisplayName: studentEmail.split('@')[0],
+                    studentUserId: String(thinkificUserId),
+                    studentEmail: studentEmail,
+                    studentDisplayName: studentDisplayName || studentEmail || 'Unknown',
                     courseId: courseId,
                     courseName: courseName,
                     eventType: eventType,
                     contentId: '',
                     contentTitle: contentTitle,
                     occurredAt: occurredAt,
-                    source: 'csv_import',
+                    source: 'csv', // Changed from 'csv_import' to 'csv'
                     rawEventId: '',
                     rawPayload: JSON.stringify({ line }),
                     dedupeKey: dedupeKey,
