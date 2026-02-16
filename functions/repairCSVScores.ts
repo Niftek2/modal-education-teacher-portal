@@ -42,20 +42,36 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
         }
 
-        // Get all CSV-imported quiz attempts
+        // Get all CSV-imported and rest_backfill quiz attempts (both sources need repair)
         const csvEvents = await base44.asServiceRole.entities.ActivityEvent.filter({
-            source: 'csv_import',
             eventType: 'quiz_attempted'
         }, null, 5000);
+
+        const needsRepair = csvEvents.filter(e => 
+            e.source === 'csv_import' || e.source === 'rest_backfill'
+        );
 
         let repaired = 0;
         let skipped = 0;
         let errors = [];
+        let deleted = 0;
 
-        for (const event of csvEvents) {
+        for (const event of needsRepair) {
             try {
                 // Parse the raw CSV row from rawPayload
                 const rawRow = JSON.parse(event.rawPayload || '{}');
+                
+                // Check if this event has corrupted data (occurredAt is not a valid ISO timestamp)
+                const isDateCorrupted = !event.occurredAt || event.occurredAt.length < 10 || 
+                                       !event.occurredAt.includes('T') || !event.occurredAt.includes('Z');
+                
+                if (isDateCorrupted) {
+                    // Delete corrupted records
+                    await base44.asServiceRole.entities.ActivityEvent.delete(event.id);
+                    deleted++;
+                    continue;
+                }
+                
                 const rawPercentScore = rawRow['% Score'];
                 
                 if (!rawPercentScore) {
@@ -65,18 +81,27 @@ Deno.serve(async (req) => {
                 
                 const correctScorePercent = parsePercentScore(rawPercentScore);
                 
-                // Check if the current scorePercent is wrong
-                // If it's suspiciously low (like 6 when it should be 86), or null, repair it
-                const needsRepair = 
+                // Check if the current scorePercent is suspiciously wrong
+                // If it matches correctCount (indicating "Total Correct" was used), repair it
+                const metadata = event.metadata || {};
+                const correctCount = metadata.correctCount;
+                const isWrong = (correctCount && event.scorePercent === correctCount);
+                
+                // Or if scorePercent is null/undefined
+                const needsFix = 
                     event.scorePercent === null || 
                     event.scorePercent === undefined ||
-                    (event.scorePercent < 50 && correctScorePercent > 50);
+                    isWrong;
                 
-                if (needsRepair && correctScorePercent !== null) {
+                if (needsFix && correctScorePercent !== null) {
+                    // Also fix metadata to have correct totalQuestions
+                    const totalQuestions = rawRow['Total Number of Questions'] ? Number(rawRow['Total Number of Questions']) : null;
+                    
                     await base44.asServiceRole.entities.ActivityEvent.update(event.id, {
                         scorePercent: correctScorePercent,
                         metadata: {
-                            ...event.metadata,
+                            ...metadata,
+                            totalQuestions: totalQuestions,
                             rawPercentScore: rawPercentScore,
                             repairedAt: new Date().toISOString(),
                             previousScore: event.scorePercent
@@ -96,9 +121,10 @@ Deno.serve(async (req) => {
 
         return Response.json({
             success: true,
-            totalProcessed: csvEvents.length,
+            totalProcessed: needsRepair.length,
             repaired,
             skipped,
+            deleted,
             errors
         });
     } catch (error) {

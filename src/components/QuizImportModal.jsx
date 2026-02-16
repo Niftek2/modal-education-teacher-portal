@@ -61,7 +61,7 @@ export default function QuizImportModal({ onClose, onSuccess }) {
             }
 
             const sessionToken = localStorage.getItem('modal_math_session');
-            const result = await api.call('importHistoricalQuizCSV', {
+            const result = await api.call('importQuizCSVWithScores', {
                 csvData
             }, sessionToken);
 
