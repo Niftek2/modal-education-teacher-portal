@@ -43,11 +43,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             
             const quizList = quizAttempts.map(e => {
                 const metadata = e.metadata || {};
-                // Normalize grade for display: if <= 1, treat as fraction (multiply by 100)
-                let displayPercentage = null;
-                if (typeof e.grade === 'number') {
-                    displayPercentage = e.grade <= 1 ? e.grade * 100 : e.grade;
-                }
+                // Grade is already normalized to percentage by webhook handler
+                const displayPercentage = typeof e.grade === 'number' ? e.grade : null;
                 const courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim()) ? e.courseName.trim() : 'Elementary';
                 
                 return {
