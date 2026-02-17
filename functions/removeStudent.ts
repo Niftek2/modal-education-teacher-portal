@@ -1,4 +1,5 @@
 import { getUser, listEnrollments, deleteEnrollment, findUserByEmail, listGroups, listGroupUsers } from './lib/thinkificClient.js';
+import { requireSession } from './lib/auth.js';
 
 // Course IDs for PK, K, L1-L5
 const COURSE_IDS_TO_UNENROLL = [
@@ -13,6 +14,9 @@ const COURSE_IDS_TO_UNENROLL = [
 
 Deno.serve(async (req) => {
     try {
+        // Get session for teacher tracking
+        const session = await requireSession(req);
+        
         // Import SDK here to use service role without auth
         const { createServiceRoleClient } = await import('npm:@base44/sdk@0.8.6');
         const base44 = createServiceRoleClient();
@@ -84,12 +88,12 @@ Deno.serve(async (req) => {
         console.log(`[REMOVE STUDENT] Unenrollment complete, now archiving`);
 
         // Archive the student record
-        await base44.entities.ArchivedStudent.create({
+        await base44.asServiceRole.entities.ArchivedStudent.create({
             studentThinkificUserId: String(resolvedStudentId),
             studentEmail: studentInfo.email,
             studentFirstName: studentInfo.first_name,
             studentLastName: studentInfo.last_name,
-            teacherThinkificUserId: String(teacherId || 'test_teacher'),
+            teacherThinkificUserId: String(teacherId || session.userId),
             groupId: String(resolvedGroupId),
             archivedAt: new Date().toISOString()
         });
