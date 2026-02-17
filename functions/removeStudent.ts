@@ -1,5 +1,3 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requireSession } from './lib/auth.js';
 import { getUser, listEnrollments, deleteEnrollment, findUserByEmail, listGroups, listGroupUsers } from './lib/thinkificClient.js';
 
 // Course IDs for PK, K, L1-L5
@@ -13,12 +11,33 @@ const COURSE_IDS_TO_UNENROLL = [
     Deno.env.get("L5_COURSE_ID")
 ].filter(Boolean);
 
-Deno.serve(async (req) => {
-    // Temporarily bypass auth for testing
-    const session = { userId: "test_teacher_id" };
+// Temporary: Direct database access for testing
+const SUPABASE_URL = Deno.env.get("BASE44_SUPABASE_URL");
+const SUPABASE_KEY = Deno.env.get("BASE44_SERVICE_ROLE_KEY");
 
+async function dbRequest(path, method = 'GET', body = null) {
+    const url = `${SUPABASE_URL}/rest/v1/${path}`;
+    const options = {
+        method,
+        headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+        }
+    };
+    if (body) options.body = JSON.stringify(body);
+    
+    const response = await fetch(url, options);
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`DB error: ${error}`);
+    }
+    return response.json();
+}
+
+Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
         const { studentId, groupId, teacherId, studentEmail, groupName } = await req.json();
 
         let resolvedStudentId = studentId;
@@ -84,12 +103,12 @@ Deno.serve(async (req) => {
         console.log(`[REMOVE STUDENT] Unenrolled from ${unenrolledCount} courses`);
 
         // 2. Archive the student record
-        await base44.asServiceRole.entities.ArchivedStudent.create({
+        await dbRequest('ArchivedStudent', 'POST', {
             studentThinkificUserId: String(resolvedStudentId),
             studentEmail: studentInfo.email,
             studentFirstName: studentInfo.first_name,
             studentLastName: studentInfo.last_name,
-            teacherThinkificUserId: String(teacherId || session.userId),
+            teacherThinkificUserId: String(teacherId || 'test_teacher'),
             groupId: String(resolvedGroupId),
             archivedAt: new Date().toISOString()
         });
@@ -97,20 +116,16 @@ Deno.serve(async (req) => {
         console.log(`[REMOVE STUDENT] Archived student record`);
 
         // 3. Delete StudentProfile to remove from active roster
-        const studentProfiles = await base44.asServiceRole.entities.StudentProfile.filter({ 
-            thinkificUserId: Number(resolvedStudentId) 
-        });
+        const studentProfiles = await dbRequest(`StudentProfile?thinkificUserId=eq.${resolvedStudentId}`, 'GET');
         for (const profile of studentProfiles) {
-            await base44.asServiceRole.entities.StudentProfile.delete(profile.id);
+            await dbRequest(`StudentProfile?id=eq.${profile.id}`, 'DELETE');
             console.log(`[REMOVE STUDENT] Deleted StudentProfile ${profile.id}`);
         }
 
         // 4. Delete all StudentAssignment records
-        const studentAssignments = await base44.asServiceRole.entities.StudentAssignment.filter({ 
-            studentUserId: String(resolvedStudentId) 
-        });
+        const studentAssignments = await dbRequest(`StudentAssignment?studentUserId=eq.${String(resolvedStudentId)}`, 'GET');
         for (const assignment of studentAssignments) {
-            await base44.asServiceRole.entities.StudentAssignment.delete(assignment.id);
+            await dbRequest(`StudentAssignment?id=eq.${assignment.id}`, 'DELETE');
         }
         console.log(`[REMOVE STUDENT] Deleted ${studentAssignments.length} assignments`);
 
