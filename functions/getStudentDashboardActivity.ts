@@ -48,19 +48,31 @@ Deno.serve(async (req) => {
         const { limit = 5000 } = body;
         
         const teacherId = session.userId;
+        const teacherEmail = session.email;
+        
+        console.log(`[DASHBOARD ACTIVITY] Teacher: ${teacherId}, ${teacherEmail}`);
         
         const teacherUser = await thinkific.getUser(teacherId);
         
         // Get student roster (emails only)
         const studentEmails = await getTeacherStudentEmails(teacherId, teacherUser.email);
+        console.log(`[DASHBOARD ACTIVITY] Found ${studentEmails.length} students:`, studentEmails);
         
         // Fetch all activity events sorted by occurredAt (most recent first)
         const base44 = createClientFromRequest(req);
         const allEvents = await base44.asServiceRole.entities.ActivityEvent.list('-occurredAt', limit);
+        console.log(`[DASHBOARD ACTIVITY] Fetched ${allEvents.length} total events`);
         
         // Filter to only events for students in this teacher's roster
         const filtered = allEvents
-            .filter(e => studentEmails.includes((e.studentEmail || '').toLowerCase().trim()))
+            .filter(e => {
+                const eventEmail = (e.studentEmail || '').toLowerCase().trim();
+                const matches = studentEmails.includes(eventEmail);
+                if (eventEmail === 'azizae414@modalmath.com') {
+                    console.log(`[DASHBOARD ACTIVITY] Found Aziza event: ${e.eventType}, matches roster: ${matches}`);
+                }
+                return matches;
+            })
             .map(e => {
                 // Normalize eventType for backward compatibility
                 const normalizedEventType = normalizeEventType(e.eventType);
@@ -101,6 +113,10 @@ Deno.serve(async (req) => {
                 };
             })
             .slice(0, limit);
+        
+        console.log(`[DASHBOARD ACTIVITY] Returning ${filtered.length} filtered events`);
+        const azizaEvents = filtered.filter(e => (e.studentEmail || '').toLowerCase().trim() === 'azizae414@modalmath.com');
+        console.log(`[DASHBOARD ACTIVITY] Aziza events in result: ${azizaEvents.length}`);
         
         return Response.json({
             studentEmails,
