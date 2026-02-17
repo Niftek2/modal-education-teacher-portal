@@ -32,13 +32,13 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             
             // Filter to this specific student's events by email (primary identifier)
             const studentEmail = (student?.email || student?.studentEmail || '').toLowerCase().trim();
-            console.log(`[StudentDetail] Filtering for studentEmail: ${studentEmail}`);
+            console.log(`[StudentDetail][UI Proof] Selected Student Email used for filtering: ${studentEmail}`);
             
             const studentEvents = events.filter(e => {
                 const eventEmail = (e.studentEmail || '').toLowerCase().trim();
                 return eventEmail === studentEmail;
             });
-            console.log(`[StudentDetail] Filtered to ${studentEvents.length} events for ${studentEmail}`);
+            console.log(`[StudentDetail][UI Proof] Filtered count after filtering: ${studentEvents.length}`);
             
             // Split into quizzes and lessons
             const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted');
