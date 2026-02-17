@@ -166,7 +166,10 @@ export async function getCourse(courseId) {
  */
 export async function deleteEnrollment(enrollmentId) {
     const result = await requestRest(`/enrollments/${enrollmentId}`, 'DELETE');
-    return { ok: result.ok, status: result.status };
+    if (!result.ok) {
+        throw new Error(`Failed to delete enrollment ${enrollmentId} (status ${result.status})`);
+    }
+    return true;
 }
 
 /**
