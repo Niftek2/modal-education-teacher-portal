@@ -94,29 +94,10 @@ Deno.serve(async (req) => {
         
         console.log(`[REMOVE STUDENT] Archived student record`);
 
-        // 3. Delete StudentProfile to remove from active roster
-        const studentProfiles = await base44.entities.StudentProfile.filter({ 
-            thinkificUserId: Number(resolvedStudentId) 
-        });
-        for (const profile of studentProfiles) {
-            await base44.entities.StudentProfile.delete(profile.id);
-            console.log(`[REMOVE STUDENT] Deleted StudentProfile ${profile.id}`);
-        }
-
-        // 4. Delete all StudentAssignment records
-        const studentAssignments = await base44.entities.StudentAssignment.filter({ 
-            studentUserId: String(resolvedStudentId) 
-        });
-        for (const assignment of studentAssignments) {
-            await base44.entities.StudentAssignment.delete(assignment.id);
-        }
-        console.log(`[REMOVE STUDENT] Deleted ${studentAssignments.length} assignments`);
-
         return Response.json({ 
             success: true, 
-            message: `Student removed and archived`,
-            unenrolledCount,
-            deletedAssignments: studentAssignments.length
+            message: `Student unenrolled and archived`,
+            unenrolledCount
         });
 
     } catch (error) {
