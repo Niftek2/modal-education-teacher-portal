@@ -55,9 +55,7 @@ async function fetchThinkificLessons(courseId, base44) {
 
                     if (contentResponse.ok) {
                         const contentData = await contentResponse.json();
-                        if (contentData.name) {
-                            lessonTitle = contentData.name;
-                        }
+                        lessonTitle = contentData.name || contentData.title || contentData.lesson?.name || contentData.content?.name || lessonTitle;
                     }
                 } catch (error) {
                     console.warn(`Could not fetch name for content ${contentId}:`, error.message);
