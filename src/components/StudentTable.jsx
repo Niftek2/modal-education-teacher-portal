@@ -49,15 +49,22 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
             
             await api.call('removeStudent', {
                 studentId: student.id,
-                groupId: groupId,
-                sessionToken
+                groupId: groupId
             }, sessionToken);
 
             setShowConfirm(null);
             onStudentRemoved();
         } catch (error) {
             console.error('Remove error:', error);
-            alert('Failed to remove student');
+
+            const msg =
+                error?.message ||
+                error?.data?.error ||
+                error?.response?.data?.error ||
+                error?.response?.error ||
+                'Failed to remove student';
+
+            alert(msg);
         } finally {
             setRemoving(null);
         }
