@@ -46,11 +46,15 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
     const handleRemove = async (student) => {
         try {
             setRemoving(student.id);
-            
-            await api.call('removeStudent', {
-                studentId: student.id,
-                groupId: groupId
-            }, sessionToken);
+
+            await api.call(
+                'removeStudent',
+                {
+                    studentId: student.id,
+                    groupId: groupId,
+                },
+                sessionToken
+            );
 
             setShowConfirm(null);
             onStudentRemoved();
@@ -58,10 +62,9 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
             console.error('Remove error:', error);
 
             const msg =
-                error?.message ||
                 error?.data?.error ||
                 error?.response?.data?.error ||
-                error?.response?.error ||
+                error?.message ||
                 'Failed to remove student';
 
             alert(msg);
@@ -185,10 +188,10 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
                         </Button>
                         <Button
                             onClick={() => handleRemove(showConfirm)}
-                            disabled={removing}
+                            disabled={removing === showConfirm?.id}
                             className="bg-red-600 hover:bg-red-700 text-white"
                         >
-                            {removing ? 'Removing...' : 'Remove Student'}
+                            {removing === showConfirm?.id ? 'Removing...' : 'Remove Student'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
