@@ -52,6 +52,11 @@ Deno.serve(async (req) => {
         const payload = body.payload || {};
         
         console.log(`[WEBHOOK] Received ${eventType}, ID: ${webhookId}`);
+        
+        const webhookStudentEmail = (payload?.user?.email || '').toLowerCase().trim();
+        if (webhookStudentEmail === 'azizae414@modalmath.com') {
+            console.log(`[WEBHOOK DEBUG AZIZA] Received webhook for Aziza: EventType=${eventType}, WebhookId=${webhookId}, UserId=${payload?.user?.id}, QuizId=${payload?.quiz?.id}, Email=${webhookStudentEmail}`);
+        }
 
         if (!webhookId || !resource || !action) {
             console.error('[WEBHOOK] Missing required wrapper fields');
