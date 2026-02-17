@@ -50,8 +50,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                 const courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim()) ? e.courseName.trim() : 'Elementary';
                 
                 const mapped = {
-                    quizName: e.lessonName || 'Unknown Quiz',
-                    quizId: e.lessonId || null,
+                    quizName: e.lessonName || e.contentTitle || 'Unknown Quiz',
+                    quizId: e.lessonId || e.contentId || null,
                     courseName: courseName,
                     level: courseName,
                     percentage: displayPercentage,

@@ -195,6 +195,7 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
         lessonName: quizName,
         attemptNumber: attemptNumber,
         grade: gradePercent,
+        scorePercent: gradePercent,
         correctCount: correctCount,
         incorrectCount: incorrectCount,
         studentEmail: (email || '').toLowerCase().trim(),

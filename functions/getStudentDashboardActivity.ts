@@ -65,16 +65,33 @@ Deno.serve(async (req) => {
                 // Normalize eventType for backward compatibility
                 const normalizedEventType = normalizeEventType(e.eventType);
                 
-                // Compute display grade for quiz attempts (fallback for old data)
-                let displayGrade = e.grade;
-                if ((normalizedEventType === 'quiz_attempted') && displayGrade === null && e.rawPayload) {
-                    try {
-                        const rawData = JSON.parse(e.rawPayload);
-                        const payloadGrade = rawData?.payload?.grade;
-                        if (typeof payloadGrade === 'number') {
-                            displayGrade = payloadGrade <= 1 ? payloadGrade * 100 : payloadGrade;
-                        }
-                    } catch {}
+                // Compute display grade for quiz attempts with robust fallbacks
+                let displayGrade = (typeof e.grade === 'number') ? e.grade : null;
+
+                if (normalizedEventType === 'quiz_attempted' && displayGrade == null) {
+                    // 1) Prefer canonical stored field from webhook handler
+                    if (typeof e.scorePercent === 'number') {
+                        displayGrade = e.scorePercent;
+                    }
+
+                    // 2) Fallback: older/alternate storage in metadata
+                    if (displayGrade == null && e.metadata && typeof e.metadata.scorePercent === 'number') {
+                        displayGrade = e.metadata.scorePercent;
+                    }
+
+                    // 3) Fallback: rawPayload may be either:
+                    //    a) payload object itself (current webhook saves JSON.stringify(payload))
+                    //    b) wrapper object { payload: {...} } (older code path assumption)
+                    if (displayGrade == null && e.rawPayload) {
+                        try {
+                            const rawData = JSON.parse(e.rawPayload);
+                            const maybePayload = rawData?.payload ? rawData.payload : rawData;
+                            const payloadGrade = maybePayload?.grade;
+                            if (typeof payloadGrade === 'number') {
+                                displayGrade = payloadGrade <= 1 ? payloadGrade * 100 : payloadGrade;
+                            }
+                        } catch {}
+                    }
                 }
                 
                 return {
