@@ -69,29 +69,9 @@ Deno.serve(async (req) => {
             return Response.json({ error: `Student not found: ${resolvedStudentId}` }, { status: 404 });
         }
         
-        console.log(`[REMOVE STUDENT] Starting removal for student ${resolvedStudentId} (${studentInfo.email})`);
+        console.log(`[REMOVE STUDENT] Starting archive for student ${resolvedStudentId} (${studentInfo.email})`);
 
-        // 1. Unenroll from all courses (PK, K, L1-L5)
-        const enrollments = await listEnrollments({ 'query[user_id]': resolvedStudentId });
-        let unenrolledCount = 0;
-        
-        for (const enrollment of enrollments) {
-            if (COURSE_IDS_TO_UNENROLL.includes(String(enrollment.course_id))) {
-                const deleteResult = await deleteEnrollment(enrollment.id);
-                if (!deleteResult.ok) {
-                    console.error(`[REMOVE STUDENT] Failed deleting enrollment ${enrollment.id}: status ${deleteResult.status}`);
-                    return Response.json({ 
-                        error: `Failed to unenroll from course ${enrollment.course_id}: status ${deleteResult.status}` 
-                    }, { status: 500 });
-                }
-                console.log(`[REMOVE STUDENT] Unenrolled from course ${enrollment.course_id} (enrollment ${enrollment.id})`);
-                unenrolledCount++;
-            }
-        }
-        
-        console.log(`[REMOVE STUDENT] Unenrolled from ${unenrolledCount} courses`);
-
-        // 2. Archive the student record
+        // Archive the student record
         await base44.entities.ArchivedStudent.create({
             studentThinkificUserId: String(resolvedStudentId),
             studentEmail: studentInfo.email,
@@ -106,8 +86,9 @@ Deno.serve(async (req) => {
 
         return Response.json({ 
             success: true, 
-            message: `Student unenrolled and archived`,
-            unenrolledCount
+            message: `Student archived`,
+            studentId: resolvedStudentId,
+            studentEmail: studentInfo.email
         });
 
     } catch (error) {
