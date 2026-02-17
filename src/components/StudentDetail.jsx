@@ -22,22 +22,16 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const loadData = async () => {
         setLoading(true);
         try {
-            // Use teacher-scoped activity endpoint
-            const response = await api.call('getStudentActivityForTeacher', {
-                sessionToken
-            }, sessionToken);
-            
-            const events = response.events || [];
-            console.log(`[StudentDetail] Total events returned: ${events.length}`);
-            
-            // Filter to this specific student's events by email (primary identifier)
+            // Get student email (primary identifier)
             const studentEmail = (student?.email || student?.studentEmail || '').toLowerCase().trim();
             console.log(`[StudentDetail][UI Proof] Selected Student Email used for filtering: ${studentEmail}`);
             
-            const studentEvents = events.filter(e => {
-                const eventEmail = (e.studentEmail || '').toLowerCase().trim();
-                return eventEmail === studentEmail;
-            });
+            // Fetch all events for this specific student
+            const response = await api.call('getStudentEvents', {
+                studentEmail
+            }, sessionToken);
+            
+            const studentEvents = response.events || [];
             console.log(`[StudentDetail][UI Proof] Filtered count after filtering: ${studentEvents.length}`);
             
             // Split into quizzes and lessons
