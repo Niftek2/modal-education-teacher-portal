@@ -62,7 +62,20 @@ export async function requestRest(path, method = 'GET', query = null, body = nul
     }
     
     const response = await fetch(url.toString(), options);
-    const data = await response.json();
+    
+    const contentType = response.headers.get("content-type") || "";
+    const raw = await response.text();
+
+    let data = null;
+    if (raw && contentType.includes("application/json")) {
+        try {
+            data = JSON.parse(raw);
+        } catch {
+            data = { raw };
+        }
+    } else if (raw) {
+        data = { raw };
+    }
     
     return {
         status: response.status,

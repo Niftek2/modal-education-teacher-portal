@@ -102,6 +102,7 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error('Remove student error:', error);
+        console.error('Remove student error (full):', error?.stack || error);
         return Response.json({ error: error.message }, { status: 500 });
     }
 });
