@@ -69,7 +69,19 @@ Deno.serve(async (req) => {
             return Response.json({ error: `Student not found: ${resolvedStudentId}` }, { status: 404 });
         }
         
-        console.log(`[REMOVE STUDENT] Starting archive for student ${resolvedStudentId} (${studentInfo.email})`);
+        console.log(`[REMOVE STUDENT] Starting unenroll for student ${resolvedStudentId} (${studentInfo.email})`);
+
+        // Unenroll student from all courses
+        const enrollments = await listEnrollments({ 'query[user_id]': String(resolvedStudentId) });
+        console.log(`[REMOVE STUDENT] Found ${enrollments.length} enrollments to remove`);
+
+        for (const e of enrollments) {
+            if (!e?.id) continue;
+            await deleteEnrollment(e.id);
+            console.log(`[REMOVE STUDENT] Deleted enrollment ${e.id}`);
+        }
+
+        console.log(`[REMOVE STUDENT] Unenrollment complete, now archiving`);
 
         // Archive the student record
         await base44.entities.ArchivedStudent.create({
