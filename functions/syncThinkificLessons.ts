@@ -61,6 +61,9 @@ async function fetchThinkificLessons(courseId, base44) {
                     console.warn(`Could not fetch name for content ${contentId}:`, error.message);
                 }
                 
+                // Small delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
                 lessons.push({
                     lessonId: contentIdStr,
                     title: lessonTitle,
