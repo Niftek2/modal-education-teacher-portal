@@ -55,14 +55,13 @@ async function fetchThinkificLessons(courseId, base44) {
 
                     if (contentResponse.ok) {
                         const contentData = await contentResponse.json();
-                        lessonTitle = contentData.name || contentData.title || contentData.lesson?.name || contentData.content?.name || lessonTitle;
+                        if (contentData.name) {
+                            lessonTitle = contentData.name;
+                        }
                     }
                 } catch (error) {
                     console.warn(`Could not fetch name for content ${contentId}:`, error.message);
                 }
-                
-                // Small delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 100));
                 
                 lessons.push({
                     lessonId: contentIdStr,
