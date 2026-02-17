@@ -22,26 +22,40 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const loadData = async () => {
         setLoading(true);
         try {
-            // Use teacher-scoped activity endpoint
-            const response = await api.call('getStudentActivityForTeacher', {
-                sessionToken
-            }, sessionToken);
-            
-            const events = response.events || [];
-            console.log(`[StudentDetail] Total events returned: ${events.length}`);
-            
-            // Filter to this specific student's events by email (primary identifier)
+            // Get normalized student email
             const studentEmail = (student?.email || student?.studentEmail || '').toLowerCase().trim();
-            console.log(`[StudentDetail] Filtering for studentEmail: ${studentEmail}`);
             
-            const studentEvents = events.filter(e => {
-                const eventEmail = (e.studentEmail || '').toLowerCase().trim();
-                return eventEmail === studentEmail;
-            });
-            console.log(`[StudentDetail] Filtered to ${studentEvents.length} events for ${studentEmail}`);
+            if (!studentEmail) {
+                console.error('[StudentDetail] No student email found');
+                setQuizzes([]);
+                setLessons([]);
+                return;
+            }
+            
+            // Fetch events directly for this student with pagination
+            let allEvents = [];
+            let skip = 0;
+            const limit = 200;
+            let hasMore = true;
+            
+            while (hasMore && allEvents.length < 2000) {
+                const response = await api.call('getStudentEvents', {
+                    studentEmail,
+                    limit,
+                    skip
+                }, sessionToken);
+                
+                const events = response.events || [];
+                allEvents = allEvents.concat(events);
+                
+                hasMore = response.hasMore && events.length === limit;
+                skip = response.nextSkip || (skip + limit);
+            }
+            
+            console.log(`[StudentDetail] Loaded events for ${studentEmail}: ${allEvents.length}`);
             
             // Split into quizzes and lessons
-            const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted');
+            const quizAttempts = allEvents.filter(e => e.eventType === 'quiz_attempted');
             
             const quizList = quizAttempts.map((e, idx) => {
                 const metadata = e.metadata || {};
@@ -62,17 +76,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                     source: e.source
                 };
                 
-                if (idx < 3) {
-                    console.log(`[StudentDetail] Quiz ${idx}:`, {
-                        rawFields: { lessonName: e.lessonName, grade: e.grade, attemptNumber: e.attemptNumber, source: e.source },
-                        mappedFields: { quizName: mapped.quizName, percentage: mapped.percentage, attempts: mapped.attempts }
-                    });
-                }
-                
                 return mapped;
             });
-            
-            console.log(`[StudentDetail] Found ${quizList.length} quiz attempts:`, quizList.slice(0, 3));
 
             // Group quizzes by quizId or normalized title
             const groupedQuizzes = {};
@@ -112,7 +117,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
 
             setQuizzes(flatQuizzes);
 
-            const lessonEvents = studentEvents
+            const lessonEvents = allEvents
                 .filter(e => e.eventType === 'lesson_completed')
                 .map(e => ({
                     lessonName: e.lessonName || 'Unknown Lesson',
