@@ -1,23 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { requireSession } from './lib/auth.js';
+import { getUser, listEnrollments, deleteEnrollment } from './lib/thinkificClient.js';
 
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-
-async function getStudentInfo(userId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/users/${userId}`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-        }
-    });
-
-    if (!response.ok) {
-        return null;
-    }
-
-    return await response.json();
-}
+// Course IDs for PK, K, L1-L5
+const COURSE_IDS_TO_UNENROLL = [
+    Deno.env.get("PK_COURSE_ID"),
+    Deno.env.get("K_COURSE_ID"),
+    Deno.env.get("L1_COURSE_ID"),
+    Deno.env.get("L2_COURSE_ID"),
+    Deno.env.get("L3_COURSE_ID"),
+    Deno.env.get("L4_COURSE_ID"),
+    Deno.env.get("L5_COURSE_ID")
+].filter(Boolean);
 
 Deno.serve(async (req) => {
     const session = await requireSession(req);
@@ -35,13 +29,25 @@ Deno.serve(async (req) => {
         }
 
         // Get student info
-        const studentInfo = await getStudentInfo(studentId);
+        const studentInfo = await getUser(studentId);
+        
+        console.log(`[REMOVE STUDENT] Starting removal for student ${studentId} (${studentInfo.email})`);
 
-        if (!studentInfo) {
-            return Response.json({ error: 'Student not found' }, { status: 404 });
+        // 1. Unenroll from all courses (PK, K, L1-L5)
+        const enrollments = await listEnrollments({ 'query[user_id]': studentId });
+        let unenrolledCount = 0;
+        
+        for (const enrollment of enrollments) {
+            if (COURSE_IDS_TO_UNENROLL.includes(String(enrollment.course_id))) {
+                await deleteEnrollment(enrollment.id);
+                console.log(`[REMOVE STUDENT] Unenrolled from course ${enrollment.course_id}`);
+                unenrolledCount++;
+            }
         }
+        
+        console.log(`[REMOVE STUDENT] Unenrolled from ${unenrolledCount} courses`);
 
-        // Archive the student record
+        // 2. Archive the student record
         await base44.asServiceRole.entities.ArchivedStudent.create({
             studentThinkificUserId: String(studentId),
             studentEmail: studentInfo.email,
@@ -51,8 +57,33 @@ Deno.serve(async (req) => {
             groupId: String(groupId),
             archivedAt: new Date().toISOString()
         });
+        
+        console.log(`[REMOVE STUDENT] Archived student record`);
 
-        return Response.json({ success: true });
+        // 3. Delete StudentProfile to remove from active roster
+        const studentProfiles = await base44.asServiceRole.entities.StudentProfile.filter({ 
+            thinkificUserId: Number(studentId) 
+        });
+        for (const profile of studentProfiles) {
+            await base44.asServiceRole.entities.StudentProfile.delete(profile.id);
+            console.log(`[REMOVE STUDENT] Deleted StudentProfile ${profile.id}`);
+        }
+
+        // 4. Delete all StudentAssignment records
+        const studentAssignments = await base44.asServiceRole.entities.StudentAssignment.filter({ 
+            studentUserId: String(studentId) 
+        });
+        for (const assignment of studentAssignments) {
+            await base44.asServiceRole.entities.StudentAssignment.delete(assignment.id);
+        }
+        console.log(`[REMOVE STUDENT] Deleted ${studentAssignments.length} assignments`);
+
+        return Response.json({ 
+            success: true, 
+            message: `Student removed and archived`,
+            unenrolledCount,
+            deletedAssignments: studentAssignments.length
+        });
 
     } catch (error) {
         console.error('Remove student error:', error);

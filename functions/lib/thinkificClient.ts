@@ -26,6 +26,7 @@ const ALLOWED_REST_PATTERNS = [
     /^\/groups(\?|$)/,          // /groups or /groups?...
     /^\/group_users(\?|$)/,     // /group_users or /group_users?...
     /^\/enrollments(\?|$)/,     // /enrollments or /enrollments?...
+    /^\/enrollments\/\d+$/,     // /enrollments/{id} for DELETE
     /^\/courses\/\d+(\?|$)/     // /courses/{id} or /courses/{id}?...
 ];
 
@@ -145,6 +146,14 @@ export async function getCourse(courseId) {
     const result = await requestRest(`/courses/${courseId}`);
     if (!result.ok) throw new Error(`Course not found: ${courseId}`);
     return result.data;
+}
+
+/**
+ * Delete an enrollment by ID
+ */
+export async function deleteEnrollment(enrollmentId) {
+    const result = await requestRest(`/enrollments/${enrollmentId}`, 'DELETE');
+    return { ok: result.ok, status: result.status };
 }
 
 /**
