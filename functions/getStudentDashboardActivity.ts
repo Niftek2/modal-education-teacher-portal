@@ -2,10 +2,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { requireSession } from './lib/auth.js';
 import * as thinkific from './lib/thinkificClient.js';
 
-async function getTeacherStudentIds(teacherId, teacherEmail) {
+async function getTeacherStudentEmails(teacherId, teacherEmail) {
     // Get all groups where teacher is a member
     const allGroups = await thinkific.listGroups();
-    const studentIds = new Set();
+    const studentEmails = new Set();
     
     for (const group of allGroups) {
         const groupUsers = await thinkific.listGroupUsers(group.id);
@@ -13,14 +13,14 @@ async function getTeacherStudentIds(teacherId, teacherEmail) {
         
         if (isMember) {
             groupUsers.forEach(user => {
-                if (user.id && String(user.id) !== String(teacherId)) {
-                    studentIds.add(user.id);
+                if (user.email && String(user.id) !== String(teacherId)) {
+                    studentEmails.add(user.email.toLowerCase().trim());
                 }
             });
         }
     }
     
-    return Array.from(studentIds);
+    return Array.from(studentEmails);
 }
 
 function normalizeEventType(eventType) {
@@ -51,8 +51,8 @@ Deno.serve(async (req) => {
         
         const teacherUser = await thinkific.getUser(teacherId);
         
-        // Get student roster (thinkificUserId only)
-        const studentIds = await getTeacherStudentIds(teacherId, teacherUser.email);
+        // Get student roster (emails only)
+        const studentEmails = await getTeacherStudentEmails(teacherId, teacherUser.email);
         
         // Fetch all activity events sorted by occurredAt (most recent first)
         const base44 = createClientFromRequest(req);
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
         
         // Filter to only events for students in this teacher's roster
         const filtered = allEvents
-            .filter(e => studentIds.includes(e.thinkificUserId))
+            .filter(e => studentEmails.includes((e.studentEmail || '').toLowerCase().trim()))
             .map(e => {
                 // Normalize eventType for backward compatibility
                 const normalizedEventType = normalizeEventType(e.eventType);
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
             .slice(0, limit);
         
         return Response.json({
-            studentIds,
+            studentEmails,
             events: filtered
         }, { status: 200 });
     } catch (error) {

@@ -30,7 +30,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const events = response.events || [];
             console.log(`[StudentDetail] Total events returned: ${events.length}`);
             
-            // Filter to this specific student's events by email (works for both webhook and csv sources)
+            // Filter to this specific student's events by email (primary identifier)
             const studentEmail = (student?.email || student?.studentEmail || '').toLowerCase().trim();
             console.log(`[StudentDetail] Filtering for studentEmail: ${studentEmail}`);
             
