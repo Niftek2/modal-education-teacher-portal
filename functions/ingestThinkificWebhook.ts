@@ -117,8 +117,8 @@ async function handleLessonCompleted(base44, payload, webhookId, dedupeKey, occu
     const firstName = user?.first_name;
     const lastName = user?.last_name;
     
-    if (!userId || !lesson?.id) {
-        console.error('[WEBHOOK] Missing required fields for lesson.completed');
+    if (!userId || !lesson?.id || !email) {
+        console.error('[WEBHOOK] Missing required fields for lesson.completed: userId, lessonId, or email');
         return;
     }
 
@@ -162,8 +162,8 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
     const firstName = user?.first_name;
     const lastName = user?.last_name;
     
-    if (!userId || !quiz?.id) {
-        console.error('[WEBHOOK] Missing required fields for quiz.attempted');
+    if (!userId || !quiz?.id || !email) {
+        console.error('[WEBHOOK] Missing required fields for quiz.attempted: userId, quizId, or email');
         return;
     }
 
