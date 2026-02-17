@@ -122,6 +122,12 @@ async function handleLessonCompleted(base44, payload, webhookId, dedupeKey, occu
     const firstName = user?.first_name;
     const lastName = user?.last_name;
     
+    // Skip Quiz type lessons
+    if (lesson?.type === 'Quiz') {
+        console.log(`[WEBHOOK] Skipping lesson.completed for lesson ID ${lesson?.id} (type: Quiz)`);
+        return;
+    }
+    
     if (!userId || !lesson?.id || !email) {
         console.error('[WEBHOOK] Missing required fields for lesson.completed: userId, lessonId, or email');
         return;
