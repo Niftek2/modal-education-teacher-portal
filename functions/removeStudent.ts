@@ -64,6 +64,10 @@ Deno.serve(async (req) => {
 
         // Get student info
         const studentInfo = await getUser(resolvedStudentId);
+        if (!studentInfo) {
+            console.error(`[REMOVE STUDENT] Student not found in Thinkific: ${resolvedStudentId}`);
+            return Response.json({ error: `Student not found: ${resolvedStudentId}` }, { status: 404 });
+        }
         
         console.log(`[REMOVE STUDENT] Starting removal for student ${resolvedStudentId} (${studentInfo.email})`);
 
@@ -73,8 +77,14 @@ Deno.serve(async (req) => {
         
         for (const enrollment of enrollments) {
             if (COURSE_IDS_TO_UNENROLL.includes(String(enrollment.course_id))) {
-                await deleteEnrollment(enrollment.id);
-                console.log(`[REMOVE STUDENT] Unenrolled from course ${enrollment.course_id}`);
+                const deleteResult = await deleteEnrollment(enrollment.id);
+                if (!deleteResult.ok) {
+                    console.error(`[REMOVE STUDENT] Failed deleting enrollment ${enrollment.id}: status ${deleteResult.status}`);
+                    return Response.json({ 
+                        error: `Failed to unenroll from course ${enrollment.course_id}: status ${deleteResult.status}` 
+                    }, { status: 500 });
+                }
+                console.log(`[REMOVE STUDENT] Unenrolled from course ${enrollment.course_id} (enrollment ${enrollment.id})`);
                 unenrolledCount++;
             }
         }

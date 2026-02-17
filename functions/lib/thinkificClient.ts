@@ -140,7 +140,7 @@ export async function listGroups() {
  * List users in a group
  */
 export async function listGroupUsers(groupId) {
-    const result = await requestRest('/users', 'GET', { 'query[group_id]': groupId });
+    const result = await requestRest('/group_users', 'GET', { 'query[group_id]': String(groupId) });
     return result.data.items || [];
 }
 
