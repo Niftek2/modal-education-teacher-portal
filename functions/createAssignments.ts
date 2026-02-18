@@ -36,12 +36,6 @@ Deno.serve(async (req) => {
             const normalizedEmail = studentEmail.trim().toLowerCase();
             const dedupeKey = `assign:${normalizedEmail}:${catalogId}`;
 
-            // Check for existing assignment
-            const existing = await base44.asServiceRole.entities.StudentAssignment.filter({ dedupeKey });
-            if (existing && existing.length > 0) {
-                continue; // Skip duplicates
-            }
-
             const assignment = {
                 teacherEmail,
                 groupId: groupId || '',
