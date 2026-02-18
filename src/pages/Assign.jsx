@@ -50,12 +50,26 @@ export default function Assign() {
 
     const sessionToken = localStorage.getItem('modal_math_session');
 
+    // Attempt to refresh an expired session silently, then load data
+    const refreshAndLoad = async (token) => {
+        try {
+            const res = await api.call('refreshSession', {}, token);
+            if (res.sessionToken) {
+                localStorage.setItem('modal_math_session', res.sessionToken);
+                return res.sessionToken;
+            }
+        } catch (e) {
+            console.warn('[Assign] Session refresh failed:', e.message);
+        }
+        return null;
+    };
+
     useEffect(() => {
         if (!sessionToken) {
             navigate('/Home');
             return;
         }
-        loadData();
+        loadData(sessionToken);
     }, []);
 
     const loadData = async () => {
