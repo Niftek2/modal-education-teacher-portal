@@ -19,6 +19,7 @@ Deno.serve(async (req) => {
         const { score, max_score, completed_at, attempt_number, time_spent_seconds } = data;
         const { id: user_id, email: user_email, first_name, last_name } = data.user;
         const { id: quiz_id, name: quiz_name } = data.quiz;
+        const chapter_name = data.chapter?.name || '';
         const course_id = data.course?.id;
         const course_name = data.course?.name;
 

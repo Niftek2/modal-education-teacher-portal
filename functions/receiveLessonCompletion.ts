@@ -15,6 +15,7 @@ Deno.serve(async (req) => {
         const studentEmail = data.user.email?.toLowerCase().trim();
         const lessonId = String(data.lesson.id);
         const lessonName = data.lesson.name;
+        const chapterName = data.chapter?.name || '';
         const courseId = String(data.course?.id || '');
         const courseName = data.course?.name || '';
         const studentName = `${data.user.first_name || ''} ${data.user.last_name || ''}`.trim();
