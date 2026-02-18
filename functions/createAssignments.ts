@@ -44,15 +44,16 @@ Deno.serve(async (req) => {
 
             const assignment = {
                 teacherEmail,
-                groupId,
+                groupId: groupId || '',
                 studentEmail: normalizedEmail,
                 catalogId,
                 title: catalog.title,
+                topic: catalog.topic || '',
                 level: catalog.level || 'Elementary',
                 type: catalog.type,
-                courseId: catalog.courseId,
-                lessonId: catalog.lessonId,
-                quizId: catalog.quizId,
+                courseId: catalog.courseId || '',
+                lessonId: catalog.lessonId || '',
+                quizId: catalog.quizId || '',
                 thinkificUrl: catalog.thinkificUrl,
                 assignedAt: now,
                 dueAt: dueAt || null,
@@ -60,7 +61,17 @@ Deno.serve(async (req) => {
                 dedupeKey
             };
 
-            const created = await base44.asServiceRole.entities.StudentAssignment.create(assignment);
+            // Upsert: update if exists, create if not
+            const existing2 = await base44.asServiceRole.entities.StudentAssignment.filter({ dedupeKey });
+            let created;
+            if (existing2 && existing2.length > 0) {
+                created = await base44.asServiceRole.entities.StudentAssignment.update(existing2[0].id, {
+                    dueAt: dueAt || null,
+                    status: existing2[0].status === 'archived' ? 'assigned' : existing2[0].status
+                });
+            } else {
+                created = await base44.asServiceRole.entities.StudentAssignment.create(assignment);
+            }
             assignments.push(created);
         }
 
