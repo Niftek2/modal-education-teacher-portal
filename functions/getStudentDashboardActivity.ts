@@ -47,15 +47,21 @@ Deno.serve(async (req) => {
         const body = await req.json();
         const { limit = 5000 } = body;
         
-        const teacherId = session.userId;
+        const teacherId = session.userId || null;
         const teacherEmail = session.email;
         
         console.log(`[DASHBOARD ACTIVITY] Teacher: ${teacherId}, ${teacherEmail}`);
         
-        const teacherUser = await thinkific.getUser(teacherId);
+        // Resolve teacherId from email if not in session
+        let resolvedTeacherId = teacherId;
+        if (!resolvedTeacherId && teacherEmail) {
+            const found = await thinkific.findUserByEmail(teacherEmail);
+            resolvedTeacherId = found?.id ? String(found.id) : null;
+        }
+        console.log(`[DASHBOARD ACTIVITY] Resolved teacherId: ${resolvedTeacherId}`);
         
         // Get student roster (emails only)
-        const studentEmails = await getTeacherStudentEmails(teacherId, teacherUser.email);
+        const studentEmails = await getTeacherStudentEmails(resolvedTeacherId, teacherEmail);
         console.log(`[DASHBOARD ACTIVITY] Found ${studentEmails.length} students:`, studentEmails);
         
         // Fetch all activity events sorted by occurredAt (most recent first)
