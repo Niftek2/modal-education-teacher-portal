@@ -1,8 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, LogOut, ExternalLink, CheckCircle2, Clock, Calendar } from 'lucide-react';
+import { BookOpen, LogOut, ExternalLink, CheckCircle2, Clock, Calendar, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/components/api';
+
+// Course ID → Level label mapping
+const COURSE_LEVEL_MAP = {
+    '422595': 'PK',
+    '422618': 'K',
+    '422620': 'L1',
+    '496294': 'L2',
+    '496295': 'L3',
+    '496297': 'L4',
+    '496298': 'L5',
+};
+
+function resolveLevel(assignment) {
+    // Try courseId first (from catalog or assignment), then fall back to stored level
+    const fromCourse = assignment.courseId && COURSE_LEVEL_MAP[String(assignment.courseId)];
+    return fromCourse || assignment.level || '—';
+}
 
 export default function StudentAssignments() {
     const [loading, setLoading] = useState(true);
