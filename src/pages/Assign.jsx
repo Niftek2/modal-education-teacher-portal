@@ -335,7 +335,7 @@ export default function Assign() {
                                                         {item.title}
                                                     </p>
                                                     <p className="text-xs text-gray-500">
-                                                        Level: {item.level} • {item.type}
+                                                        Level: {resolveLevel(item)} • {item.type}
                                                     </p>
                                                 </div>
                                             </div>
