@@ -124,11 +124,12 @@ export default function Assign() {
         }
         try {
             setSubmitting(true);
+            const studentEmails = selectedStudents.map(s => s.email.toLowerCase().trim());
             // One API call per lesson, with all selected students in a single request
             const calls = selectedAssignmentIds.map(catalogId =>
                 api.call('createAssignments', {
                     sessionToken,
-                    studentEmails: selectedStudents,
+                    studentEmails,
                     catalogId,
                     dueAt: dueDate ? new Date(dueDate).toISOString() : null
                 }, sessionToken)
