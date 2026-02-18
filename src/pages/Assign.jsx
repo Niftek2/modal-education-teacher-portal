@@ -72,28 +72,44 @@ export default function Assign() {
         loadData(sessionToken);
     }, []);
 
-    const loadData = async () => {
+    const loadData = async (token) => {
+        const activeToken = token || sessionToken;
         try {
             setLoading(true);
+            setAuthError(false);
 
-            // Load catalog always (public) and attempt teacher-specific data separately
+            // Load catalog always (public)
             const catalogRes = await api.call('getAssignmentCatalog', {}, null);
             const catalogData = (catalogRes.catalog || []).filter(item =>
                 !item.title?.startsWith('[TEST]') && item.level !== '[TEST]'
             );
             setCatalog(catalogData);
 
-            // Teacher-auth calls — degrade gracefully on 401
-            try {
+            // Teacher-auth calls — try refresh on 401, then degrade gracefully
+            const tryTeacherLoad = async (tok) => {
                 const [rosterRes, assignmentsRes] = await Promise.all([
-                    api.call('getAssignPageData', { sessionToken }, sessionToken),
-                    api.call('getTeacherAssignments', { sessionToken }, sessionToken),
+                    api.call('getAssignPageData', { sessionToken: tok }, tok),
+                    api.call('getTeacherAssignments', { sessionToken: tok }, tok),
                 ]);
                 setStudents((rosterRes.studentEmails || []).map(email => ({ email, firstName: email.split('@')[0] })));
                 setExistingAssignments(assignmentsRes.assignments || []);
+            };
+
+            try {
+                await tryTeacherLoad(activeToken);
             } catch (authError) {
-                console.warn('[Assign] Teacher auth failed, rendering catalog-only view:', authError.message);
                 if (authError.message?.includes('401')) {
+                    console.warn('[Assign] Session expired, attempting refresh...');
+                    const newToken = await refreshAndLoad(activeToken);
+                    if (newToken) {
+                        try {
+                            await tryTeacherLoad(newToken);
+                            return; // success after refresh
+                        } catch (e2) {
+                            console.warn('[Assign] Still failing after refresh:', e2.message);
+                        }
+                    }
+                    // Graceful degradation
                     setStudents([]);
                     setExistingAssignments([]);
                     setAuthError(true);
