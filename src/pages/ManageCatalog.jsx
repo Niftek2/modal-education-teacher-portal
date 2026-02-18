@@ -245,12 +245,20 @@ export default function ManageCatalog() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium mb-2">Level</label>
-                                <Input
-                                    value={formData.level}
-                                    onChange={(e) => setFormData({...formData, level: e.target.value})}
-                                    placeholder="PK, K, L1, L2, etc."
-                                    required
-                                />
+                                <Select value={formData.level} onValueChange={(v) => setFormData({...formData, level: v})}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select level" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="PK">PK</SelectItem>
+                                        <SelectItem value="K">K</SelectItem>
+                                        <SelectItem value="L1">L1</SelectItem>
+                                        <SelectItem value="L2">L2</SelectItem>
+                                        <SelectItem value="L3">L3</SelectItem>
+                                        <SelectItem value="L4">L4</SelectItem>
+                                        <SelectItem value="L5">L5</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-2">Type</label>
