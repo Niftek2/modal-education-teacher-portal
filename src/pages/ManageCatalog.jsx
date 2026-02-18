@@ -7,6 +7,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/components/api';
 
+const COURSE_LEVEL_MAP = {
+    '422595': 'PK',
+    '422618': 'K',
+    '422620': 'L1',
+    '496294': 'L2',
+    '496295': 'L3',
+    '496297': 'L4',
+    '496298': 'L5',
+};
+
+function resolveLevel(item) {
+    const fromCourse = item.courseId && COURSE_LEVEL_MAP[String(item.courseId)];
+    return fromCourse || item.level || '—';
+}
+
 export default function ManageCatalog() {
     const [loading, setLoading] = useState(true);
     const [catalog, setCatalog] = useState([]);
