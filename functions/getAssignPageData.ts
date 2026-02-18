@@ -32,8 +32,9 @@ async function isEnrolledInClassroom(userId) {
 
 Deno.serve(async (req) => {
     const session = await requireSession(req);
-    if (!session) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    if (!session || (!session.isTeacher && session.role !== 'teacher')) {
+        return Response.json({ error: "Forbidden: Not authorized as a teacher." }, { status: 403 });
     }
 
     try {
@@ -41,13 +42,6 @@ Deno.serve(async (req) => {
         const teacherEmail = session.email?.toLowerCase().trim();
 
         console.log(`[getAssignPageData] Teacher: ${teacherId} / ${teacherEmail}`);
-        console.log(`[getAssignPageData] CLASSROOM_PRODUCT_ID: ${CLASSROOM_PRODUCT_ID}`);
-
-        // Verify teacher is enrolled in 'Your Classroom'
-        const isTeacher = await isEnrolledInClassroom(teacherId);
-        if (!isTeacher) {
-            return Response.json({ error: "Forbidden: Not authorized as a teacher." }, { status: 403 });
-        }
 
         // Get all groups, find ones this teacher belongs to
         const groupsData = await thinkificGet('/groups');

@@ -76,7 +76,7 @@ export default function Assign() {
             setExistingAssignments(assignmentsRes.assignments || []);
         } catch (error) {
             console.error('Load error:', error);
-            if (error.message?.includes('401')) {
+            if (error.message?.includes('401') || error.message?.includes('403')) {
                 navigate('/Home');
             }
         } finally {
@@ -120,8 +120,7 @@ export default function Assign() {
         }
         try {
             setSubmitting(true);
-            const studentEmails = selectedStudents.map(s => s.email.toLowerCase().trim());
-            // One API call per lesson, with all selected students in a single request
+            const studentEmails = selectedStudents.map(s => s.toLowerCase().trim());
             const activeToken = localStorage.getItem('modal_math_session');
             const calls = selectedAssignmentIds.map(catalogId =>
                 api.call('createAssignments', {
@@ -190,21 +189,6 @@ export default function Assign() {
                     </div>
                 </div>
             </header>
-
-            {/* Auth warning banner */}
-            {authError && (
-                <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-2 text-sm text-yellow-800 flex items-center justify-between">
-                    <span>⚠️ Your session has expired. Student roster is unavailable — catalog is still visible below. <a href="/Home" className="underline font-medium">Log in again</a> to restore full access.</span>
-                    <button
-                        className="ml-4 text-xs bg-yellow-200 hover:bg-yellow-300 px-3 py-1 rounded font-medium"
-                        onClick={async () => {
-                            const tok = localStorage.getItem('modal_math_session');
-                            const newTok = await refreshAndLoad(tok);
-                            if (newTok) loadData(newTok);
-                        }}
-                    >Retry</button>
-                </div>
-            )}
 
             {/* Body: split layout */}
             <div className="flex flex-1 overflow-hidden max-w-screen-xl mx-auto w-full">
