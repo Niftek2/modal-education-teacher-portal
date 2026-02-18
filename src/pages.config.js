@@ -56,6 +56,7 @@ import StudentAssignments from './pages/StudentAssignments';
 import StudentAssignmentsLogin from './pages/StudentAssignmentsLogin';
 import Verify from './pages/Verify';
 import WebhookDebug from './pages/WebhookDebug';
+import Assign from './pages/Assign';
 import __Layout from './Layout.jsx';
 
 
@@ -69,6 +70,7 @@ export const PAGES = {
     "StudentAssignmentsLogin": StudentAssignmentsLogin,
     "Verify": Verify,
     "WebhookDebug": WebhookDebug,
+    "Assign": Assign,
 }
 
 export const pagesConfig = {
