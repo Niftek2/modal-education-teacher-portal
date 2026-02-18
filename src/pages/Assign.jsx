@@ -200,6 +200,13 @@ export default function Assign() {
                 </div>
             </header>
 
+            {/* Auth warning banner */}
+            {authError && (
+                <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-2 text-sm text-yellow-800 flex items-center justify-between">
+                    <span>Your session has expired. Student roster is unavailable — catalog is still visible. <a href="/Home" className="underline font-medium">Log in again</a> to restore full access.</span>
+                </div>
+            )}
+
             {/* Body: split layout */}
             <div className="flex flex-1 overflow-hidden max-w-screen-xl mx-auto w-full">
 
