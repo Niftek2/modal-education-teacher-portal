@@ -1,81 +1,29 @@
-import { getUser, listEnrollments, deleteEnrollment, findUserByEmail, listGroups, listGroupUsers } from './lib/thinkificClient.js';
+import { findUserByEmail, listEnrollments, deleteEnrollment } from './lib/thinkificClient.js';
 import { requireSession } from './lib/auth.js';
-
-// Course IDs for PK, K, L1-L5
-const COURSE_IDS_TO_UNENROLL = [
-    Deno.env.get("PK_COURSE_ID"),
-    Deno.env.get("K_COURSE_ID"),
-    Deno.env.get("L1_COURSE_ID"),
-    Deno.env.get("L2_COURSE_ID"),
-    Deno.env.get("L3_COURSE_ID"),
-    Deno.env.get("L4_COURSE_ID"),
-    Deno.env.get("L5_COURSE_ID")
-].filter(Boolean);
 
 Deno.serve(async (req) => {
     try {
-        // Get session for teacher tracking
         const session = await requireSession(req);
-        
-        // Import SDK here to use service role without auth
+
         const { createServiceRoleClient } = await import('npm:@base44/sdk@0.8.6');
         const base44 = createServiceRoleClient();
 
-        const { studentId, groupId, teacherId, studentEmail, groupName } = await req.json();
+        const { studentEmail, groupId, teacherId } = await req.json();
 
-        let resolvedStudentId = studentId;
-        let resolvedGroupId = groupId;
-
-        // If email and groupName provided, resolve IDs
-        if (studentEmail && groupName && (!studentId || !groupId)) {
-            console.log(`[REMOVE STUDENT] Resolving IDs for ${studentEmail} in group ${groupName}`);
-            
-            // Find student by email
-            const student = await findUserByEmail(studentEmail);
-            if (!student) {
-                return Response.json({ error: `Student not found: ${studentEmail}` }, { status: 404 });
-            }
-            resolvedStudentId = student.id;
-            console.log(`[REMOVE STUDENT] Resolved student ID: ${resolvedStudentId}`);
-
-            // Find group by name
-            const allGroups = await listGroups();
-            const matchingGroups = allGroups.filter(g => g.name === groupName);
-            
-            if (matchingGroups.length === 0) {
-                return Response.json({ error: `Group not found: ${groupName}` }, { status: 404 });
-            }
-
-            // Try to find the group containing the student
-            for (const group of matchingGroups) {
-                const groupUsers = await listGroupUsers(group.id);
-                if (groupUsers.find(u => u.email === studentEmail)) {
-                    resolvedGroupId = group.id;
-                    console.log(`[REMOVE STUDENT] Resolved group ID: ${resolvedGroupId}`);
-                    break;
-                }
-            }
-
-            if (!resolvedGroupId) {
-                resolvedGroupId = matchingGroups[0].id;
-                console.log(`[REMOVE STUDENT] Using first matching group ID: ${resolvedGroupId}`);
-            }
+        if (!studentEmail) {
+            return Response.json({ error: 'studentEmail is required' }, { status: 400 });
         }
 
-        if (!resolvedStudentId || !resolvedGroupId) {
-            return Response.json({ error: 'Student ID and Group ID required (or provide studentEmail and groupName)' }, { status: 400 });
+        // Resolve student by email
+        const found = await findUserByEmail(studentEmail);
+        if (!found?.id) {
+            return Response.json({ error: `Student not found for email: ${studentEmail}` }, { status: 404 });
         }
 
-        // Get student info
-        const studentInfo = await getUser(resolvedStudentId);
-        if (!studentInfo) {
-            console.error(`[REMOVE STUDENT] Student not found in Thinkific: ${resolvedStudentId}`);
-            return Response.json({ error: `Student not found: ${resolvedStudentId}` }, { status: 404 });
-        }
-        
-        console.log(`[REMOVE STUDENT] Starting unenroll for student ${resolvedStudentId} (${studentInfo.email})`);
+        const resolvedStudentId = found.id;
+        console.log(`[REMOVE STUDENT] Resolved student ID: ${resolvedStudentId} for email: ${studentEmail}`);
 
-        // Unenroll student from all courses
+        // Unenroll from all enrollments
         const enrollments = await listEnrollments({ 'query[user_id]': String(resolvedStudentId) });
         console.log(`[REMOVE STUDENT] Found ${enrollments.length} enrollments to remove`);
 
@@ -90,21 +38,20 @@ Deno.serve(async (req) => {
         // Archive the student record
         await base44.asServiceRole.entities.ArchivedStudent.create({
             studentThinkificUserId: String(resolvedStudentId),
-            studentEmail: studentInfo.email,
-            studentFirstName: studentInfo.first_name,
-            studentLastName: studentInfo.last_name,
-            teacherThinkificUserId: String(teacherId || session.userId),
-            groupId: String(resolvedGroupId),
+            studentEmail: found.email,
+            studentFirstName: found.first_name,
+            studentLastName: found.last_name,
+            teacherThinkificUserId: String(teacherId || session?.userId || 'unknown'),
+            groupId: String(groupId || 'unknown'),
             archivedAt: new Date().toISOString()
         });
-        
+
         console.log(`[REMOVE STUDENT] Archived student record`);
 
-        return Response.json({ 
-            success: true, 
-            message: `Student archived`,
-            studentId: resolvedStudentId,
-            studentEmail: studentInfo.email
+        return Response.json({
+            success: true,
+            resolvedStudentId,
+            unenrolled: enrollments.length
         });
 
     } catch (error) {
