@@ -172,10 +172,10 @@ export default function StudentAssignments() {
                                                         Completed {formatDate(assignment.completedAt)}
                                                     </div>
                                                 )}
-                                                {assignment.grade != null && (
+                                                {(assignment.metadata?.grade != null) && assignment.status === 'completed' && (
                                                     <div className="flex items-center gap-1 text-purple-700 font-medium">
                                                         <Star className="w-4 h-4" />
-                                                        Grade: {Math.round(assignment.grade)}%
+                                                        Grade: {Math.round(assignment.metadata.grade)}%
                                                     </div>
                                                 )}
                                             </div>
