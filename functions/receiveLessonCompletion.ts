@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
                     completedAt: new Date().toISOString(),
                     completedByEventId: lessonCompletion.id
                 });
-                console.log(`[receiveLessonCompletion] Marked Assignment ${assignment.id} as completed. lesson="${lessonName}" chapter="${chapterName}"`);
+                console.log(`[receiveLessonCompletion] Marked Assignment ${assignment.id} as completed.`);
             }
         }
 
