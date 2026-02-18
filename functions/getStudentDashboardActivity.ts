@@ -6,15 +6,24 @@ async function getTeacherStudentEmails(teacherId, teacherEmail) {
     // Get all groups where teacher is a member
     const allGroups = await thinkific.listGroups();
     const studentEmails = new Set();
+    const normalizedTeacherEmail = (teacherEmail || '').toLowerCase().trim();
     
     for (const group of allGroups) {
         const groupUsers = await thinkific.listGroupUsers(group.id);
-        const isMember = groupUsers.some(u => String(u.id) === String(teacherId));
+        // Match teacher by email (primary) or Thinkific ID (fallback)
+        const isMember = groupUsers.some(u => {
+            if (normalizedTeacherEmail && (u.email || '').toLowerCase().trim() === normalizedTeacherEmail) return true;
+            if (teacherId && String(u.id) === String(teacherId)) return true;
+            return false;
+        });
         
         if (isMember) {
             groupUsers.forEach(user => {
-                if (user.email && String(user.id) !== String(teacherId)) {
-                    studentEmails.add(user.email.toLowerCase().trim());
+                const userEmail = (user.email || '').toLowerCase().trim();
+                const isTeacher = userEmail === normalizedTeacherEmail ||
+                                  (teacherId && String(user.id) === String(teacherId));
+                if (userEmail && !isTeacher) {
+                    studentEmails.add(userEmail);
                 }
             });
         }
