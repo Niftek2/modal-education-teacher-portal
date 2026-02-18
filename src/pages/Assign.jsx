@@ -162,20 +162,21 @@ export default function Assign() {
             setSubmitting(true);
             const studentEmails = selectedStudents.map(s => s.email.toLowerCase().trim());
             // One API call per lesson, with all selected students in a single request
+            const activeToken = localStorage.getItem('modal_math_session');
             const calls = selectedAssignmentIds.map(catalogId =>
                 api.call('createAssignments', {
-                    sessionToken,
+                    sessionToken: activeToken,
                     studentEmails,
                     catalogId,
                     dueAt: dueDate ? new Date(dueDate).toISOString() : null
-                }, sessionToken)
+                }, activeToken)
             );
             await Promise.all(calls);
             alert(`Assigned ${selectedAssignmentIds.length} lesson(s) to ${selectedStudents.length} student(s).`);
             setSelectedStudents([]);
             setSelectedAssignmentIds([]);
             setDueDate('');
-            await loadData();
+            await loadData(activeToken);
         } catch (error) {
             alert(error.message || 'Failed to create assignments');
         } finally {
