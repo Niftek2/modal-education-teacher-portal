@@ -188,7 +188,7 @@ export default function ManageCatalog() {
                         <tbody>
                             {catalog.map((item) => (
                                 <tr key={item.id} className="border-b border-gray-100">
-                                    <td className="px-4 py-3 text-sm text-gray-900">{item.level}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-900">{resolveLevel(item)}</td>
                                     <td className="px-4 py-3 text-sm text-gray-900">{item.title}</td>
                                     <td className="px-4 py-3 text-sm text-gray-600">{item.type}</td>
                                     <td className="px-4 py-3 text-sm text-gray-600 font-mono">{item.lessonId || '-'}</td>
