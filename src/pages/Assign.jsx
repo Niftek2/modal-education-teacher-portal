@@ -60,16 +60,20 @@ export default function Assign() {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [activityRes, catalogRes, assignmentsRes] = await Promise.all([
-                api.call('getStudentActivityForTeacher', { sessionToken }, sessionToken),
+            const [rosterRes, catalogRes, assignmentsRes] = await Promise.all([
+                api.call('getAssignPageData', { sessionToken }, sessionToken),
                 api.call('getAssignmentCatalog', {}, null),
                 api.call('getTeacherAssignments', { sessionToken }, sessionToken),
             ]);
 
-            console.log('getStudentActivityForTeacher response:', activityRes);
-            console.log('getAssignmentCatalog response:', catalogRes);
+            console.log('[Assign] getAssignPageData response:', rosterRes);
+            console.log('[Assign] getAssignmentCatalog response:', catalogRes);
 
-            setStudents((activityRes.studentEmails || []).map(email => ({ email, firstName: email.split('@')[0] })));
+            if (!rosterRes.studentEmails) {
+                console.error('[Assign] No studentEmails in roster response:', rosterRes);
+            }
+
+            setStudents((rosterRes.studentEmails || []).map(email => ({ email, firstName: email.split('@')[0] })));
 
             const catalogData = (catalogRes.catalog || []).filter(item =>
                 !item.title?.startsWith('[TEST]') && item.level !== '[TEST]'
