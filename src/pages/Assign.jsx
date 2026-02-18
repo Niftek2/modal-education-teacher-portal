@@ -45,6 +45,7 @@ export default function Assign() {
     const [dueDate, setDueDate] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [existingAssignments, setExistingAssignments] = useState([]);
+    const [authError, setAuthError] = useState(false);
     const navigate = useNavigate();
 
     const sessionToken = localStorage.getItem('modal_math_session');
