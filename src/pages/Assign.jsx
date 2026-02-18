@@ -60,29 +60,33 @@ export default function Assign() {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [rosterRes, catalogRes, assignmentsRes] = await Promise.all([
-                api.call('getAssignPageData', { sessionToken }, sessionToken),
-                api.call('getAssignmentCatalog', {}, null),
-                api.call('getTeacherAssignments', { sessionToken }, sessionToken),
-            ]);
 
-            console.log('[Assign] getAssignPageData response:', rosterRes);
-            console.log('[Assign] getAssignmentCatalog response:', catalogRes);
-
-            if (!rosterRes.studentEmails) {
-                console.error('[Assign] No studentEmails in roster response:', rosterRes);
-            }
-
-            setStudents((rosterRes.studentEmails || []).map(email => ({ email, firstName: email.split('@')[0] })));
-
+            // Load catalog always (public) and attempt teacher-specific data separately
+            const catalogRes = await api.call('getAssignmentCatalog', {}, null);
             const catalogData = (catalogRes.catalog || []).filter(item =>
                 !item.title?.startsWith('[TEST]') && item.level !== '[TEST]'
             );
             setCatalog(catalogData);
-            setExistingAssignments(assignmentsRes.assignments || []);
+
+            // Teacher-auth calls — degrade gracefully on 401
+            try {
+                const [rosterRes, assignmentsRes] = await Promise.all([
+                    api.call('getAssignPageData', { sessionToken }, sessionToken),
+                    api.call('getTeacherAssignments', { sessionToken }, sessionToken),
+                ]);
+                setStudents((rosterRes.studentEmails || []).map(email => ({ email, firstName: email.split('@')[0] })));
+                setExistingAssignments(assignmentsRes.assignments || []);
+            } catch (authError) {
+                console.warn('[Assign] Teacher auth failed, rendering catalog-only view:', authError.message);
+                if (authError.message?.includes('401')) {
+                    setStudents([]);
+                    setExistingAssignments([]);
+                } else {
+                    throw authError;
+                }
+            }
         } catch (error) {
             console.error('Load error:', error);
-            if (error.message?.includes('401')) navigate('/Home');
         } finally {
             setLoading(false);
         }
