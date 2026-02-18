@@ -45,24 +45,9 @@ export default function Assign() {
     const [dueDate, setDueDate] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [existingAssignments, setExistingAssignments] = useState([]);
-    const [authError, setAuthError] = useState(false);
     const navigate = useNavigate();
 
     const sessionToken = localStorage.getItem('modal_math_session');
-
-    // Attempt to refresh an expired session silently, then load data
-    const refreshAndLoad = async (token) => {
-        try {
-            const res = await api.call('refreshSession', {}, token);
-            if (res.sessionToken) {
-                localStorage.setItem('modal_math_session', res.sessionToken);
-                return res.sessionToken;
-            }
-        } catch (e) {
-            console.warn('[Assign] Session refresh failed:', e.message);
-        }
-        return null;
-    };
 
     useEffect(() => {
         if (!sessionToken) {
@@ -76,49 +61,24 @@ export default function Assign() {
         const activeToken = token || sessionToken;
         try {
             setLoading(true);
-            setAuthError(false);
 
-            // Load catalog always (public)
-            const catalogRes = await api.call('getAssignmentCatalog', {}, null);
+            const [catalogRes, rosterRes, assignmentsRes] = await Promise.all([
+                api.call('getAssignmentCatalog', {}, null),
+                api.call('getAssignPageData', { sessionToken: activeToken }, activeToken),
+                api.call('getTeacherAssignments', { sessionToken: activeToken }, activeToken),
+            ]);
+
             const catalogData = (catalogRes.catalog || []).filter(item =>
                 !item.title?.startsWith('[TEST]') && item.level !== '[TEST]'
             );
             setCatalog(catalogData);
-
-            // Teacher-auth calls — try refresh on 401, then degrade gracefully
-            const tryTeacherLoad = async (tok) => {
-                const [rosterRes, assignmentsRes] = await Promise.all([
-                    api.call('getAssignPageData', { sessionToken: tok }, tok),
-                    api.call('getTeacherAssignments', { sessionToken: tok }, tok),
-                ]);
-                setStudents((rosterRes.studentEmails || []).map(email => ({ email, firstName: email.split('@')[0] })));
-                setExistingAssignments(assignmentsRes.assignments || []);
-            };
-
-            try {
-                await tryTeacherLoad(activeToken);
-            } catch (authError) {
-                if (authError.message?.includes('401')) {
-                    console.warn('[Assign] Session expired, attempting refresh...');
-                    const newToken = await refreshAndLoad(activeToken);
-                    if (newToken) {
-                        try {
-                            await tryTeacherLoad(newToken);
-                            return; // success after refresh
-                        } catch (e2) {
-                            console.warn('[Assign] Still failing after refresh:', e2.message);
-                        }
-                    }
-                    // Graceful degradation
-                    setStudents([]);
-                    setExistingAssignments([]);
-                    setAuthError(true);
-                } else {
-                    throw authError;
-                }
-            }
+            setStudents((rosterRes.studentEmails || []).map(email => ({ email, firstName: email.split('@')[0] })));
+            setExistingAssignments(assignmentsRes.assignments || []);
         } catch (error) {
             console.error('Load error:', error);
+            if (error.message?.includes('401')) {
+                navigate('/Home');
+            }
         } finally {
             setLoading(false);
         }
