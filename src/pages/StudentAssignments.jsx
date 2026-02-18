@@ -28,35 +28,29 @@ export default function StudentAssignments() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const sessionToken = localStorage.getItem('student_session');
         const email = localStorage.getItem('student_email');
         
-        if (!sessionToken || !email) {
+        if (!email) {
             navigate('/StudentAssignmentsLogin');
             return;
         }
 
         setStudentEmail(email);
-        loadAssignments(sessionToken);
+        loadAssignments(email);
     }, []);
 
-    const loadAssignments = async (sessionToken) => {
+    const loadAssignments = async (email) => {
         try {
             setLoading(true);
 
             const result = await api.call('getStudentAssignments', {
-                sessionToken
+                studentEmail: email
             });
 
             setAssignments(result.assignments || []);
 
         } catch (error) {
             console.error('Load assignments error:', error);
-            if (error.message?.includes('401')) {
-                localStorage.removeItem('student_session');
-                localStorage.removeItem('student_email');
-                navigate('/StudentAssignmentsLogin');
-            }
         } finally {
             setLoading(false);
         }
