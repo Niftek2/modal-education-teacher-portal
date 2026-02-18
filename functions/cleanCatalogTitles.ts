@@ -8,11 +8,12 @@ function cleanTitle(raw) {
         .trim();
 }
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
 
-        // Fetch all catalog records (paginate if needed)
         const all = await base44.asServiceRole.entities.AssignmentCatalog.list();
 
         let updated = 0;
@@ -22,19 +23,23 @@ Deno.serve(async (req) => {
             const original = record.title || '';
             const cleaned = cleanTitle(original);
 
-            // Also derive topic from the original title if not set
-            // e.g. "Money (United States) - Item 2" → topic = "Money (United States)"
-            let topic = record.topic;
+            // Derive topic from "Topic - Item N" pattern if not already set
+            let topic = record.topic || '';
             if (!topic) {
                 const match = original.match(/^(.+?)\s*-\s*(Part|Item)\s*\d+/i);
                 topic = match ? match[1].trim() : cleaned;
             }
 
-            if (cleaned !== original || (topic && topic !== record.topic)) {
-                await base44.asServiceRole.entities.AssignmentCatalog.update(record.id, {
-                    title: cleaned,
-                    topic: topic
-                });
+            const titleChanged = cleaned !== original;
+            const topicChanged = !record.topic && !!topic;
+
+            if (titleChanged || topicChanged) {
+                const patch = {};
+                if (titleChanged) patch.title = cleaned;
+                if (topicChanged) patch.topic = topic;
+
+                await base44.asServiceRole.entities.AssignmentCatalog.update(record.id, patch);
+                await delay(150); // avoid rate limit
                 console.log(`Updated: "${original}" → "${cleaned}" (topic: "${topic}")`);
                 updated++;
             } else {
