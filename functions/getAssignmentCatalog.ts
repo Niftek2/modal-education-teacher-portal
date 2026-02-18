@@ -11,16 +11,31 @@ Deno.serve(async (req) => {
             isActive: true 
         }, null, 1000);
 
-        // Sort by level then title
+        const LEVEL_ORDER = ['PK', 'K', 'L1', 'L2', 'L3', 'L4', 'L5'];
+
         const sorted = (catalog || []).sort((a, b) => {
-            if (a.level !== b.level) return a.level.localeCompare(b.level);
-            return a.title.localeCompare(b.title);
+            const levelA = LEVEL_ORDER.indexOf(a.level);
+            const levelB = LEVEL_ORDER.indexOf(b.level);
+            if (levelA !== levelB) return levelA - levelB;
+
+            const topicA = (a.topic || '').toLowerCase();
+            const topicB = (b.topic || '').toLowerCase();
+            if (topicA !== topicB) return topicA.localeCompare(topicB);
+
+            const cleanTitle = (t) => t.replace(/Part\s*\d+/gi, '').trim().toLowerCase();
+            const titleA = cleanTitle(a.title || '');
+            const titleB = cleanTitle(b.title || '');
+            if (titleA !== titleB) return titleA.localeCompare(titleB);
+
+            return (a.title || '').localeCompare(b.title || '');
         });
 
-        return Response.json({
-            success: true,
-            catalog: sorted
-        });
+        const cleanedCatalog = sorted.map(item => ({
+            ...item,
+            displayTitle: item.title.replace(/Part\s*\d+/gi, '').trim()
+        }));
+
+        return Response.json({ success: true, catalog: cleanedCatalog });
 
     } catch (error) {
         console.error('Get catalog error:', error);

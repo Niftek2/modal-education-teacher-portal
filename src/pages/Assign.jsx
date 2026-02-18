@@ -105,10 +105,14 @@ export default function Assign() {
     };
 
     const filteredCatalog = searchTerm
-        ? catalog.filter(item =>
-            item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            resolveLevel(item).toLowerCase().includes(searchTerm.toLowerCase())
-          )
+        ? catalog.filter(item => {
+            const search = searchTerm.toLowerCase();
+            return (
+                item.title?.toLowerCase().includes(search) ||
+                item.topic?.toLowerCase().includes(search) ||
+                resolveLevel(item).toLowerCase().includes(search)
+            );
+          })
         : catalog;
 
     const grouped = groupCatalogByLevel(filteredCatalog);
