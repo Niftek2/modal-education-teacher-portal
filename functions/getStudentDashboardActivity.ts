@@ -1,5 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requireSession } from './lib/auth.js';
+import { requireTeacherSession } from './lib/auth.js';
 import * as thinkific from './lib/thinkificClient.js';
 
 async function getTeacherStudentEmails(teacherId, teacherEmail) {
