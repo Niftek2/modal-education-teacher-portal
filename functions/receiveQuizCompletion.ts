@@ -9,52 +9,44 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
 
-        // Extract quiz completion data from Thinkific webhook
-        const {
-            user_id,
-            user_email,
-            user_first_name,
-            user_last_name,
-            quiz_id,
-            quiz_name,
-            course_id,
-            course_name,
-            score,
-            max_score,
-            attempt_number,
-            completed_at,
-            time_spent_seconds
-        } = body;
+        // Thinkific nests all event data inside body.payload
+        const data = body.payload;
 
-        // Validate required fields
-        if (!user_id || !quiz_id || !quiz_name || score === undefined || !max_score) {
-            return Response.json(
-                { error: 'Missing required fields' },
-                { status: 400 }
-            );
+        if (!data || !data.user || !data.quiz) {
+            return Response.json({ error: 'Invalid payload structure' }, { status: 400 });
+        }
+
+        const { score, max_score, completed_at, attempt_number, time_spent_seconds } = data;
+        const { id: user_id, email: user_email, first_name, last_name } = data.user;
+        const { id: quiz_id, name: quiz_name } = data.quiz;
+        const course_id = data.course?.id;
+        const course_name = data.course?.name;
+
+        if (!quiz_id || !quiz_name || score === undefined || !max_score) {
+            return Response.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
         const percentage = Math.round((score / max_score) * 100);
-        const studentName = `${user_first_name || ''} ${user_last_name || ''}`.trim();
+        const studentName = `${first_name || ''} ${last_name || ''}`.trim();
 
         // Store quiz completion in database
         const quizCompletion = await base44.asServiceRole.entities.QuizCompletion.create({
-            studentId: user_id,
-            studentEmail: user_email,
+            studentId: String(user_id || ''),
+            studentEmail: user_email || '',
             studentName: studentName,
-            quizId: quiz_id,
+            quizId: String(quiz_id),
             quizName: quiz_name,
-            courseId: course_id,
-            courseName: course_name,
+            courseId: course_id ? String(course_id) : '',
+            courseName: course_name || '',
             score: score,
             maxScore: max_score,
             percentage: percentage,
             attemptNumber: attempt_number || 1,
-            completedAt: completed_at,
+            completedAt: completed_at || new Date().toISOString(),
             timeSpentSeconds: time_spent_seconds || null
         });
 
-        // Auto-complete matching StudentAssignment
+        // Auto-complete matching StudentAssignment (keyed by email + quizId)
         if (user_email) {
             const normalizedEmail = user_email.trim().toLowerCase();
             const matchingAssignments = await base44.asServiceRole.entities.StudentAssignment.filter({
