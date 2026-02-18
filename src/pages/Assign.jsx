@@ -291,9 +291,10 @@ export default function Assign() {
                                                     />
                                                     <div className="min-w-0">
                                                         <p className="text-sm font-medium text-black leading-snug">{item.displayTitle || item.title}</p>
-                                                        <p className="text-xs text-gray-400 mt-0.5 capitalize">
-                                                            {item.topic ? `${item.topic} • ` : ''}{item.type}
-                                                        </p>
+                                                        {item.topic && (
+                                                            <p className="text-xs text-gray-500 uppercase tracking-wide mt-0.5">Chapter: {item.topic}</p>
+                                                        )}
+                                                        <p className="text-xs text-gray-400 mt-0.5 capitalize">{item.type}</p>
                                                     </div>
                                                 </div>
                                             );
