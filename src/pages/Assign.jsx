@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { api } from '@/components/api';
 
-// Course ID → Level label mapping (same as student portal)
 const COURSE_LEVEL_MAP = {
     '422595': 'PK',
     '422618': 'K',
@@ -17,22 +16,40 @@ const COURSE_LEVEL_MAP = {
     '496298': 'L5',
 };
 
+const LEVEL_ORDER = ['PK', 'K', 'L1', 'L2', 'L3', 'L4', 'L5'];
+
 function resolveLevel(item) {
     const fromCourse = item.courseId && COURSE_LEVEL_MAP[String(item.courseId)];
     return fromCourse || item.level || '—';
+}
+
+function groupCatalogByLevel(catalog) {
+    const grouped = {};
+    for (const level of LEVEL_ORDER) {
+        grouped[level] = [];
+    }
+    grouped['Other'] = [];
+
+    for (const item of catalog) {
+        const level = resolveLevel(item);
+        if (grouped[level] !== undefined) {
+            grouped[level].push(item);
+        } else {
+            grouped['Other'].push(item);
+        }
+    }
+    return grouped;
 }
 
 export default function Assign() {
     const [loading, setLoading] = useState(true);
     const [students, setStudents] = useState([]);
     const [catalog, setCatalog] = useState([]);
-    const [filteredCatalog, setFilteredCatalog] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStudents, setSelectedStudents] = useState([]);
     const [selectedAssignmentIds, setSelectedAssignmentIds] = useState([]);
     const [dueDate, setDueDate] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [syncing, setSyncing] = useState(false);
     const [existingAssignments, setExistingAssignments] = useState([]);
     const navigate = useNavigate();
 
@@ -49,149 +66,92 @@ export default function Assign() {
         try {
             setLoading(true);
 
-            // Get teacher data (students)
-            const teacherData = await api.call('getTeacherData', { sessionToken }, sessionToken);
-            
-            // Get students from activity (same pattern as dashboard)
-            const activityResponse = await api.call('getStudentActivityForTeacher', {
-                sessionToken
-            }, sessionToken);
+            const [activityResponse, catalogResponse, assignmentsResponse] = await Promise.all([
+                api.call('getStudentActivityForTeacher', { sessionToken }, sessionToken),
+                api.call('getAssignmentCatalog', { sessionToken }, sessionToken),
+                api.call('getTeacherAssignments', { sessionToken }, sessionToken),
+            ]);
 
             const rosterStudents = activityResponse.studentEmails.map(email => ({
                 email,
                 firstName: email.split('@')[0],
-                lastName: ''
             }));
-
             setStudents(rosterStudents);
 
-            // Get catalog — filter out [TEST] entries
-            const catalogResponse = await api.call('getAssignmentCatalog', { sessionToken }, sessionToken);
+            // Filter out [TEST] entries
             const catalogData = (catalogResponse.catalog || []).filter(item =>
                 !item.title?.startsWith('[TEST]') && !item.level?.startsWith('[TEST]')
             );
             setCatalog(catalogData);
-            setFilteredCatalog(catalogData);
-
-            // Get existing assignments to show completion status
-            const assignmentsResponse = await api.call('getTeacherAssignments', { sessionToken }, sessionToken);
             setExistingAssignments(assignmentsResponse.assignments || []);
-
         } catch (error) {
             console.error('Load error:', error);
-            if (error.message?.includes('401')) {
-                navigate('/Home');
-            }
+            if (error.message?.includes('401')) navigate('/Home');
         } finally {
             setLoading(false);
         }
     };
 
     const toggleStudent = (email) => {
-        setSelectedStudents(prev => 
-            prev.includes(email) 
-                ? prev.filter(e => e !== email)
-                : [...prev, email]
+        setSelectedStudents(prev =>
+            prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]
         );
     };
 
-    const toggleAll = () => {
-        if (selectedStudents.length === students.length) {
-            setSelectedStudents([]);
-        } else {
-            setSelectedStudents(students.map(s => s.email));
-        }
+    const toggleAllStudents = () => {
+        setSelectedStudents(prev =>
+            prev.length === students.length ? [] : students.map(s => s.email)
+        );
     };
 
-    const toggleAssignment = (catalogId) => {
+    const toggleAssignment = (id) => {
         setSelectedAssignmentIds(prev =>
-            prev.includes(catalogId)
-                ? prev.filter(id => id !== catalogId)
-                : [...prev, catalogId]
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
         );
     };
 
-    const handleSearchChange = (e) => {
-        const term = e.target.value;
-        setSearchTerm(term);
-        
-        if (!term) {
-            setFilteredCatalog(catalog);
-        } else {
-            const filtered = catalog.filter(item => 
-                item.title.toLowerCase().includes(term.toLowerCase()) ||
-                item.level.toLowerCase().includes(term.toLowerCase())
-            );
-            setFilteredCatalog(filtered);
-        }
-    };
+    const filteredCatalog = searchTerm
+        ? catalog.filter(item =>
+            item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            resolveLevel(item).toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        : catalog;
 
-    const handleSyncLessons = async () => {
-        try {
-            setSyncing(true);
-            const sessionToken = localStorage.getItem('modal_math_session');
-            
-            const result = await api.call('syncThinkificLessons', { sessionToken }, sessionToken);
-            
-            alert(result.message || 'Lessons synced successfully');
-            
-            // Reload catalog
-            await loadData(sessionToken);
-        } catch (error) {
-            console.error('Sync error:', error);
-            alert(error.message || 'Failed to sync lessons');
-        } finally {
-            setSyncing(false);
-        }
-    };
+    const grouped = groupCatalogByLevel(filteredCatalog);
 
     const handleAssign = async () => {
         if (selectedAssignmentIds.length === 0 || selectedStudents.length === 0) {
             alert('Please select at least one student and one assignment.');
             return;
         }
-
         try {
             setSubmitting(true);
             const sessionToken = localStorage.getItem('modal_math_session');
-            
-            const assignmentsToCreate = [];
+
+            const calls = [];
             for (const studentEmail of selectedStudents) {
                 for (const catalogId of selectedAssignmentIds) {
-                    assignmentsToCreate.push(api.call('createAssignments', {
+                    calls.push(api.call('createAssignments', {
                         sessionToken,
                         studentEmails: [studentEmail],
-                        catalogId: catalogId,
+                        catalogId,
                         dueAt: dueDate ? new Date(dueDate).toISOString() : null
                     }, sessionToken));
                 }
             }
-            
-            await Promise.all(assignmentsToCreate);
+            await Promise.all(calls);
 
             alert(`Successfully assigned ${selectedAssignmentIds.length} lesson(s) to ${selectedStudents.length} student(s)`);
-            
-            // Reload data
             await loadData(sessionToken);
-            
-            // Reset form
             setSelectedStudents([]);
             setSelectedAssignmentIds([]);
             setDueDate('');
-
         } catch (error) {
             console.error('Assignment error:', error);
             alert(error.message || 'Failed to create assignments');
         } finally {
             setSubmitting(false);
         }
-    };
-
-    const getStudentAssignmentStats = (studentEmail) => {
-        const studentAssignments = existingAssignments.filter(a => a.studentEmail === studentEmail);
-        const completed = studentAssignments.filter(a => a.status === 'completed').length;
-        const total = studentAssignments.length;
-        return { completed, total };
     };
 
     if (loading) {
@@ -206,216 +166,187 @@ export default function Assign() {
     }
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-gray-50">
             {/* Header */}
             <header className="border-b border-gray-200 bg-white sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                <div className="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost"
-                            onClick={() => navigate('/Dashboard')}
-                            className="text-gray-600 hover:text-black"
-                        >
+                        <Button variant="ghost" onClick={() => navigate('/Dashboard')} className="text-gray-600 hover:text-black">
                             <ArrowLeft className="w-4 h-4 mr-2" />
                             Back to Dashboard
                         </Button>
-                        <h1 className="text-2xl font-bold text-black">Assign Work</h1>
+                        <h1 className="text-xl font-bold text-black">Assign Work</h1>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {(selectedStudents.length > 0 || selectedAssignmentIds.length > 0) && (
+                            <span className="text-sm text-gray-500">
+                                {selectedStudents.length} student{selectedStudents.length !== 1 ? 's' : ''} · {selectedAssignmentIds.length} lesson{selectedAssignmentIds.length !== 1 ? 's' : ''}
+                            </span>
+                        )}
+                        <div>
+                            <label className="text-xs text-gray-500 mr-2">Due Date (optional)</label>
+                            <input
+                                type="date"
+                                value={dueDate}
+                                onChange={(e) => setDueDate(e.target.value)}
+                                className="text-sm border border-gray-300 rounded-md px-2 py-1"
+                            />
+                        </div>
+                        <Button
+                            onClick={handleAssign}
+                            disabled={submitting || selectedAssignmentIds.length === 0 || selectedStudents.length === 0}
+                            className="bg-purple-900 hover:bg-purple-800 text-white"
+                        >
+                            {submitting ? 'Assigning...' : 'Assign'}
+                        </Button>
                     </div>
                 </div>
             </header>
 
-            {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-6 py-8">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Left: Student Selection */}
-                    <div className="bg-white border border-gray-200 rounded-xl p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-black flex items-center gap-2">
-                                <Users className="w-5 h-5" />
-                                Select Students
-                            </h2>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={toggleAll}
-                            >
-                                {selectedStudents.length === students.length ? 'Deselect All' : 'Select All'}
-                            </Button>
-                        </div>
+            {/* Split Layout */}
+            <div className="max-w-screen-xl mx-auto flex h-[calc(100vh-65px)]">
 
-                        <div className="space-y-2 max-h-96 overflow-y-auto">
-                            {students.map((student) => {
-                                const stats = getStudentAssignmentStats(student.email);
-                                return (
-                                    <div
-                                        key={student.email}
-                                        className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <Checkbox
-                                                checked={selectedStudents.includes(student.email)}
-                                                onCheckedChange={() => toggleStudent(student.email)}
-                                            />
-                                            <div>
-                                                <p className="font-medium text-black">
-                                                    {student.firstName} {student.lastName}
-                                                </p>
-                                                <p className="text-xs text-gray-500">{student.email}</p>
-                                            </div>
-                                        </div>
-                                        {stats.total > 0 && (
-                                            <div className="text-xs text-gray-600">
-                                                {stats.completed}/{stats.total} completed
-                                            </div>
+                {/* LEFT: Student Roster */}
+                <aside className="w-72 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
+                    <div className="px-4 py-4 border-b border-gray-200">
+                        <div className="flex items-center justify-between mb-1">
+                            <h2 className="font-semibold text-black flex items-center gap-2">
+                                <Users className="w-4 h-4" /> Students
+                            </h2>
+                            <button onClick={toggleAllStudents} className="text-xs text-purple-700 hover:underline">
+                                {selectedStudents.length === students.length ? 'Deselect All' : 'Select All'}
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-500">{selectedStudents.length} of {students.length} selected</p>
+                    </div>
+                    <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+                        {students.map((student) => {
+                            const studentAssignments = existingAssignments.filter(a => a.studentEmail === student.email);
+                            const completed = studentAssignments.filter(a => a.status === 'completed').length;
+                            const total = studentAssignments.length;
+                            return (
+                                <div
+                                    key={student.email}
+                                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 ${selectedStudents.includes(student.email) ? 'bg-purple-50' : ''}`}
+                                    onClick={() => toggleStudent(student.email)}
+                                >
+                                    <Checkbox
+                                        checked={selectedStudents.includes(student.email)}
+                                        onCheckedChange={() => toggleStudent(student.email)}
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-black truncate">{student.firstName}</p>
+                                        <p className="text-xs text-gray-400 truncate">{student.email}</p>
+                                        {total > 0 && (
+                                            <p className="text-xs text-gray-400">{completed}/{total} done</p>
                                         )}
                                     </div>
-                                );
-                            })}
-                        </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </aside>
 
-                        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                            <p className="text-sm text-gray-600">
-                                {selectedStudents.length} student{selectedStudents.length !== 1 ? 's' : ''} selected
-                            </p>
+                {/* RIGHT: Catalog */}
+                <main className="flex-1 overflow-y-auto p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="relative flex-1 max-w-sm">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input
+                                type="text"
+                                placeholder="Search lessons..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-9"
+                            />
                         </div>
+                        <p className="text-sm text-gray-500 ml-4">{selectedAssignmentIds.length} lesson{selectedAssignmentIds.length !== 1 ? 's' : ''} selected</p>
                     </div>
 
-                    {/* Right: Assignment Selection */}
-                    <div className="bg-white border border-gray-200 rounded-xl p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-black">Assignment Details</h2>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleSyncLessons}
-                                disabled={syncing}
-                            >
-                                <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                                Sync Lessons
-                            </Button>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Search Assignments
-                                </label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                    <Input
-                                        type="text"
-                                        placeholder="Search by title or level..."
-                                        value={searchTerm}
-                                        onChange={handleSearchChange}
-                                        className="pl-10"
-                                    />
+                    <div className="space-y-6">
+                        {LEVEL_ORDER.map(level => {
+                            const items = grouped[level] || [];
+                            if (items.length === 0) return null;
+                            const allSelected = items.every(i => selectedAssignmentIds.includes(i.id));
+                            return (
+                                <div key={level}>
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <span className="inline-block bg-purple-900 text-white text-xs font-bold px-3 py-1 rounded-full">{level}</span>
+                                        <span className="text-xs text-gray-400">{items.length} lesson{items.length !== 1 ? 's' : ''}</span>
+                                        <button
+                                            onClick={() => {
+                                                if (allSelected) {
+                                                    setSelectedAssignmentIds(prev => prev.filter(id => !items.some(i => i.id === id)));
+                                                } else {
+                                                    setSelectedAssignmentIds(prev => [...new Set([...prev, ...items.map(i => i.id)])]);
+                                                }
+                                            }}
+                                            className="text-xs text-purple-700 hover:underline ml-auto"
+                                        >
+                                            {allSelected ? 'Deselect all' : 'Select all'}
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                        {items.map(item => {
+                                            const selected = selectedAssignmentIds.includes(item.id);
+                                            return (
+                                                <div
+                                                    key={item.id}
+                                                    onClick={() => toggleAssignment(item.id)}
+                                                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selected ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
+                                                >
+                                                    <Checkbox
+                                                        checked={selected}
+                                                        onCheckedChange={() => toggleAssignment(item.id)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="mt-0.5 flex-shrink-0"
+                                                    />
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-medium text-black leading-snug">{item.title}</p>
+                                                        <p className="text-xs text-gray-400 mt-0.5 capitalize">{item.type}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    {filteredCatalog.length} of {catalog.length} lessons
-                                </p>
-                            </div>
-
+                            );
+                        })}
+                        {grouped['Other']?.length > 0 && (
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Choose Assignments ({selectedAssignmentIds.length} selected)
-                                </label>
-                                <div className="border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto space-y-2">
-                                    {filteredCatalog.length === 0 ? (
-                                        <p className="text-sm text-gray-500">No assignments match your search</p>
-                                    ) : (
-                                        filteredCatalog.map((item) => (
+                                <div className="flex items-center gap-3 mb-2">
+                                    <span className="inline-block bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full">Other</span>
+                                    <span className="text-xs text-gray-400">{grouped['Other'].length} lesson{grouped['Other'].length !== 1 ? 's' : ''}</span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                    {grouped['Other'].map(item => {
+                                        const selected = selectedAssignmentIds.includes(item.id);
+                                        return (
                                             <div
                                                 key={item.id}
-                                                className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50"
+                                                onClick={() => toggleAssignment(item.id)}
+                                                className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selected ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
                                             >
                                                 <Checkbox
-                                                    checked={selectedAssignmentIds.includes(item.id)}
+                                                    checked={selected}
                                                     onCheckedChange={() => toggleAssignment(item.id)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="mt-0.5 flex-shrink-0"
                                                 />
-                                                <div className="flex-1">
-                                                    <p className="text-sm font-medium text-black">
-                                                        {item.title}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500">
-                                                        Level: {resolveLevel(item)} • {item.type}
-                                                    </p>
+                                                <div>
+                                                    <p className="text-sm font-medium text-black">{item.title}</p>
+                                                    <p className="text-xs text-gray-400 capitalize">{item.type}</p>
                                                 </div>
                                             </div>
-                                        ))
-                                    )}
+                                        );
+                                    })}
                                 </div>
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Due Date (optional)
-                                </label>
-                                <Input
-                                    type="date"
-                                    value={dueDate}
-                                    onChange={(e) => setDueDate(e.target.value)}
-                                />
-                            </div>
-
-                            <Button
-                                onClick={handleAssign}
-                                disabled={submitting || selectedAssignmentIds.length === 0 || selectedStudents.length === 0}
-                                className="w-full bg-purple-900 hover:bg-purple-800 text-white"
-                            >
-                                {submitting ? 'Assigning...' : `Assign ${selectedAssignmentIds.length} Lesson(s) to ${selectedStudents.length} Student(s)`}
-                            </Button>
-                        </div>
+                        )}
                     </div>
-                </div>
-
-                {/* Recent Assignments Table */}
-                <div className="mt-8 bg-white border border-gray-200 rounded-xl p-6">
-                    <h2 className="text-lg font-semibold text-black mb-4">Recent Assignments</h2>
-                    
-                    {existingAssignments.length === 0 ? (
-                        <p className="text-gray-500 text-center py-8">No assignments yet</p>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b border-gray-200 text-left">
-                                        <th className="pb-2 font-semibold text-sm text-gray-700">Student</th>
-                                        <th className="pb-2 font-semibold text-sm text-gray-700">Assignment</th>
-                                        <th className="pb-2 font-semibold text-sm text-gray-700">Level</th>
-                                        <th className="pb-2 font-semibold text-sm text-gray-700">Assigned</th>
-                                        <th className="pb-2 font-semibold text-sm text-gray-700">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {existingAssignments.slice(0, 20).map((assignment) => (
-                                        <tr key={assignment.id} className="border-b border-gray-100">
-                                            <td className="py-3 text-sm text-gray-900">{assignment.studentEmail.split('@')[0]}</td>
-                                            <td className="py-3 text-sm text-gray-900">{assignment.title}</td>
-                                            <td className="py-3 text-sm text-gray-600">{resolveLevel(assignment)}</td>
-                                            <td className="py-3 text-sm text-gray-600">
-                                                {new Date(assignment.assignedAt).toLocaleDateString()}
-                                            </td>
-                                            <td className="py-3">
-                                                {assignment.status === 'completed' ? (
-                                                    <span className="inline-flex items-center gap-1 text-green-600 text-sm">
-                                                        <CheckCircle2 className="w-4 h-4" />
-                                                        Completed
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1 text-gray-500 text-sm">
-                                                        <Clock className="w-4 h-4" />
-                                                        Assigned
-                                                    </span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            </main>
+                </main>
+            </div>
         </div>
     );
 }
