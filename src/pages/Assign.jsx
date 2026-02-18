@@ -72,7 +72,9 @@ export default function Assign() {
                 !item.title?.startsWith('[TEST]') && item.level !== '[TEST]'
             );
             setCatalog(catalogData);
-            setStudents((rosterRes.studentEmails || []).map(email => ({ email, firstName: email.split('@')[0] })));
+            setStudents((rosterRes.studentEmails || [])
+                .filter(email => email.endsWith('@modalmath.com'))
+                .map(email => ({ email, firstName: email.split('@')[0] })));
             setExistingAssignments(assignmentsRes.assignments || []);
         } catch (error) {
             console.error('Load error:', error);
@@ -131,7 +133,7 @@ export default function Assign() {
                 }, activeToken)
             );
             await Promise.all(calls);
-            alert(`Assigned ${selectedAssignmentIds.length} lesson(s) to ${selectedStudents.length} student(s).`);
+            alert(`✅ Assignments successfully sent to ${selectedStudents.length} student(s)!`);
             setSelectedStudents([]);
             setSelectedAssignmentIds([]);
             setDueDate('');

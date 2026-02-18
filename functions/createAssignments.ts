@@ -34,6 +34,12 @@ Deno.serve(async (req) => {
         const assignments = [];
         for (const studentEmail of studentEmails) {
             const normalizedEmail = studentEmail.trim().toLowerCase();
+            
+            // Only process @modalmath.com emails
+            if (!normalizedEmail.endsWith('@modalmath.com')) {
+                console.warn(`Skipping non-modalmath email: ${normalizedEmail}`);
+                continue;
+            }
             const dedupeKey = `assign:${normalizedEmail}:${catalogId}`;
 
             const assignment = {
