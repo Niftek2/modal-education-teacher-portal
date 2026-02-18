@@ -290,8 +290,10 @@ export default function Assign() {
                                                         className="mt-0.5 flex-shrink-0"
                                                     />
                                                     <div className="min-w-0">
-                                                        <p className="text-sm font-medium text-black leading-snug">{item.title}</p>
-                                                        <p className="text-xs text-gray-400 mt-0.5 capitalize">{item.type}</p>
+                                                        <p className="text-sm font-medium text-black leading-snug">{item.displayTitle || item.title}</p>
+                                                        <p className="text-xs text-gray-400 mt-0.5 capitalize">
+                                                            {item.topic ? `${item.topic} • ` : ''}{item.type}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             );
