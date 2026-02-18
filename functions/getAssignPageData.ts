@@ -3,7 +3,7 @@ import { requireSession } from './lib/auth.js';
 
 const THINKIFIC_API_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-const CLASSROOM_PRODUCT_ID = Deno.env.get("CLASSROOM_PRODUCT_ID"); // "552235"
+const CLASSROOM_PRODUCT_ID = Deno.env.get("CLASSROOM_PRODUCT_ID");
 const REST_BASE = `https://${THINKIFIC_SUBDOMAIN}.thinkific.com/api/public/v1`;
 
 async function thinkificGet(path, queryParams = {}) {
@@ -22,23 +22,13 @@ async function thinkificGet(path, queryParams = {}) {
     return res.json();
 }
 
-async function findUserByEmail(email) {
-    const data = await thinkificGet('/users', { 'query[email]': email });
-    const items = data.items || [];
-    return items.length > 0 ? items[0] : null;
-}
-
-async function getUserEnrollments(userId) {
-    const data = await thinkificGet('/enrollments', { 'query[user_id]': String(userId) });
-    return data.items || [];
-}
-
 async function isEnrolledInClassroom(userId) {
-    const enrollments = await getUserEnrollments(userId);
-    return enrollments.some(e =>
-        String(e.course_id) === String(CLASSROOM_PRODUCT_ID) &&
-        (e.activated_at || e.percentage_completed !== undefined)
-    );
+    const data = await thinkificGet('/enrollments', {
+        'query[user_id]': String(userId),
+        'query[course_id]': String(CLASSROOM_PRODUCT_ID)
+    });
+    const items = data.items || [];
+    return items.length > 0;
 }
 
 async function listGroups() {
@@ -62,15 +52,17 @@ Deno.serve(async (req) => {
         const teacherId = session.userId;
 
         console.log(`[ASSIGN PAGE DATA] Teacher: ${teacherId}, ${teacherEmail}`);
+        console.log(`[ASSIGN PAGE DATA] CLASSROOM_PRODUCT_ID: ${CLASSROOM_PRODUCT_ID}`);
+        console.log(`[ASSIGN PAGE DATA] THINKIFIC_SUBDOMAIN: ${THINKIFIC_SUBDOMAIN}`);
 
-        // Rule 2: Verify teacher is enrolled in 'Your Classroom' (course 552235)
+        // Rule 2: Verify teacher is enrolled in 'Your Classroom'
         const isTeacher = await isEnrolledInClassroom(teacherId);
-        console.log(`[ASSIGN PAGE DATA] Is teacher: ${isTeacher}`);
+        console.log(`[ASSIGN PAGE DATA] isTeacher: ${isTeacher}`);
         if (!isTeacher) {
             return Response.json({ error: "Forbidden: Not authorized as a teacher." }, { status: 403 });
         }
 
-        // Rule 3: Find all groups teacher belongs to, collect @modalmath.com students
+        // Rule 3: Find groups teacher belongs to, collect @modalmath.com students
         const allGroups = await listGroups();
         console.log(`[ASSIGN PAGE DATA] Total groups: ${allGroups.length}`);
 
@@ -81,14 +73,14 @@ Deno.serve(async (req) => {
             const teacherInGroup = groupUsers.some(u => String(u.id) === String(teacherId));
 
             if (teacherInGroup) {
-                console.log(`[ASSIGN PAGE DATA] Teacher is in group: ${group.name} (${group.id}), members: ${groupUsers.length}`);
+                console.log(`[ASSIGN PAGE DATA] Teacher in group: ${group.name} (${group.id}), members: ${groupUsers.length}`);
                 for (const user of groupUsers) {
                     const email = user.email?.toLowerCase().trim();
                     if (!email) continue;
-                    if (String(user.id) === String(teacherId)) continue; // exclude self
-                    if (!email.endsWith('@modalmath.com')) continue;     // Rule 3: @modalmath.com only
+                    if (String(user.id) === String(teacherId)) continue;
+                    if (!email.endsWith('@modalmath.com')) continue;
 
-                    // Rule 3: Exclude users also enrolled in 'Your Classroom' (other teachers)
+                    // Exclude other teachers
                     const alsoTeacher = await isEnrolledInClassroom(user.id);
                     if (!alsoTeacher) {
                         studentEmailsSet.add(email);
@@ -100,7 +92,7 @@ Deno.serve(async (req) => {
         }
 
         const studentEmails = Array.from(studentEmailsSet).sort();
-        console.log(`[ASSIGN PAGE DATA] Final student roster (${studentEmails.length}):`, studentEmails);
+        console.log(`[ASSIGN PAGE DATA] Final roster (${studentEmails.length}):`, studentEmails);
 
         return Response.json({ success: true, studentEmails }, { status: 200 });
 
