@@ -1,17 +1,21 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requireSession } from './lib/auth.js';
+import { requireTeacherSession } from './lib/auth.js';
 import * as thinkific from './lib/thinkificClient.js';
 
-async function getTeacherGroups(userId) {
+async function getTeacherGroups(teacherEmail, teacherId) {
     try {
-        // Use Thinkific SDK to fetch all groups
+        const normalizedEmail = (teacherEmail || '').toLowerCase().trim();
         const allGroups = await thinkific.listGroups();
         const teacherGroups = [];
         
         for (const group of allGroups) {
             try {
                 const groupUsers = await thinkific.listGroupUsers(group.id);
-                const isMember = groupUsers.some(u => String(u.id) === String(userId));
+                const isMember = groupUsers.some(u => {
+                    if (normalizedEmail && (u.email || '').toLowerCase().trim() === normalizedEmail) return true;
+                    if (teacherId && String(u.id) === String(teacherId)) return true;
+                    return false;
+                });
                 
                 if (isMember) {
                     teacherGroups.push(group);
@@ -24,24 +28,26 @@ async function getTeacherGroups(userId) {
         return teacherGroups;
     } catch (error) {
         console.error('getTeacherGroups error:', error.message);
-        return null;
+        return [];
     }
 }
 
 Deno.serve(async (req) => {
-    const session = await requireSession(req);
+    const session = await requireTeacherSession(req);
 
     if (!session) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
+        return Response.json({ error: "Invalid teacher session" }, { status: 401 });
     }
 
     try {
+        const teacherEmail = session.email;
         
-        // Get teacher user details using Thinkific SDK
-        const user = await thinkific.getUser(session.userId);
+        // Resolve Thinkific user by email (session has teacher email, not Thinkific ID)
+        const found = await thinkific.findUserByEmail(teacherEmail);
+        const user = found || { email: teacherEmail, first_name: '', last_name: '', id: null };
         
-        // Get teacher's groups (plural - all groups, not filtered to one)
-        const groups = await getTeacherGroups(session.userId);
+        // Get teacher's groups by email
+        const groups = await getTeacherGroups(teacherEmail, user.id);
         
         return Response.json({
             teacher: {
