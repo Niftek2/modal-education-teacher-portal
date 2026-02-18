@@ -172,6 +172,12 @@ export default function StudentAssignments() {
                                                         Completed {formatDate(assignment.completedAt)}
                                                     </div>
                                                 )}
+                                                {assignment.grade != null && (
+                                                    <div className="flex items-center gap-1 text-purple-700 font-medium">
+                                                        <Star className="w-4 h-4" />
+                                                        Grade: {Math.round(assignment.grade)}%
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
