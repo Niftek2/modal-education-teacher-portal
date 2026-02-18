@@ -389,7 +389,7 @@ export default function Assign() {
                                         <tr key={assignment.id} className="border-b border-gray-100">
                                             <td className="py-3 text-sm text-gray-900">{assignment.studentEmail.split('@')[0]}</td>
                                             <td className="py-3 text-sm text-gray-900">{assignment.title}</td>
-                                            <td className="py-3 text-sm text-gray-600">{assignment.level}</td>
+                                            <td className="py-3 text-sm text-gray-600">{resolveLevel(assignment)}</td>
                                             <td className="py-3 text-sm text-gray-600">
                                                 {new Date(assignment.assignedAt).toLocaleDateString()}
                                             </td>
