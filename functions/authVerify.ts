@@ -20,15 +20,35 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Invalid token type' }, { status: 400 });
         }
 
-        // Create session JWT
+        // Check if user is enrolled in "Your Classroom" course (teacher access)
+        let isTeacher = false;
+        try {
+            const enrollUrl = `https://${Deno.env.get("THINKIFIC_SUBDOMAIN")}.thinkific.com/api/public/v1/enrollments?query[user_id]=${payload.userId}&query[course_id]=552235`;
+            const enrollRes = await fetch(enrollUrl, {
+                headers: {
+                    'Authorization': `Bearer ${Deno.env.get("THINKIFIC_API_ACCESS_TOKEN")}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (enrollRes.ok) {
+                const enrollData = await enrollRes.json();
+                isTeacher = (enrollData.items || []).length > 0;
+            }
+        } catch (e) {
+            console.warn('Teacher enrollment check failed:', e.message);
+        }
+
+        // Create long-lived session JWT (30 days)
         const sessionSecret = new TextEncoder().encode(JWT_SECRET);
         const sessionToken = await new jose.SignJWT({
             email: payload.email,
             userId: payload.userId,
-            type: 'session'
+            type: 'session',
+            isTeacher,
+            role: isTeacher ? 'teacher' : 'student'
         })
             .setProtectedHeader({ alg: 'HS256' })
-            .setExpirationTime('45m')
+            .setExpirationTime('30d')
             .setIssuedAt()
             .sign(sessionSecret);
 
@@ -37,7 +57,9 @@ Deno.serve(async (req) => {
             sessionToken,
             user: {
                 email: payload.email,
-                userId: payload.userId
+                userId: payload.userId,
+                isTeacher,
+                role: isTeacher ? 'teacher' : 'student'
             }
         });
 
