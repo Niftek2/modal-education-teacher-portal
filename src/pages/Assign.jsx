@@ -65,9 +65,11 @@ export default function Assign() {
 
             setStudents(rosterStudents);
 
-            // Get catalog
+            // Get catalog — filter out [TEST] entries
             const catalogResponse = await api.call('getAssignmentCatalog', { sessionToken }, sessionToken);
-            const catalogData = catalogResponse.catalog || [];
+            const catalogData = (catalogResponse.catalog || []).filter(item =>
+                !item.title?.startsWith('[TEST]') && !item.level?.startsWith('[TEST]')
+            );
             setCatalog(catalogData);
             setFilteredCatalog(catalogData);
 
