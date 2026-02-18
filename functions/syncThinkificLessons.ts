@@ -13,59 +13,59 @@ const COURSE_IDS = {
     L5: '496298'
 };
 
-async function fetchThinkificLessons(courseId, base44) {
-    const chaptersResponse = await fetch(
-        `https://api.thinkific.com/api/public/v1/courses/${courseId}/chapters`,
-        {
-            headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-            }
+const DELAY_MS = 500;
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function thinkificGet(path) {
+    const url = `https://api.thinkific.com/api/public/v1${path}${path.includes('?') ? '&' : '?'}limit=250`;
+    const res = await fetch(url, {
+        headers: {
+            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
         }
-    );
-
-    if (!chaptersResponse.ok) {
-        const errorText = await chaptersResponse.text();
-        console.error(`Failed to fetch chapters for course ${courseId}: ${chaptersResponse.status} - ${errorText}`);
-        throw new Error(`Failed to fetch chapters for course ${courseId}: ${chaptersResponse.status}`);
+    });
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Thinkific API ${res.status} for ${path}: ${text}`);
     }
+    return res.json();
+}
 
-    const chaptersData = await chaptersResponse.json();
+// Clean a lesson title: strip "- Part N", "- Item N" suffixes
+function cleanTitle(raw) {
+    return raw
+        .replace(/\s*-\s*(Part|Item)\s*\d+\s*$/gi, '')
+        .replace(/\s*(Part|Item)\s*\d+\s*$/gi, '')
+        .trim();
+}
+
+async function fetchThinkificLessons(courseId) {
+    const chaptersData = await thinkificGet(`/courses/${courseId}/chapters`);
+    await delay(DELAY_MS);
+
     const lessons = [];
 
-    // Fetch actual lesson names from Thinkific API
     for (const chapter of chaptersData.items || []) {
+        const topic = chapter.name || '';
+
         if (chapter.content_ids && Array.isArray(chapter.content_ids)) {
-            for (let i = 0; i < chapter.content_ids.length; i++) {
-                const contentId = chapter.content_ids[i];
-                const contentIdStr = String(contentId);
+            for (const contentId of chapter.content_ids) {
+                let lessonTitle = topic; // safe fallback: chapter name without "Item N"
 
-                let lessonTitle = `${chapter.name} - Item ${i + 1}`; // Fallback
-                
                 try {
-                    const contentResponse = await fetch(
-                        `https://api.thinkific.com/api/public/v1/courses/${courseId}/content_elements/${contentId}`,
-                        {
-                            headers: {
-                                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-                            }
-                        }
-                    );
-
-                    if (contentResponse.ok) {
-                        const contentData = await contentResponse.json();
-                        if (contentData.name) {
-                            lessonTitle = contentData.name;
-                        }
+                    const contentData = await thinkificGet(`/contents/${contentId}`);
+                    await delay(DELAY_MS);
+                    if (contentData.name) {
+                        lessonTitle = contentData.name;
                     }
-                } catch (error) {
-                    console.warn(`Could not fetch name for content ${contentId}:`, error.message);
+                } catch (err) {
+                    console.warn(`Could not fetch content ${contentId}: ${err.message}`);
                 }
-                
+
                 lessons.push({
-                    lessonId: contentIdStr,
-                    title: lessonTitle,
+                    lessonId: String(contentId),
+                    title: cleanTitle(lessonTitle),
+                    topic: topic,
                     courseId: String(courseId)
                 });
             }
@@ -78,57 +78,50 @@ async function fetchThinkificLessons(courseId, base44) {
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        
-        // No authentication required - catalog is public
-        
+
         let totalLessons = 0;
         let totalCreated = 0;
         let totalUpdated = 0;
+        const errors = [];
 
         for (const [level, courseId] of Object.entries(COURSE_IDS)) {
             if (!courseId) continue;
+            console.log(`Syncing ${level} (courseId=${courseId})...`);
 
             try {
-                const lessons = await fetchThinkificLessons(courseId, base44);
+                const lessons = await fetchThinkificLessons(courseId);
                 totalLessons += lessons.length;
+                console.log(`  Found ${lessons.length} lessons`);
 
-            for (const lesson of lessons) {
-                const thinkificUrl = `https://${THINKIFIC_SUBDOMAIN}.thinkific.com/courses/take/${courseId}/lessons/${lesson.lessonId}`;
-                
-                // Check if already exists
-                const existing = await base44.asServiceRole.entities.AssignmentCatalog.filter({
-                    lessonId: lesson.lessonId
-                });
+                for (const lesson of lessons) {
+                    const thinkificUrl = `https://${THINKIFIC_SUBDOMAIN}.thinkific.com/courses/take/${courseId}/lessons/${lesson.lessonId}`;
 
-                if (existing && existing.length > 0) {
-                    // Update existing
-                    await base44.asServiceRole.entities.AssignmentCatalog.update(existing[0].id, {
+                    const existing = await base44.asServiceRole.entities.AssignmentCatalog.filter({
+                        lessonId: lesson.lessonId
+                    });
+
+                    const payload = {
                         title: lesson.title,
-                        level: level,
+                        topic: lesson.topic,
+                        level,
                         type: 'lesson',
                         courseId: lesson.courseId,
                         lessonId: lesson.lessonId,
-                        thinkificUrl: thinkificUrl,
+                        thinkificUrl,
                         isActive: true
-                    });
-                    totalUpdated++;
-                } else {
-                    // Create new
-                    await base44.asServiceRole.entities.AssignmentCatalog.create({
-                        title: lesson.title,
-                        level: level,
-                        type: 'lesson',
-                        courseId: lesson.courseId,
-                        lessonId: lesson.lessonId,
-                        thinkificUrl: thinkificUrl,
-                        isActive: true
-                    });
-                    totalCreated++;
+                    };
+
+                    if (existing && existing.length > 0) {
+                        await base44.asServiceRole.entities.AssignmentCatalog.update(existing[0].id, payload);
+                        totalUpdated++;
+                    } else {
+                        await base44.asServiceRole.entities.AssignmentCatalog.create(payload);
+                        totalCreated++;
+                    }
                 }
-            }
             } catch (error) {
-                console.error(`Error syncing course ${courseId} (${level}):`, error.message);
-                // Continue with next course instead of failing completely
+                console.error(`Error syncing ${level} (${courseId}): ${error.message}`);
+                errors.push({ level, courseId, error: error.message });
             }
         }
 
@@ -137,7 +130,8 @@ Deno.serve(async (req) => {
             totalLessons,
             created: totalCreated,
             updated: totalUpdated,
-            message: `Synced ${totalLessons} lessons from Thinkific (${totalCreated} created, ${totalUpdated} updated)`
+            errors,
+            message: `Synced ${totalLessons} lessons (${totalCreated} created, ${totalUpdated} updated, ${errors.length} course errors)`
         });
 
     } catch (error) {
