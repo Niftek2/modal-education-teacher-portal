@@ -47,7 +47,6 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
-import Assign from './pages/Assign';
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import ManageCatalog from './pages/ManageCatalog';
@@ -61,7 +60,6 @@ import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
-    "Assign": Assign,
     "Dashboard": Dashboard,
     "Home": Home,
     "ManageCatalog": ManageCatalog,
