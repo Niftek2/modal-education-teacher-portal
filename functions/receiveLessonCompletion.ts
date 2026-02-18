@@ -22,6 +22,26 @@ Deno.serve(async (req) => {
             completedAt: new Date().toISOString()
         });
 
+        // Auto-complete matching StudentAssignment
+        const studentEmail = payload.user_email?.toLowerCase().trim();
+        const lessonId = String(payload.lesson_id);
+
+        if (studentEmail && lessonId) {
+            const assignments = await base44.asServiceRole.entities.StudentAssignment.filter({
+                studentEmail,
+                lessonId,
+                status: 'assigned'
+            });
+
+            if (assignments.length > 0) {
+                await base44.asServiceRole.entities.StudentAssignment.update(assignments[0].id, {
+                    status: 'completed',
+                    completedAt: new Date().toISOString()
+                });
+                console.log(`[receiveLessonCompletion] Marked Assignment ${assignments[0].id} as completed.`);
+            }
+        }
+
         return Response.json({ 
             success: true, 
             lessonCompletionId: lessonCompletion.id
