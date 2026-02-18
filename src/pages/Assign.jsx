@@ -4,8 +4,23 @@ import { ArrowLeft, Users, CheckCircle2, Clock, Search, RefreshCw } from 'lucide
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/components/api';
+
+// Course ID → Level label mapping (same as student portal)
+const COURSE_LEVEL_MAP = {
+    '422595': 'PK',
+    '422618': 'K',
+    '422620': 'L1',
+    '496294': 'L2',
+    '496295': 'L3',
+    '496297': 'L4',
+    '496298': 'L5',
+};
+
+function resolveLevel(item) {
+    const fromCourse = item.courseId && COURSE_LEVEL_MAP[String(item.courseId)];
+    return fromCourse || item.level || '—';
+}
 
 export default function Assign() {
     const [loading, setLoading] = useState(true);
