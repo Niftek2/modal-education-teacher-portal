@@ -66,6 +66,9 @@ export default function Assign() {
                 api.call('getTeacherAssignments', { sessionToken }, sessionToken),
             ]);
 
+            console.log('getStudentActivityForTeacher response:', activityRes);
+            console.log('getAssignmentCatalog response:', catalogRes);
+
             setStudents((activityRes.studentEmails || []).map(email => ({ email, firstName: email.split('@')[0] })));
 
             const catalogData = (catalogRes.catalog || []).filter(item =>
