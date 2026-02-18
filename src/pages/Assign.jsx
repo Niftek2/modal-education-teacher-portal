@@ -234,7 +234,15 @@ export default function Assign() {
             {/* Auth warning banner */}
             {authError && (
                 <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-2 text-sm text-yellow-800 flex items-center justify-between">
-                    <span>Your session has expired. Student roster is unavailable — catalog is still visible. <a href="/Home" className="underline font-medium">Log in again</a> to restore full access.</span>
+                    <span>⚠️ Your session has expired. Student roster is unavailable — catalog is still visible below. <a href="/Home" className="underline font-medium">Log in again</a> to restore full access.</span>
+                    <button
+                        className="ml-4 text-xs bg-yellow-200 hover:bg-yellow-300 px-3 py-1 rounded font-medium"
+                        onClick={async () => {
+                            const tok = localStorage.getItem('modal_math_session');
+                            const newTok = await refreshAndLoad(tok);
+                            if (newTok) loadData(newTok);
+                        }}
+                    >Retry</button>
                 </div>
             )}
 
