@@ -1,11 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requireTeacherSession } from './lib/auth.js';
+import { requireSession } from './lib/auth.js';
 
 Deno.serve(async (req) => {
-    const session = await requireTeacherSession(req);
+    const session = await requireSession(req);
 
     if (!session) {
-        return Response.json({ error: "Invalid teacher session" }, { status: 401 });
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     try {
@@ -24,10 +24,13 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Assignment is not active' }, { status: 400 });
         }
 
-        // Get teacher's groups by teacherEmail
+        // Get teacher's groups (reuse existing logic pattern)
         const teacherGroups = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail });
-        // Use first group found, or fall back to a placeholder if none (assignments still tracked by email)
-        const groupId = (teacherGroups && teacherGroups.length > 0) ? teacherGroups[0].thinkificGroupId : 'unknown';
+        if (!teacherGroups || teacherGroups.length === 0) {
+            return Response.json({ error: 'No groups found for teacher' }, { status: 404 });
+        }
+
+        const groupId = teacherGroups[0].thinkificGroupId;
         const now = new Date().toISOString();
         const assignedDay = now.split('T')[0];
 

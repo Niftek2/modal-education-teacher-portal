@@ -1,9 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { SignJWT } from 'npm:jose@5.9.6';
-import * as thinkific from './lib/thinkificClient.js';
 
 const JWT_SECRET = Deno.env.get('JWT_SECRET');
-const PK_COURSE_ID = Deno.env.get('PK_COURSE_ID');
 
 Deno.serve(async (req) => {
     try {
@@ -12,30 +10,13 @@ Deno.serve(async (req) => {
 
         const normalizedEmail = studentEmail.trim().toLowerCase();
 
-        // Check email domain
-        if (!normalizedEmail.endsWith('@modalmath.com')) {
-            return Response.json({ error: 'Invalid student email domain' }, { status: 401 });
-        }
-
-        // Find user in Thinkific
-        const thinkificUser = await thinkific.findUserByEmail(normalizedEmail);
-
-        if (!thinkificUser || !thinkificUser.id) {
-            return Response.json({ error: 'Student not found in Thinkific' }, { status: 401 });
-        }
-
-        // Verify active enrollment in PK course
-        const enrollments = await thinkific.listEnrollments({
-            'query[user_id]': thinkificUser.id,
-            'query[course_id]': PK_COURSE_ID
+        // Check if student exists
+        const students = await base44.asServiceRole.entities.StudentAccessCode.filter({ 
+            studentEmail: normalizedEmail 
         });
 
-        const hasActiveEnrollment = enrollments.some(enrollment =>
-            enrollment.activated_at && !enrollment.expired
-        );
-
-        if (!hasActiveEnrollment) {
-            return Response.json({ error: 'No active enrollment in PK course' }, { status: 401 });
+        if (!students || students.length === 0) {
+            return Response.json({ error: 'Student not found' }, { status: 401 });
         }
 
         // Generate JWT (7 days)

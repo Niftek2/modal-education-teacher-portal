@@ -1,29 +1,20 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requireTeacherSession } from './lib/auth.js';
+import { requireSession } from './lib/auth.js';
 import * as thinkific from './lib/thinkificClient.js';
 
 async function getTeacherStudentEmails(teacherId, teacherEmail) {
     // Get all groups where teacher is a member
     const allGroups = await thinkific.listGroups();
     const studentEmails = new Set();
-    const normalizedTeacherEmail = (teacherEmail || '').toLowerCase().trim();
     
     for (const group of allGroups) {
         const groupUsers = await thinkific.listGroupUsers(group.id);
-        // Match teacher by email (primary) or Thinkific ID (fallback)
-        const isMember = groupUsers.some(u => {
-            if (normalizedTeacherEmail && (u.email || '').toLowerCase().trim() === normalizedTeacherEmail) return true;
-            if (teacherId && String(u.id) === String(teacherId)) return true;
-            return false;
-        });
+        const isMember = groupUsers.some(u => String(u.id) === String(teacherId));
         
         if (isMember) {
             groupUsers.forEach(user => {
-                const userEmail = (user.email || '').toLowerCase().trim();
-                const isTeacher = userEmail === normalizedTeacherEmail ||
-                                  (teacherId && String(user.id) === String(teacherId));
-                if (userEmail && !isTeacher) {
-                    studentEmails.add(userEmail);
+                if (user.email && String(user.id) !== String(teacherId)) {
+                    studentEmails.add(user.email.toLowerCase().trim());
                 }
             });
         }
@@ -46,27 +37,25 @@ function normalizeEventType(eventType) {
 }
 
 Deno.serve(async (req) => {
-    const session = await requireTeacherSession(req);
+    const session = await requireSession(req);
 
     if (!session) {
-        return Response.json({ error: "Invalid teacher session" }, { status: 401 });
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     try {
         const body = await req.json();
         const { limit = 5000 } = body;
         
+        const teacherId = session.userId;
         const teacherEmail = session.email;
         
-        console.log(`[DASHBOARD ACTIVITY] Teacher email: ${teacherEmail}`);
+        console.log(`[DASHBOARD ACTIVITY] Teacher: ${teacherId}, ${teacherEmail}`);
         
-        // Always resolve Thinkific ID from email (session may have Base44 userId, not Thinkific userId)
-        const found = await thinkific.findUserByEmail(teacherEmail);
-        const resolvedTeacherId = found?.id ? String(found.id) : null;
-        console.log(`[DASHBOARD ACTIVITY] Resolved Thinkific teacherId: ${resolvedTeacherId}`);
+        const teacherUser = await thinkific.getUser(teacherId);
         
         // Get student roster (emails only)
-        const studentEmails = await getTeacherStudentEmails(resolvedTeacherId, teacherEmail);
+        const studentEmails = await getTeacherStudentEmails(teacherId, teacherUser.email);
         console.log(`[DASHBOARD ACTIVITY] Found ${studentEmails.length} students:`, studentEmails);
         
         // Fetch all activity events sorted by occurredAt (most recent first)
