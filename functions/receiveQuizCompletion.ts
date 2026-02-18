@@ -54,6 +54,27 @@ Deno.serve(async (req) => {
             timeSpentSeconds: time_spent_seconds || null
         });
 
+        // Auto-complete matching StudentAssignment
+        if (user_email) {
+            const normalizedEmail = user_email.trim().toLowerCase();
+            const matchingAssignments = await base44.asServiceRole.entities.StudentAssignment.filter({
+                studentEmail: normalizedEmail,
+                quizId: String(quiz_id),
+                status: 'assigned'
+            });
+
+            for (const assignment of matchingAssignments) {
+                await base44.asServiceRole.entities.StudentAssignment.update(assignment.id, {
+                    status: 'completed',
+                    completedAt: completed_at || new Date().toISOString(),
+                    completedByEventId: quizCompletion.id,
+                    metadata: { ...(assignment.metadata || {}), grade: percentage }
+                });
+            }
+
+            console.log(`[receiveQuizCompletion] Marked ${matchingAssignments.length} assignment(s) complete for ${normalizedEmail} quiz ${quiz_id}`);
+        }
+
         return Response.json({
             success: true,
             message: 'Quiz completion recorded',
