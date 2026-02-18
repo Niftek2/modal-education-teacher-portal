@@ -3,29 +3,40 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const payload = await req.json();
+        const body = await req.json();
 
-        // Validate required fields
-        if (!payload.user_id || !payload.lesson_id || !payload.lesson_name) {
+        // Thinkific nests all event data inside body.payload
+        const data = body.payload;
+
+        if (!data?.lesson || !data?.user) {
+            return Response.json({ error: 'Missing required lesson/user data' }, { status: 400 });
+        }
+
+        const studentEmail = data.user.email?.toLowerCase().trim();
+        const lessonId = String(data.lesson.id);
+        const lessonName = data.lesson.name;
+        const courseId = String(data.course?.id || '');
+        const courseName = data.course?.name || '';
+        const studentName = `${data.user.first_name || ''} ${data.user.last_name || ''}`.trim();
+        const studentId = String(data.user.id || '');
+
+        if (!studentEmail || !lessonId || !lessonName) {
             return Response.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
         // Create lesson completion record
         const lessonCompletion = await base44.asServiceRole.entities.LessonCompletion.create({
-            studentId: String(payload.user_id),
-            studentEmail: payload.user_email || '',
-            studentName: payload.user_name || '',
-            lessonId: String(payload.lesson_id),
-            lessonName: payload.lesson_name,
-            courseId: payload.course_id ? String(payload.course_id) : '',
-            courseName: payload.course_name || '',
+            studentId,
+            studentEmail,
+            studentName,
+            lessonId,
+            lessonName,
+            courseId,
+            courseName,
             completedAt: new Date().toISOString()
         });
 
-        // Auto-complete matching StudentAssignment
-        const studentEmail = payload.user_email?.toLowerCase().trim();
-        const lessonId = String(payload.lesson_id);
-
+        // Auto-complete matching StudentAssignment (keyed by email + lessonId)
         if (studentEmail && lessonId) {
             const assignments = await base44.asServiceRole.entities.StudentAssignment.filter({
                 studentEmail,
@@ -33,12 +44,13 @@ Deno.serve(async (req) => {
                 status: 'assigned'
             });
 
-            if (assignments.length > 0) {
-                await base44.asServiceRole.entities.StudentAssignment.update(assignments[0].id, {
+            for (const assignment of assignments) {
+                await base44.asServiceRole.entities.StudentAssignment.update(assignment.id, {
                     status: 'completed',
-                    completedAt: new Date().toISOString()
+                    completedAt: new Date().toISOString(),
+                    completedByEventId: lessonCompletion.id
                 });
-                console.log(`[receiveLessonCompletion] Marked Assignment ${assignments[0].id} as completed.`);
+                console.log(`[receiveLessonCompletion] Marked Assignment ${assignment.id} as completed.`);
             }
         }
 
