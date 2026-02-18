@@ -144,6 +144,11 @@ export default function StudentAssignments() {
                                                 )}
                                             </div>
 
+                                            {assignment.topic && (
+                                                <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-0.5">
+                                                    {assignment.topic}
+                                                </p>
+                                            )}
                                             <h3 className="text-lg font-semibold text-black mb-2">
                                                 {assignment.title}
                                             </h3>
