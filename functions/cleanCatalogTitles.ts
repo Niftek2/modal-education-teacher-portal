@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
                 topic = match ? match[1].trim() : cleaned;
             }
 
-            if (cleaned !== original || topic !== record.topic) {
+            if (cleaned !== original || (topic && topic !== record.topic)) {
                 await base44.asServiceRole.entities.AssignmentCatalog.update(record.id, {
                     title: cleaned,
                     topic: topic
