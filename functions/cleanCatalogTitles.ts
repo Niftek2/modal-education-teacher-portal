@@ -23,24 +23,24 @@ Deno.serve(async (req) => {
             const original = record.title || '';
             const cleaned = cleanTitle(original);
 
-            // Derive topic from "Topic - Item N" pattern if not already set
-            let topic = record.topic || '';
-            if (!topic) {
-                const match = original.match(/^(.+?)\s*-\s*(Part|Item)\s*\d+/i);
-                topic = match ? match[1].trim() : cleaned;
+            // Only derive topic if the original title had a "- Item N" pattern
+            let newTopic = record.topic || '';
+            if (!newTopic) {
+                const match = original.match(/^(.+?)\s*-\s*(Part|Item)\s*\d+\s*$/i);
+                if (match) newTopic = match[1].trim();
             }
 
             const titleChanged = cleaned !== original;
-            const topicChanged = !record.topic && !!topic;
+            const topicChanged = newTopic && newTopic !== (record.topic || '');
 
             if (titleChanged || topicChanged) {
                 const patch = {};
                 if (titleChanged) patch.title = cleaned;
-                if (topicChanged) patch.topic = topic;
+                if (topicChanged) patch.topic = newTopic;
 
                 await base44.asServiceRole.entities.AssignmentCatalog.update(record.id, patch);
-                await delay(150); // avoid rate limit
-                console.log(`Updated: "${original}" → "${cleaned}" (topic: "${topic}")`);
+                await delay(150);
+                console.log(`Updated: "${original}" → "${cleaned}" topic:"${newTopic}"`);
                 updated++;
             } else {
                 skipped++;
