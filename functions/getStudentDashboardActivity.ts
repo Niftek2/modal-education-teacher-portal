@@ -46,10 +46,10 @@ function normalizeEventType(eventType) {
 }
 
 Deno.serve(async (req) => {
-    const session = await requireSession(req);
+    const session = await requireTeacherSession(req);
 
     if (!session) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
+        return Response.json({ error: "Invalid teacher session" }, { status: 401 });
     }
 
     try {
