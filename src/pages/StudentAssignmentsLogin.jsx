@@ -27,9 +27,10 @@ export default function StudentAssignmentsLogin() {
                 studentEmail
             });
 
-            // Store session token
+            // Store session token and email as primary identifier
             localStorage.setItem('student_session', result.token);
             localStorage.setItem('student_email', result.studentEmail);
+            localStorage.setItem('modal_math_student_email', result.studentEmail);
 
             // Navigate to assignments page
             navigate('/StudentAssignments');

@@ -47,6 +47,7 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
+import Assign from './pages/Assign';
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import ManageCatalog from './pages/ManageCatalog';
@@ -56,11 +57,11 @@ import StudentAssignments from './pages/StudentAssignments';
 import StudentAssignmentsLogin from './pages/StudentAssignmentsLogin';
 import Verify from './pages/Verify';
 import WebhookDebug from './pages/WebhookDebug';
-import Assign from './pages/Assign';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "Assign": Assign,
     "Dashboard": Dashboard,
     "Home": Home,
     "ManageCatalog": ManageCatalog,
@@ -70,7 +71,6 @@ export const PAGES = {
     "StudentAssignmentsLogin": StudentAssignmentsLogin,
     "Verify": Verify,
     "WebhookDebug": WebhookDebug,
-    "Assign": Assign,
 }
 
 export const pagesConfig = {
