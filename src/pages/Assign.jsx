@@ -120,17 +120,15 @@ export default function Assign() {
         }
         try {
             setSubmitting(true);
-            const calls = [];
-            for (const studentEmail of selectedStudents) {
-                for (const catalogId of selectedAssignmentIds) {
-                    calls.push(api.call('createAssignments', {
-                        sessionToken,
-                        studentEmails: [studentEmail],
-                        catalogId,
-                        dueAt: dueDate ? new Date(dueDate).toISOString() : null
-                    }, sessionToken));
-                }
-            }
+            // One API call per lesson, with all selected students in a single request
+            const calls = selectedAssignmentIds.map(catalogId =>
+                api.call('createAssignments', {
+                    sessionToken,
+                    studentEmails: selectedStudents,
+                    catalogId,
+                    dueAt: dueDate ? new Date(dueDate).toISOString() : null
+                }, sessionToken)
+            );
             await Promise.all(calls);
             alert(`Assigned ${selectedAssignmentIds.length} lesson(s) to ${selectedStudents.length} student(s).`);
             setSelectedStudents([]);
