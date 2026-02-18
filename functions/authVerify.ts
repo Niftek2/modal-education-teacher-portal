@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
             type: 'session'
         })
             .setProtectedHeader({ alg: 'HS256' })
-            .setExpirationTime('45m')
+            .setExpirationTime('7d')
             .setIssuedAt()
             .sign(sessionSecret);
 
