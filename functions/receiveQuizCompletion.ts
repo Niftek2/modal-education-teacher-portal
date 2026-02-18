@@ -59,9 +59,11 @@ Deno.serve(async (req) => {
             for (const assignment of matchingAssignments) {
                 await base44.asServiceRole.entities.StudentAssignment.update(assignment.id, {
                     status: 'completed',
+                    title: quiz_name,
+                    topic: chapter_name,
                     completedAt: completed_at || new Date().toISOString(),
                     completedByEventId: quizCompletion.id,
-                    metadata: { ...(assignment.metadata || {}), grade: percentage }
+                    metadata: { ...(assignment.metadata || {}), grade: percentage, quizName: quiz_name, chapterName: chapter_name }
                 });
             }
 

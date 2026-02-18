@@ -48,10 +48,12 @@ Deno.serve(async (req) => {
             for (const assignment of assignments) {
                 await base44.asServiceRole.entities.StudentAssignment.update(assignment.id, {
                     status: 'completed',
+                    title: lessonName,
+                    topic: chapterName,
                     completedAt: new Date().toISOString(),
                     completedByEventId: lessonCompletion.id
                 });
-                console.log(`[receiveLessonCompletion] Marked Assignment ${assignment.id} as completed.`);
+                console.log(`[receiveLessonCompletion] Marked Assignment ${assignment.id} as completed. lesson="${lessonName}" chapter="${chapterName}"`);
             }
         }
 
