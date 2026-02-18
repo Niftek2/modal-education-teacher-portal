@@ -54,9 +54,9 @@ Deno.serve(async (req) => {
                 id: user.id,
                 firstName: user.first_name,
                 lastName: user.last_name,
-                email: user.email
+                email: user.email || teacherEmail
             },
-            groups: groups.map(g => ({
+            groups: (groups || []).map(g => ({
                 id: g.id,
                 name: g.name
             }))
