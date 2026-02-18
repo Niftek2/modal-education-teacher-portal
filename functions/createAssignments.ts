@@ -24,13 +24,10 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Assignment is not active' }, { status: 400 });
         }
 
-        // Get teacher's groups (reuse existing logic pattern)
+        // Get teacher's groups by teacherEmail
         const teacherGroups = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail });
-        if (!teacherGroups || teacherGroups.length === 0) {
-            return Response.json({ error: 'No groups found for teacher' }, { status: 404 });
-        }
-
-        const groupId = teacherGroups[0].thinkificGroupId;
+        // Use first group found, or fall back to a placeholder if none (assignments still tracked by email)
+        const groupId = (teacherGroups && teacherGroups.length > 0) ? teacherGroups[0].thinkificGroupId : 'unknown';
         const now = new Date().toISOString();
         const assignedDay = now.split('T')[0];
 
