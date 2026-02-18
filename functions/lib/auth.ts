@@ -14,8 +14,18 @@ export async function requireSession(req) {
     try {
         const secret = new TextEncoder().encode(JWT_SECRET);
         const { payload } = await jose.jwtVerify(token, secret);
+        // Accept teacher session tokens (type: 'session') and student tokens (type: 'student')
+        if (!payload.email) return null;
         return payload;
     } catch {
         return null;
     }
+}
+
+export async function requireTeacherSession(req) {
+    const session = await requireSession(req);
+    if (!session) return null;
+    // Teacher sessions have type 'session'; reject student tokens
+    if (session.type === 'student') return null;
+    return session;
 }
