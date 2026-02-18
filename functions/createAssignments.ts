@@ -24,21 +24,17 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Assignment is not active' }, { status: 400 });
         }
 
-        // Get teacher's groups (reuse existing logic pattern)
+        // Get teacher's groups — optional, don't fail if missing
         const teacherGroups = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail });
-        if (!teacherGroups || teacherGroups.length === 0) {
-            return Response.json({ error: 'No groups found for teacher' }, { status: 404 });
-        }
+        const groupId = (teacherGroups && teacherGroups.length > 0) ? teacherGroups[0].thinkificGroupId : null;
 
-        const groupId = teacherGroups[0].thinkificGroupId;
         const now = new Date().toISOString();
-        const assignedDay = now.split('T')[0];
 
         // Create assignments
         const assignments = [];
         for (const studentEmail of studentEmails) {
             const normalizedEmail = studentEmail.trim().toLowerCase();
-            const dedupeKey = `assign:${teacherEmail}:${normalizedEmail}:${catalogId}:${assignedDay}`;
+            const dedupeKey = `assign:${normalizedEmail}:${catalogId}`;
 
             // Check for existing assignment
             const existing = await base44.asServiceRole.entities.StudentAssignment.filter({ dedupeKey });
