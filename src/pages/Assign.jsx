@@ -82,6 +82,7 @@ export default function Assign() {
                 if (authError.message?.includes('401')) {
                     setStudents([]);
                     setExistingAssignments([]);
+                    setAuthError(true);
                 } else {
                     throw authError;
                 }
