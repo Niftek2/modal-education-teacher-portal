@@ -60,6 +60,17 @@ export default function Assign() {
         loadData(sessionToken);
     }, []);
 
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
     const loadData = async (token) => {
         const activeToken = token || localStorage.getItem('modal_math_session');
         try {
