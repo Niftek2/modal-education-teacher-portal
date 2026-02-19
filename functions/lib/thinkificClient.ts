@@ -13,6 +13,9 @@
  *   GET /enrollments?query[user_id]=<userId>
  *   GET /enrollments?query[user_id]=<userId>&query[course_id]=<courseId>
  *   GET /courses/{id}
+ *   GET /courses (list all courses)
+ *   GET /chapters?query[course_id]=<courseId>
+ *   GET /contents?query[chapter_id]=<chapterId>
  */
 
 const THINKIFIC_API_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
