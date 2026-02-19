@@ -178,7 +178,9 @@ export default function Assign() {
                     sessionToken: activeToken,
                     studentEmails,
                     catalogId,
-                    dueAt: dueDate ? new Date(dueDate).toISOString() : null
+                    dueAt: dueDate ? new Date(dueDate).toISOString() : null,
+                    assignPageOk: true,
+                    teacherEmail,
                 }, activeToken)
             );
             await Promise.all(calls);
