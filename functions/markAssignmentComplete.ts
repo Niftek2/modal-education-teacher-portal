@@ -26,29 +26,40 @@ Deno.serve(async (req) => {
             return Response.json({ success: false, message: 'No student email in event' });
         }
 
+        const webhookId = event.webhookEventId || null;
+
         // lessonId is stored as an integer on ActivityEvent — normalize to string for matching
         const lessonId = event.lessonId ? String(event.lessonId) : null;
-        const quizId = event.quizId ? String(event.quizId) : null;
+        // For quiz events, ActivityEvent stores quizId via the quiz.id from payload
+        // It is stored in the rawPayload; also try lessonId as quiz lessons share the lessonId field
+        let quizId = null;
+        if (event.rawPayload) {
+            try {
+                const raw = JSON.parse(event.rawPayload);
+                const qId = raw?.payload?.quiz?.id;
+                if (qId) quizId = String(qId);
+            } catch (_) { /* ignore */ }
+        }
 
         let matchedAssignments = [];
 
         if (event.eventType === 'quiz_attempted' || event.eventType === 'quiz.attempted') {
-            // Match by lessonId (preferred) or quizId
-            if (lessonId) {
-                const byLesson = await base44.asServiceRole.entities.StudentAssignment.filter({
-                    studentEmail: normalizedEmail,
-                    lessonId,
-                    status: 'assigned'
-                });
-                matchedAssignments.push(...byLesson);
-            }
-            if (quizId && matchedAssignments.length === 0) {
+            // Match by quizId first, fall back to lessonId
+            if (quizId) {
                 const byQuiz = await base44.asServiceRole.entities.StudentAssignment.filter({
                     studentEmail: normalizedEmail,
                     quizId,
                     status: 'assigned'
                 });
                 matchedAssignments.push(...byQuiz);
+            }
+            if (lessonId && matchedAssignments.length === 0) {
+                const byLesson = await base44.asServiceRole.entities.StudentAssignment.filter({
+                    studentEmail: normalizedEmail,
+                    lessonId,
+                    status: 'assigned'
+                });
+                matchedAssignments.push(...byLesson);
             }
 
         } else if (event.eventType === 'lesson_completed' || event.eventType === 'lesson.completed') {
@@ -61,15 +72,21 @@ Deno.serve(async (req) => {
             }
         }
 
-        console.log(`[markAssignmentComplete] Event ${activityEventId}: email=${normalizedEmail}, lessonId=${lessonId}, matched=${matchedAssignments.length}`);
+        console.log(`[markAssignmentComplete] Event ${activityEventId}: email=${normalizedEmail}, lessonId=${lessonId}, quizId=${quizId}, matched=${matchedAssignments.length}`);
 
-        // Mark matched assignments as completed
+        // Mark matched assignments as completed (idempotent: skip if already completed or same webhookId)
         const completedIds = [];
         for (const assignment of matchedAssignments) {
+            // Idempotency: skip if already completed or this webhook already applied
+            if (assignment.completionEventId && assignment.completionEventId === webhookId) {
+                console.log(`[markAssignmentComplete] Skipping ${assignment.id} — already processed webhook ${webhookId}`);
+                continue;
+            }
             await base44.asServiceRole.entities.StudentAssignment.update(assignment.id, {
                 status: 'completed',
                 completedAt: event.occurredAt,
                 completedByEventId: event.id,
+                completionEventId: webhookId,
                 metadata: {
                     ...(assignment.metadata || {}),
                     grade: event.grade ?? null
