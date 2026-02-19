@@ -58,7 +58,7 @@ export default function Assign() {
     }, []);
 
     const loadData = async (token) => {
-        const activeToken = token || sessionToken;
+        const activeToken = token || localStorage.getItem('modal_math_session');
         try {
             setLoading(true);
 
