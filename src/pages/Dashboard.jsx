@@ -89,10 +89,19 @@ export default function Dashboard() {
                     completedLessons: 0
                 }));
 
-                // Persist roster emails for Assign page
+                // DEBUG
+                console.log('[Dashboard] getStudentActivityForTeacher studentEmails length:', activityResponse.studentEmails?.length ?? 'undefined');
+
+                // Persist roster emails for Assign page (guard: never write empty array)
+                const rosterEmails = activityResponse.studentEmails || [];
+                console.log('[Dashboard] writing roster to localStorage, length =', rosterEmails.length);
                 try {
-                    localStorage.setItem('mm_teacher_roster_emails', JSON.stringify(activityResponse.studentEmails || []));
-                    localStorage.setItem('mm_teacher_roster_saved_at', new Date().toISOString());
+                    if (rosterEmails.length > 0) {
+                        localStorage.setItem('mm_teacher_roster_emails', JSON.stringify(rosterEmails));
+                        localStorage.setItem('mm_teacher_roster_saved_at', new Date().toISOString());
+                    } else {
+                        console.warn('[Dashboard] WARNING: roster came back empty, NOT overwriting localStorage');
+                    }
                 } catch {}
 
                 setStudents(rosterStudents);
