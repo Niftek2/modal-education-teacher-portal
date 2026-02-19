@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BookOpen, LogOut, ExternalLink, CheckCircle2, Clock, Calendar, Star } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { BookOpen, LogOut, ExternalLink, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/components/api';
 
-// Course ID → Level label mapping
 const COURSE_LEVEL_MAP = {
     '422595': 'PK',
     '422618': 'K',
@@ -16,9 +15,13 @@ const COURSE_LEVEL_MAP = {
 };
 
 function resolveLevel(assignment) {
-    // Try courseId first (from catalog or assignment), then fall back to stored level
     const fromCourse = assignment.courseId && COURSE_LEVEL_MAP[String(assignment.courseId)];
     return fromCourse || assignment.level || '—';
+}
+
+function formatDate(dateString) {
+    if (!dateString) return null;
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function StudentAssignments() {
@@ -29,12 +32,10 @@ export default function StudentAssignments() {
 
     useEffect(() => {
         const email = localStorage.getItem('student_email');
-        
         if (!email) {
             navigate('/StudentAssignmentsLogin');
             return;
         }
-
         setStudentEmail(email);
         loadAssignments(email);
     }, []);
@@ -42,13 +43,8 @@ export default function StudentAssignments() {
     const loadAssignments = async (email) => {
         try {
             setLoading(true);
-
-            const result = await api.call('getStudentAssignments', {
-                studentEmail: email
-            });
-
+            const result = await api.call('getStudentAssignments', { studentEmail: email });
             setAssignments(result.assignments || []);
-
         } catch (error) {
             console.error('Load assignments error:', error);
         } finally {
@@ -62,142 +58,149 @@ export default function StudentAssignments() {
         navigate('/StudentAssignmentsLogin');
     };
 
-    const handleStartAssignment = (url) => {
-        window.open(url, '_blank');
-    };
-
-    const formatDate = (dateString) => {
-        if (!dateString) return null;
-        return new Date(dateString).toLocaleDateString();
-    };
-
-    const isOverdue = (dueAt) => {
-        if (!dueAt) return false;
-        return new Date(dueAt) < new Date();
-    };
+    const pending = assignments.filter(a => a.status === 'assigned');
+    const completed = assignments.filter(a => a.status === 'completed');
 
     if (loading) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-900 rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading your assignments...</p>
+                    <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-900 rounded-full animate-spin mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm">Loading your assignments...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-white">
-            {/* Header */}
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-                <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold text-black">My Assignments</h1>
-                        <p className="text-sm text-gray-600">{studentEmail.split('@')[0]}</p>
+        <div className="min-h-screen bg-gray-50 flex flex-col">
+            {/* Header — matches Layout.jsx */}
+            <header className="sticky top-0 z-50 bg-gray-100 text-purple-900 shadow-lg">
+                <div className="flex items-center justify-between px-6 py-4">
+                    <div className="flex items-center gap-3">
+                        <img
+                            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/698c9549de63fc919dec560c/f76ad98a9_LogoNoScript.png"
+                            alt="Modal Education Logo"
+                            className="h-8 w-8 object-contain"
+                        />
+                        <span className="text-lg" style={{ fontFamily: 'Arial' }}>Modal Education</span>
                     </div>
-                    <Button
-                        onClick={handleLogout}
-                        variant="ghost"
-                        className="text-gray-600 hover:text-black"
-                    >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Logout
-                    </Button>
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-600 hidden sm:block">{studentEmail}</span>
+                        <Button variant="ghost" size="sm" onClick={handleLogout} className="text-gray-600 hover:text-black">
+                            <LogOut className="w-4 h-4 mr-1.5" /> Sign Out
+                        </Button>
+                    </div>
                 </div>
             </header>
 
-            {/* Main Content */}
-            <main className="max-w-5xl mx-auto px-6 py-8">
+            {/* Content */}
+            <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-8">
+                <h1 className="text-2xl font-bold text-black mb-6">My Assignments</h1>
+
                 {assignments.length === 0 ? (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-                        <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                        <h2 className="text-xl font-semibold text-black mb-2">No Assignments Yet</h2>
-                        <p className="text-gray-600">
-                            Your teacher hasn't assigned any work yet. Check back later!
-                        </p>
+                    <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                        <BookOpen className="w-14 h-14 text-gray-200 mx-auto mb-4" />
+                        <h2 className="text-lg font-semibold text-black mb-1">No Assignments Yet</h2>
+                        <p className="text-gray-500 text-sm">Your teacher hasn't assigned any work yet. Check back later!</p>
                     </div>
                 ) : (
-                    <div className="space-y-4">
-                        {assignments.map((assignment) => {
-                            const overdue = isOverdue(assignment.dueAt);
-                            
-                            return (
-                                <div
-                                    key={assignment.id}
-                                    className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-                                >
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-900">
-                                                    {resolveLevel(assignment)}
-                                                </span>
-                                                <span className="text-xs text-gray-500 uppercase">
-                                                    {assignment.type}
-                                                </span>
-                                                {assignment.status === 'completed' && (
-                                                    <span className="inline-flex items-center gap-1 text-green-600 text-xs font-medium">
-                                                        <CheckCircle2 className="w-3 h-3" />
-                                                        Completed
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {assignment.topic && (
-                                                <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-0.5">
-                                                    {assignment.topic}
-                                                </p>
-                                            )}
-                                            <h3 className="text-lg font-semibold text-black mb-2">
-                                                {assignment.title}
-                                            </h3>
-
-                                            <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                                                <div className="flex items-center gap-1">
-                                                    <Clock className="w-4 h-4" />
-                                                    Assigned {formatDate(assignment.assignedAt)}
-                                                </div>
-                                                {assignment.dueAt && (
-                                                    <div className={`flex items-center gap-1 ${overdue && assignment.status !== 'completed' ? 'text-red-600 font-medium' : ''}`}>
-                                                        <Calendar className="w-4 h-4" />
-                                                        Due {formatDate(assignment.dueAt)}
-                                                        {overdue && assignment.status !== 'completed' && ' (Overdue)'}
-                                                    </div>
-                                                )}
-                                                {assignment.completedAt && (
-                                                    <div className="flex items-center gap-1 text-green-600">
-                                                        <CheckCircle2 className="w-4 h-4" />
-                                                        Completed {formatDate(assignment.completedAt)}
-                                                    </div>
-                                                )}
-                                                {(assignment.metadata?.grade != null) && assignment.status === 'completed' && (
-                                                    <div className="flex items-center gap-1 text-purple-700 font-medium">
-                                                        <Star className="w-4 h-4" />
-                                                        Grade: {Math.round(assignment.metadata.grade)}%
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <Button
-                                            onClick={() => handleStartAssignment(assignment.thinkificUrl)}
-                                            className={
-                                                assignment.status === 'completed'
-                                                    ? 'bg-gray-600 hover:bg-gray-700'
-                                                    : 'bg-purple-900 hover:bg-purple-800'
-                                            }
-                                        >
-                                            <ExternalLink className="w-4 h-4 mr-2" />
-                                            {assignment.status === 'completed' ? 'Review' : 'Start'}
-                                        </Button>
-                                    </div>
+                    <div className="space-y-8">
+                        {/* Pending */}
+                        {pending.length > 0 && (
+                            <section>
+                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <Clock className="w-4 h-4" /> Pending ({pending.length})
+                                </h2>
+                                <div className="space-y-3">
+                                    {pending.map(a => <AssignmentCard key={a.id} assignment={a} />)}
                                 </div>
-                            );
-                        })}
+                            </section>
+                        )}
+
+                        {/* Completed */}
+                        {completed.length > 0 && (
+                            <section>
+                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <CheckCircle2 className="w-4 h-4 text-green-500" /> Completed ({completed.length})
+                                </h2>
+                                <div className="space-y-3">
+                                    {completed.map(a => <AssignmentCard key={a.id} assignment={a} />)}
+                                </div>
+                            </section>
+                        )}
                     </div>
                 )}
             </main>
+
+            {/* Footer — matches Layout.jsx */}
+            <footer className="py-4 px-6 bg-gray-50 border-t border-gray-200">
+                <div className="flex flex-col gap-1">
+                    <p className="text-xs text-gray-500">
+                        <Link to="/Home" className="underline hover:text-gray-700">Privacy Policy</Link>
+                    </p>
+                    <p className="text-xs text-gray-500">© 2026 Modal Education. All rights reserved.</p>
+                </div>
+            </footer>
+        </div>
+    );
+}
+
+function AssignmentCard({ assignment }) {
+    const isCompleted = assignment.status === 'completed';
+    const isOverdue = !isCompleted && assignment.dueAt && new Date(assignment.dueAt) < new Date();
+    const level = resolveLevel(assignment);
+
+    return (
+        <div className={`bg-white rounded-xl border p-5 flex items-start justify-between gap-4 ${isCompleted ? 'border-green-100' : 'border-gray-200'}`}>
+            <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-900">{level}</span>
+                    {assignment.type && (
+                        <span className="text-xs text-gray-400 uppercase">{assignment.type}</span>
+                    )}
+                    {isCompleted && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600">
+                            <CheckCircle2 className="w-3 h-3" /> Completed
+                        </span>
+                    )}
+                    {isOverdue && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-500">
+                            <AlertCircle className="w-3 h-3" /> Overdue
+                        </span>
+                    )}
+                </div>
+
+                {assignment.topic && (
+                    <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-0.5">{assignment.topic}</p>
+                )}
+                <h3 className="text-base font-semibold text-black leading-snug">{assignment.title}</h3>
+
+                <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-400">
+                    <span>Assigned {formatDate(assignment.assignedAt)}</span>
+                    {assignment.dueAt && (
+                        <span className={isOverdue ? 'text-red-500 font-medium' : ''}>
+                            Due {formatDate(assignment.dueAt)}
+                        </span>
+                    )}
+                    {assignment.completedAt && (
+                        <span className="text-green-600">Done {formatDate(assignment.completedAt)}</span>
+                    )}
+                    {assignment.metadata?.grade != null && (
+                        <span className="text-purple-700 font-medium">Score: {Math.round(assignment.metadata.grade)}%</span>
+                    )}
+                </div>
+            </div>
+
+            <a
+                href={assignment.thinkificUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${isCompleted ? 'bg-gray-500 hover:bg-gray-600' : 'bg-purple-900 hover:bg-purple-800'}`}
+            >
+                <ExternalLink className="w-3.5 h-3.5" />
+                {isCompleted ? 'Review' : 'Start'}
+            </a>
         </div>
     );
 }

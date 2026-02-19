@@ -62,28 +62,20 @@ export default function Assign() {
         try {
             setLoading(true);
 
-            const [catalogRes, assignmentsRes] = await Promise.all([
+            const [catalogRes, rosterRes, assignmentsRes] = await Promise.all([
                 api.call('getAssignmentCatalog', {}, null),
+                api.call('getAssignPageData', { sessionToken: activeToken }, activeToken),
                 api.call('getTeacherAssignments', { sessionToken: activeToken }, activeToken),
             ]);
-
-            // Extract unique student emails from existing assignments
-            const studentEmailsSet = new Set();
-            (assignmentsRes.assignments || []).forEach(a => {
-                if (a.studentEmail?.endsWith('@modalmath.com')) {
-                    studentEmailsSet.add(a.studentEmail);
-                }
-            });
-            const studentEmails = Array.from(studentEmailsSet).sort().map(email => ({
-                email,
-                firstName: email.split('@')[0]
-            }));
 
             const catalogData = (catalogRes.catalog || []).filter(item =>
                 !item.title?.startsWith('[TEST]') && item.level !== '[TEST]'
             );
             setCatalog(catalogData);
-            setStudents(studentEmails);
+            setStudents((rosterRes.studentEmails || []).map(email => ({
+                email,
+                firstName: email.split('@')[0]
+            })));
             setExistingAssignments(assignmentsRes.assignments || []);
         } catch (error) {
             console.error('Load error:', error);
