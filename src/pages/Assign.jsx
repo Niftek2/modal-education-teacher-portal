@@ -71,13 +71,8 @@ export default function Assign() {
             setExistingAssignments(result.assignments || []);
         } catch (error) {
             console.error('Load error:', error.message);
-            if (error.message?.includes('Session expired')) {
-                localStorage.removeItem('modal_math_session');
-                navigate('/Home?msg=expired');
-            } else if (error.message?.includes('401') || error.message?.includes('403') || error.message?.includes('Unauthorized')) {
-                localStorage.removeItem('modal_math_session');
-                navigate('/Home');
-            }
+            localStorage.removeItem('modal_math_session');
+            navigate('/Home');
         } finally {
             setLoading(false);
         }
