@@ -47,6 +47,7 @@ export default function Assign() {
     const [existingAssignments, setExistingAssignments] = useState([]);
     const [syncingCatalog, setSyncingCatalog] = useState(false);
     const [teacherEmail, setTeacherEmail] = useState('');
+    const [pageLoaded, setPageLoaded] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [catalogSearch, setCatalogSearch] = useState('');
     const dropdownRef = useRef(null);
@@ -178,9 +179,7 @@ export default function Assign() {
                     sessionToken: activeToken,
                     studentEmails,
                     catalogId,
-                    dueAt: dueDate ? new Date(dueDate).toISOString() : null,
-                    assignPageOk: true,
-                    teacherEmail,
+                    dueAt: dueDate ? new Date(dueDate).toISOString() : null
                 }, activeToken)
             );
             await Promise.all(calls);
