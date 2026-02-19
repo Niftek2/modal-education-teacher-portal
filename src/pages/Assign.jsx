@@ -45,6 +45,10 @@ export default function Assign() {
     const [dueDate, setDueDate] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [existingAssignments, setExistingAssignments] = useState([]);
+    const [syncingCatalog, setSyncingCatalog] = useState(false);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [catalogSearch, setCatalogSearch] = useState('');
+    const dropdownRef = useRef(null);
     const navigate = useNavigate();
 
     useEffect(() => {
