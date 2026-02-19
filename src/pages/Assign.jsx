@@ -210,7 +210,7 @@ export default function Assign() {
                             return (
                                 <div
                                     key={student.email}
-                                    className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 ${isSelected ? 'bg-purple-50' : ''}`}
+                                    className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 ${isSelected ? 'bg-purple-50' : ''} ${student.isArchived ? 'opacity-50' : ''}`}
                                     onClick={() => toggleStudent(student.email)}
                                 >
                                     <Checkbox
@@ -219,7 +219,7 @@ export default function Assign() {
                                         onClick={(e) => e.stopPropagation()}
                                     />
                                     <div className="min-w-0">
-                                        <p className="text-sm font-medium text-black truncate">{student.firstName}</p>
+                                        <p className="text-sm font-medium text-black truncate">{student.email.split('@')[0]}</p>
                                         <p className="text-xs text-gray-400 truncate">{student.email}</p>
                                         {sa.length > 0 && (
                                             <p className="text-xs text-gray-400">{completed}/{sa.length} done</p>
