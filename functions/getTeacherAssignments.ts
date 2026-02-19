@@ -51,6 +51,14 @@ Deno.serve(async (req) => {
         ];
 
         const activeCatalog = (catalogItems || []).filter(item => item.isActive !== false);
+        t3 = Date.now();
+
+        const sortedAssignments = (assignments || []).sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt));
+        const studentsCount = roster?.length || 0;
+        const catalogCount = activeCatalog?.length || 0;
+        const assignmentsCount = sortedAssignments?.length || 0;
+        const archivedStudentsCount = archivedStudents?.length || 0;
+        t4 = Date.now();
 
         return Response.json({
             success: true,
