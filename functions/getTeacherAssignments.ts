@@ -4,7 +4,10 @@ import { requireSession } from './lib/auth.js';
 Deno.serve(async (req) => {
     const session = await requireSession(req);
 
-    if (!session || (!session.isTeacher && session.role !== 'teacher')) {
+    if (!session) {
+        return Response.json({ error: "Unauthorized." }, { status: 401 });
+    }
+    if (!session.isTeacher && session.role !== 'teacher') {
         return Response.json({ error: "Forbidden: Not authorized as a teacher." }, { status: 403 });
     }
 
