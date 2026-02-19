@@ -173,6 +173,7 @@ Deno.serve(async (req) => {
                         await base44.asServiceRole.entities.AssignmentCatalog.update(existing.id, {
                             title: catalogData.title,
                             topic: catalogData.topic,
+                            chapterId: catalogData.chapterId,
                             chapterName: catalogData.chapterName,
                             level: catalogData.level,
                             type: catalogData.type,
