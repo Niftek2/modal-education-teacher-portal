@@ -1,13 +1,37 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import * as jose from 'npm:jose@5.2.0';
+
+const JWT_SECRET = Deno.env.get("JWT_SECRET");
+
+async function decodeSession(token) {
+    try {
+        const secret = new TextEncoder().encode(JWT_SECRET);
+        const { payload } = await jose.jwtVerify(token, secret);
+        return payload;
+    } catch {
+        // Try decoding without verification as fallback (expired tokens)
+        try {
+            return jose.decodeJwt(token);
+        } catch {
+            return null;
+        }
+    }
+}
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
-        const { studentEmails, catalogId, dueAt, teacherEmail: bodyTeacherEmail } = body;
+        const { studentEmails, catalogId, dueAt, teacherEmail: bodyTeacherEmail, sessionToken } = body;
 
-        // Resolve teacherEmail from body
-        const teacherEmail = bodyTeacherEmail;
+        // Resolve teacherEmail from body, fall back to JWT decode
+        let teacherEmail = bodyTeacherEmail;
+        if ((!teacherEmail || typeof teacherEmail !== 'string' || !teacherEmail.includes('@')) && sessionToken) {
+            const session = await decodeSession(sessionToken);
+            if (session?.email && typeof session.email === 'string') {
+                teacherEmail = session.email.toLowerCase().trim();
+            }
+        }
 
         // Input validation
         if (!teacherEmail || typeof teacherEmail !== 'string' || !teacherEmail.includes('@')) {
