@@ -1,13 +1,27 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requireSession } from './lib/auth.js';
+import * as jose from 'npm:jose@5.2.0';
 
+const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
+async function getSession(req) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return { session: null, expired: false };
+    const token = authHeader.substring(7);
+    try {
+        const secret = new TextEncoder().encode(JWT_SECRET);
+        const { payload } = await jose.jwtVerify(token, secret);
+        return { session: payload, expired: false };
+    } catch (e) {
+        const expired = e.code === 'ERR_JWT_EXPIRED';
+        return { session: null, expired };
+    }
+}
 
 Deno.serve(async (req) => {
-    const session = await requireSession(req);
+    const { session, expired } = await getSession(req);
 
     if (!session) {
-        return Response.json({ error: "Unauthorized." }, { status: 401 });
+        return Response.json({ error: "Unauthorized.", reason: expired ? "token_expired" : "invalid_token" }, { status: 401 });
     }
 
     try {
