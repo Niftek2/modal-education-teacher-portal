@@ -64,7 +64,8 @@ export default function Dashboard() {
             // Get teacher data (now returns groups array)
             const teacherResponse = await api.call('getTeacherData', { sessionToken }, sessionToken);
 
-            console.log('Teacher response:', teacherResponse);
+            // DEBUG
+            console.log('[Dashboard] getTeacherData response - groups:', teacherResponse.groups?.length ?? 'undefined');
             setTeacher(teacherResponse.teacher);
             
             // Use first group or show "no groups" message
