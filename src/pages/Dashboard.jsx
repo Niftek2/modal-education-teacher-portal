@@ -99,8 +99,10 @@ export default function Dashboard() {
                 console.log('[Dashboard] writing roster to localStorage, length =', rosterEmails.length);
                 try {
                     if (rosterEmails.length > 0) {
+                        const ts = new Date().toISOString();
                         localStorage.setItem('mm_teacher_roster_emails', JSON.stringify(rosterEmails));
-                        localStorage.setItem('mm_teacher_roster_saved_at', new Date().toISOString());
+                        localStorage.setItem('mm_teacher_roster_saved_at', ts);
+                        setRosterLastUpdated(ts);
                     } else {
                         console.warn('[Dashboard] WARNING: roster came back empty, NOT overwriting localStorage');
                     }
