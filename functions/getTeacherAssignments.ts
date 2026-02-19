@@ -65,7 +65,13 @@ Deno.serve(async (req) => {
             teacherEmail,
             students: roster,
             catalog: activeCatalog,
-            assignments: (assignments || []).sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt)),
+            assignments: sortedAssignments,
+            debug: {
+                ms: { t0, t1, t2, t3, t4, total: t4 - t0 },
+                stepMs: { auth: t1 - t0, fetch: t2 - t1, rosterBuild: t3 - t2, finalize: t4 - t3 },
+                counts: { studentsCount, catalogCount, assignmentsCount, archivedStudentsCount },
+                teacherEmail
+            }
         });
 
     } catch (error) {
