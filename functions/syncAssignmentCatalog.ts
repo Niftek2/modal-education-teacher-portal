@@ -152,6 +152,7 @@ Deno.serve(async (req) => {
                     const catalogData = {
                         title: contentTitle,
                         topic: topicName,
+                        chapterName: topicName,
                         type: contentType,           // legacy field
                         contentType,
                         courseId: String(courseId),

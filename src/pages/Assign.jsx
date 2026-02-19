@@ -356,7 +356,7 @@ export default function Assign() {
                                                                 <div className="min-w-0">
                                                                     <p className="text-sm text-black leading-snug truncate">
                                                                         <span className="font-medium text-purple-800">
-                                                                            {item.contentType === 'quiz' ? 'Quiz' : item.contentType === 'lesson' ? 'Lesson' : 'Item'}:
+                                                                            {(item.chapterName || item.topic || 'Item') + ':'}
                                                                         </span>{' '}
                                                                         {item.title}
                                                                     </p>
