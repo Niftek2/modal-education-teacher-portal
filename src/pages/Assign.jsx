@@ -89,6 +89,9 @@ export default function Assign() {
 
             const result = await api.call('getTeacherAssignments', { sessionToken: activeToken }, activeToken);
 
+            // Capture teacher email from session result for use during assignment
+            if (result.teacherEmail) setTeacherEmail(result.teacherEmail);
+
             const catalogData = (result.catalog || []).filter(item =>
                 !item.title?.startsWith('[TEST]') && item.level !== '[TEST]'
             );
