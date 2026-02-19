@@ -4,9 +4,6 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
  * Called from ingestThinkificWebhook AFTER ActivityEvent is created.
  * Matches completed lessons/quizzes to pending StudentAssignment records
  * and marks them complete.
- * 
- * ActivityEvent fields used: studentEmail, lessonId, eventType
- * StudentAssignment fields matched: studentEmail + lessonId (or quizId)
  */
 Deno.serve(async (req) => {
     try {
@@ -26,14 +23,15 @@ Deno.serve(async (req) => {
             return Response.json({ success: false, message: 'No student email in event' });
         }
 
-        const webhookId = event.webhookEventId || null;
+        // Idempotency key: prefer webhookEventId, fall back to event.id
+        const webhookId = event.webhookEventId || event.id || null;
 
-        // lessonId is stored as an integer on ActivityEvent — normalize to string for matching
+        // lessonId stored as integer on ActivityEvent — normalize to string
         const lessonId = event.lessonId ? String(event.lessonId) : null;
-        // For quiz events, ActivityEvent stores quizId via the quiz.id from payload
-        // It is stored in the rawPayload; also try lessonId as quiz lessons share the lessonId field
-        let quizId = null;
-        if (event.rawPayload) {
+
+        // quizId: try direct field first, then rawPayload
+        let quizId = event.quizId ? String(event.quizId) : null;
+        if (!quizId && event.rawPayload) {
             try {
                 const raw = JSON.parse(event.rawPayload);
                 const qId = raw?.payload?.quiz?.id;
@@ -74,18 +72,17 @@ Deno.serve(async (req) => {
 
         console.log(`[markAssignmentComplete] Event ${activityEventId}: email=${normalizedEmail}, lessonId=${lessonId}, quizId=${quizId}, matched=${matchedAssignments.length}`);
 
-        // Mark matched assignments as completed (idempotent: skip if already completed or same webhookId)
+        // Mark matched assignments as completed (idempotent)
         const completedIds = [];
         for (const assignment of matchedAssignments) {
-            // Idempotency: skip if already completed or this webhook already applied
             if (assignment.completionEventId && assignment.completionEventId === webhookId) {
                 console.log(`[markAssignmentComplete] Skipping ${assignment.id} — already processed webhook ${webhookId}`);
                 continue;
             }
+            const completedAt = event.occurredAt || new Date().toISOString();
             await base44.asServiceRole.entities.StudentAssignment.update(assignment.id, {
                 status: 'completed',
-                completedAt: event.occurredAt,
-                completedByEventId: event.id,
+                completedAt,
                 completionEventId: webhookId,
                 metadata: {
                     ...(assignment.metadata || {}),
@@ -93,6 +90,7 @@ Deno.serve(async (req) => {
                 }
             });
             completedIds.push(assignment.id);
+            console.log(`[markAssignmentComplete] Completed assignment ${assignment.id} for ${normalizedEmail} at ${completedAt}`);
         }
 
         return Response.json({

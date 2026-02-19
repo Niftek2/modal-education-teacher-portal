@@ -4,12 +4,12 @@ Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
-        const { studentEmails, catalogId, dueAt, assignPageOk, teacherEmail: bodyTeacherEmail } = body;
+        const { studentEmails, catalogId, dueAt, teacherEmail: bodyTeacherEmail } = body;
 
-        // Resolve teacherEmail from body (validated below)
+        // Resolve teacherEmail from body
         const teacherEmail = bodyTeacherEmail;
 
-        // Strict input validation
+        // Input validation
         if (!teacherEmail || typeof teacherEmail !== 'string' || !teacherEmail.includes('@')) {
             return Response.json({ error: 'Invalid or missing teacherEmail' }, { status: 400 });
         }
@@ -34,27 +34,28 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Assignment is not active' }, { status: 400 });
         }
 
-        // Get teacher's groups — optional, don't fail if missing
+        // Normalize contentType
+        const normalizedContentType = String(catalog.contentType || catalog.type || '').toLowerCase();
+
+        // Get teacher's groups — optional
         const teacherGroups = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail });
         const groupId = (teacherGroups && teacherGroups.length > 0) ? teacherGroups[0].thinkificGroupId : null;
 
         const now = new Date().toISOString();
 
+        const lessonIdStr = catalog.thinkificLessonId ? String(catalog.thinkificLessonId) : (catalog.lessonId || '');
+        const quizIdStr = catalog.thinkificQuizId ? String(catalog.thinkificQuizId) : (catalog.quizId || '');
+        const contentUrl = catalog.contentUrl || catalog.thinkificUrl || '';
+
         // Create assignments
         const assignments = [];
         for (const studentEmail of studentEmails) {
             const normalizedEmail = studentEmail.trim().toLowerCase();
-            
-            // Only process @modalmath.com emails
-            if (!normalizedEmail.endsWith('@modalmath.com')) {
-                console.warn(`Skipping non-modalmath email: ${normalizedEmail}`);
-                continue;
-            }
-            const dedupeKey = `assign:${normalizedEmail}:${catalogId}`;
 
-            const lessonIdStr = catalog.thinkificLessonId ? String(catalog.thinkificLessonId) : (catalog.lessonId || '');
-            const quizIdStr = catalog.thinkificQuizId ? String(catalog.thinkificQuizId) : (catalog.quizId || '');
-            const contentUrl = catalog.thinkificUrl || '';
+            // Dedupe key includes sourceKey (or catalogId fallback) + due date
+            const dueKey = dueAt ? new Date(dueAt).toISOString().slice(0, 10) : 'none';
+            const keyPart = catalog.sourceKey ? catalog.sourceKey : `catalog:${catalogId}`;
+            const dedupeKey = `assign:${normalizedEmail}:${keyPart}:${dueKey}`;
 
             const assignment = {
                 teacherEmail,
@@ -65,8 +66,8 @@ Deno.serve(async (req) => {
                 title: catalog.title,
                 topic: catalog.topic || '',
                 level: catalog.level || 'Elementary',
-                type: catalog.contentType || catalog.type,
-                contentType: catalog.contentType || catalog.type,
+                type: normalizedContentType,
+                contentType: normalizedContentType,
                 courseId: catalog.courseId || '',
                 lessonId: lessonIdStr,
                 quizId: quizIdStr,
@@ -79,12 +80,23 @@ Deno.serve(async (req) => {
             };
 
             // Upsert: update if exists, create if not
-            const existing2 = await base44.asServiceRole.entities.StudentAssignment.filter({ dedupeKey });
+            const existing = await base44.asServiceRole.entities.StudentAssignment.filter({ dedupeKey });
             let created;
-            if (existing2 && existing2.length > 0) {
-                created = await base44.asServiceRole.entities.StudentAssignment.update(existing2[0].id, {
+            if (existing && existing.length > 0) {
+                created = await base44.asServiceRole.entities.StudentAssignment.update(existing[0].id, {
                     dueAt: dueAt || null,
-                    status: existing2[0].status === 'archived' ? 'assigned' : existing2[0].status
+                    status: existing[0].status === 'archived' ? 'assigned' : existing[0].status,
+                    title: catalog.title,
+                    topic: catalog.topic || '',
+                    level: catalog.level || 'Elementary',
+                    sourceKey: catalog.sourceKey || '',
+                    contentUrl,
+                    thinkificUrl: contentUrl,
+                    type: normalizedContentType,
+                    contentType: normalizedContentType,
+                    lessonId: lessonIdStr,
+                    quizId: quizIdStr,
+                    courseId: catalog.courseId || ''
                 });
             } else {
                 created = await base44.asServiceRole.entities.StudentAssignment.create(assignment);
