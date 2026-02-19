@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
 
         return Response.json({
             success: true,
+            teacherEmail,
             students: roster,
             catalog: activeCatalog,
             assignments: (assignments || []).sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt)),
