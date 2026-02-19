@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Group ID required' }, { status: 400 });
         }
 
-        const activeCount = await getActiveStudentCount(groupId, base44);
+        const activeCount = await getActiveStudentCount(session.email, base44);
         const slotsRemaining = 10 - activeCount;
 
         if (slotsRemaining <= 0) {
