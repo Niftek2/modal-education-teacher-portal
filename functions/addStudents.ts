@@ -131,8 +131,9 @@ async function checkActiveEnrollment(userEmail) {
         `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(userEmail)}`,
         {
             headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                'Authorization': `Bearer ${Deno.env.get('THINKIFIC_API_ACCESS_TOKEN')}`,
+                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                'Content-Type': 'application/json'
             }
         }
     );
@@ -143,17 +144,18 @@ async function checkActiveEnrollment(userEmail) {
 
     const userData = await response.json();
     const userId = userData.items?.[0]?.id;
-    
+
     if (!userId) {
         throw new Error('User not found');
     }
 
     const enrollmentsResponse = await fetch(
-        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}`,
+        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[course_id]=${CLASSROOM_COURSE_ID}`,
         {
             headers: {
-                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                'Authorization': `Bearer ${Deno.env.get('THINKIFIC_API_ACCESS_TOKEN')}`,
+                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                'Content-Type': 'application/json'
             }
         }
     );
@@ -163,48 +165,29 @@ async function checkActiveEnrollment(userEmail) {
     }
 
     const enrollmentsData = await enrollmentsResponse.json();
-    const hasActiveClassroomEnrollment = enrollmentsData.items?.some(
-        e => String(e.course_id) === CLASSROOM_COURSE_ID && e.status === 'active'
-    );
+    // Only check for existence of enrollment — do not require e.status === 'active'
+    const hasClassroomEnrollment = (enrollmentsData.items || []).length > 0;
 
-    return hasActiveClassroomEnrollment;
+    return hasClassroomEnrollment;
 }
 
-async function getActiveStudentCount(groupId, base44) {
-    let allMembers = [];
-    let page = 1;
-    let hasMore = true;
+async function getActiveStudentCount(teacherEmail, base44) {
+    // Source of truth: StudentAccessCode created by this teacher, minus ArchivedStudents
+    const [studentCodes, archivedStudents] = await Promise.all([
+        base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
+        base44.asServiceRole.entities.ArchivedStudent.filter({})
+    ]);
 
-    while (hasMore) {
-        const response = await fetch(
-            `https://api.thinkific.com/api/public/v1/group_memberships?group_id=${groupId}&page=${page}&limit=25`,
-            {
-                headers: {
-                    'X-Auth-API-Key': THINKIFIC_API_KEY,
-                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-                }
-            }
-        );
+    const archivedEmailSet = new Set(
+        (archivedStudents || []).map(s => s.studentEmail?.toLowerCase().trim()).filter(Boolean)
+    );
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch group members');
-        }
+    const activeCount = (studentCodes || []).filter(s => {
+        const email = s.studentEmail?.toLowerCase().trim();
+        return email && email.endsWith('@modalmath.com') && !archivedEmailSet.has(email);
+    }).length;
 
-        const data = await response.json();
-        allMembers.push(...data.items);
-        hasMore = data.meta.pagination.current_page < data.meta.pagination.total_pages;
-        page++;
-    }
-
-    const studentEmails = allMembers
-        .map(m => m.user?.email?.toLowerCase().trim())
-        .filter(email => email && email.endsWith('@modalmath.com'));
-
-    const archivedStudents = await base44.asServiceRole.entities.ArchivedStudent.filter({ groupId: groupId });
-    const archivedEmailSet = new Set(archivedStudents.map(s => s.studentEmail?.toLowerCase().trim()));
-
-    const activeStudents = studentEmails.filter(email => !archivedEmailSet.has(email));
-    return activeStudents.length;
+    return activeCount;
 }
 
 Deno.serve(async (req) => {
