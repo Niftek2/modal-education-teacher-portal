@@ -410,7 +410,7 @@ export default function Assign() {
 
                     {/* Selected lesson chips */}
                     {selectedAssignmentIds.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 mb-5">
                             {selectedAssignmentIds.map(id => {
                                 const item = catalog.find(c => c.id === id);
                                 if (!item) return null;
@@ -427,6 +427,96 @@ export default function Assign() {
                             })}
                         </div>
                     )}
+
+                    {/* Active Assignments Panel */}
+                    {(() => {
+                        const panelAssignments = existingAssignments
+                            .filter(a => selectedStudents.includes(a.studentEmail) && a.status !== 'archived')
+                            .sort((a, b) => {
+                                if (a.status === 'assigned' && b.status !== 'assigned') return -1;
+                                if (b.status === 'assigned' && a.status !== 'assigned') return 1;
+                                return new Date(b.assignedAt) - new Date(a.assignedAt);
+                            });
+
+                        const activeCount = panelAssignments.filter(a => a.status === 'assigned').length;
+
+                        const formatDate = (iso) => {
+                            if (!iso) return '';
+                            return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                        };
+
+                        // Group by student if multiple selected
+                        const byStudent = {};
+                        for (const a of panelAssignments) {
+                            if (!byStudent[a.studentEmail]) byStudent[a.studentEmail] = [];
+                            byStudent[a.studentEmail].push(a);
+                        }
+
+                        return (
+                            <div className="mt-2">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <h2 className="text-sm font-semibold text-black">Assignments</h2>
+                                    {selectedStudents.length > 0 && (
+                                        <span className="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">
+                                            {activeCount} active
+                                        </span>
+                                    )}
+                                </div>
+
+                                {selectedStudents.length === 0 ? (
+                                    <p className="text-sm text-gray-400 italic">Select a student to view assignments.</p>
+                                ) : panelAssignments.length === 0 ? (
+                                    <p className="text-sm text-gray-400 italic">No assignments yet.</p>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {Object.entries(byStudent).map(([email, items]) => (
+                                            <div key={email}>
+                                                {selectedStudents.length > 1 && (
+                                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{email.split('@')[0]}</p>
+                                                )}
+                                                <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
+                                                    {items.map(a => {
+                                                        const title = a.title || catalog.find(c => c.id === a.catalogId)?.title || '—';
+                                                        const url = a.contentUrl || a.thinkificUrl;
+                                                        const isCompleted = a.status === 'completed';
+                                                        return (
+                                                            <div key={a.id} className="flex items-start gap-3 px-4 py-3">
+                                                                <div className="mt-0.5 flex-shrink-0">
+                                                                    {isCompleted
+                                                                        ? <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                                                        : <Clock className="w-4 h-4 text-amber-400" />
+                                                                    }
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-sm text-black leading-snug truncate">{title}</p>
+                                                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                                                                        <span className={`text-xs font-medium ${isCompleted ? 'text-green-600' : 'text-amber-500'}`}>
+                                                                            {isCompleted ? 'Completed' : 'Assigned'}
+                                                                        </span>
+                                                                        {isCompleted && a.completedAt && (
+                                                                            <span className="text-xs text-gray-400">{formatDate(a.completedAt)}</span>
+                                                                        )}
+                                                                        {a.dueAt && (
+                                                                            <span className="text-xs text-gray-400">Due: {formatDate(a.dueAt)}</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                {url && (
+                                                                    <a href={url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 text-purple-700 hover:text-purple-900 mt-0.5">
+                                                                        <ExternalLink className="w-3.5 h-3.5" />
+                                                                    </a>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </main>
             </div>
         </div>
