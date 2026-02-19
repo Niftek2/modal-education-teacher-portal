@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
             role: isTeacher ? 'teacher' : 'student'
         })
             .setProtectedHeader({ alg: 'HS256' })
-            .setExpirationTime('30d')
+            .setExpirationTime('365d')
             .setIssuedAt()
             .sign(sessionSecret);
 

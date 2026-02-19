@@ -71,7 +71,8 @@ export default function Assign() {
             setExistingAssignments(result.assignments || []);
         } catch (error) {
             console.error('Load error:', error.message);
-            if (error.message?.includes('401') || error.message?.includes('403') || error.message?.includes('expired') || error.message?.includes('JWT')) {
+            // Only redirect on missing/invalid token (401/403), not on other errors
+            if (error.message?.includes('401') || error.message?.includes('403')) {
                 localStorage.removeItem('modal_math_session');
                 navigate('/Home');
             }
