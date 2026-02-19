@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
             base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
             base44.asServiceRole.entities.ArchivedStudent.filter({}),
             base44.asServiceRole.entities.StudentAssignment.filter({ teacherEmail }),
-            base44.asServiceRole.entities.AssignmentCatalog.filter({ isActive: true })
+            base44.asServiceRole.entities.AssignmentCatalog.list('title', 2000)
         ]);
 
         const archivedEmailSet = new Set(
