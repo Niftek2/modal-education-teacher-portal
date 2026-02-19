@@ -56,6 +56,7 @@ export default function Dashboard() {
     const loadDashboard = async (sessionToken) => {
         try {
             setLoading(true);
+            setRosterSyncError(false);
             // DEBUG
             console.log('[Dashboard] load start');
             console.log('[Dashboard] modal_math_session present:', !!sessionToken);
@@ -78,55 +79,75 @@ export default function Dashboard() {
 
             // Get students only from roster-based activity filtering
             if (primaryGroup) {
-                // Get students via teacher's roster (group membership union)
-                const activityResponse = await api.call('getStudentActivityForTeacher', {
-                    sessionToken
-                }, sessionToken);
-
-                // Build student list from roster emails
-                const rosterStudents = activityResponse.studentEmails.map(email => ({
-                    email,
-                    firstName: email.split('@')[0],
-                    lastName: '',
-                    percentage: 0,
-                    completedLessons: 0
-                }));
-
-                // DEBUG
-                console.log('[Dashboard] getStudentActivityForTeacher studentEmails length:', activityResponse.studentEmails?.length ?? 'undefined');
-
-                // Persist roster emails for Assign page (guard: never write empty array)
-                const rosterEmails = activityResponse.studentEmails || [];
-                console.log('[Dashboard] writing roster to localStorage, length =', rosterEmails.length);
                 try {
-                    if (rosterEmails.length > 0) {
-                        const ts = new Date().toISOString();
-                        localStorage.setItem('mm_teacher_roster_emails', JSON.stringify(rosterEmails));
-                        localStorage.setItem('mm_teacher_roster_saved_at', ts);
-                        setRosterLastUpdated(ts);
-                    } else {
-                        console.warn('[Dashboard] WARNING: roster came back empty, NOT overwriting localStorage');
-                    }
-                } catch {}
+                    // Get students via teacher's roster (group membership union)
+                    const activityResponse = await api.call('getStudentActivityForTeacher', {
+                        sessionToken
+                    }, sessionToken);
 
-                setStudents(rosterStudents);
-                setFilteredStudents(rosterStudents);
-                
-                // Store activities for last active tracking
-                setStudentActivities(activityResponse.events || []);
+                    // DEBUG
+                    console.log('[Dashboard] getStudentActivityForTeacher studentEmails length:', activityResponse.studentEmails?.length ?? 'undefined');
 
-                // Fetch dashboard metrics
-                const metricsResponse = await api.call('getTeacherDashboardMetrics', { sessionToken }, sessionToken);
-                setDashboardMetrics(metricsResponse);
+                    // Persist roster emails for Assign page (guard: never write empty array)
+                    const rosterEmails = activityResponse.studentEmails || [];
+                    console.log('[Dashboard] writing roster to localStorage, length =', rosterEmails.length);
+                    try {
+                        if (rosterEmails.length > 0) {
+                            const ts = new Date().toISOString();
+                            localStorage.setItem('mm_teacher_roster_emails', JSON.stringify(rosterEmails));
+                            localStorage.setItem('mm_teacher_roster_saved_at', ts);
+                            setRosterLastUpdated(ts);
+                            setRosterSyncError(false);
+                        } else {
+                            console.warn('[Dashboard] WARNING: roster came back empty, NOT overwriting localStorage');
+                            setRosterSyncError(true);
+                        }
+                    } catch {}
+
+                    // Build student list from roster emails (use fresh data if available, otherwise use saved)
+                    const finalRosterEmails = rosterEmails.length > 0 ? rosterEmails : rosterParsed;
+                    const rosterStudents = finalRosterEmails.map(email => ({
+                        email,
+                        firstName: email.split('@')[0],
+                        lastName: '',
+                        percentage: 0,
+                        completedLessons: 0
+                    }));
+
+                    setStudents(rosterStudents);
+                    setFilteredStudents(rosterStudents);
+                    
+                    // Store activities for last active tracking
+                    setStudentActivities(activityResponse.events || []);
+                } catch (rosterError) {
+                    console.error('[Dashboard] roster sync failed:', rosterError.message);
+                    // Fall back to saved roster
+                    setRosterSyncError(true);
+                    const savedRosterEmails = rosterParsed;
+                    const rosterStudents = savedRosterEmails.map(email => ({
+                        email,
+                        firstName: email.split('@')[0],
+                        lastName: '',
+                        percentage: 0,
+                        completedLessons: 0
+                    }));
+                    setStudents(rosterStudents);
+                    setFilteredStudents(rosterStudents);
+                }
+
+                // Fetch dashboard metrics (non-critical)
+                try {
+                    const metricsResponse = await api.call('getTeacherDashboardMetrics', { sessionToken }, sessionToken);
+                    setDashboardMetrics(metricsResponse);
+                } catch (metricsError) {
+                    console.error('[Dashboard] metrics fetch failed:', metricsError.message);
+                    // Metrics are non-critical, don't fail the page
+                }
             }
         } catch (error) {
             console.error('[Dashboard] load error:', error.message);
-            // Only redirect if our own magic-key session is rejected (HTTP 401 from our functions).
-            // Platform-level 401s (Base44 User/me) must NOT clear the session or affect the roster.
-            if (error.message === 'Authentication required' || error.message === 'Unauthorized') {
-                localStorage.removeItem('modal_math_session');
-                navigate('/Home');
-            }
+            // NEVER clear session and NEVER redirect, even on errors
+            // Session should only be cleared if the user explicitly logs out
         } finally {
             setLoading(false);
         }
