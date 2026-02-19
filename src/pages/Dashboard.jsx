@@ -116,8 +116,13 @@ export default function Dashboard() {
                 setDashboardMetrics(metricsResponse);
             }
         } catch (error) {
-            console.error('Dashboard error:', error);
-            if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+            console.error('[Dashboard] load error:', error.message);
+            // Only redirect on 401 from OUR backend calls (modal_math_session invalid).
+            // Do NOT redirect on platform-level 401s (e.g. Base44 User/me).
+            if (
+                (error.message?.includes('401') || error.message?.includes('Unauthorized')) &&
+                error.message?.includes('getTeacher')
+            ) {
                 localStorage.removeItem('modal_math_session');
                 navigate('/Home');
             }
