@@ -2,6 +2,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { requireSession } from './lib/auth.js';
 
 Deno.serve(async (req) => {
+    const t0 = Date.now();
+    let t1, t2, t3, t4;
+
     let session;
     try {
         session = await requireSession(req);
@@ -16,6 +19,7 @@ Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         const teacherEmail = session.email?.toLowerCase().trim();
+        t1 = Date.now();
 
         const isTeacher = session.isTeacher === true || session.role === 'teacher';
         if (!isTeacher) {
