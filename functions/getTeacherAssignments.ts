@@ -21,7 +21,8 @@ Deno.serve(async (req) => {
     const { session, expired } = await getSession(req);
 
     if (!session) {
-        return Response.json({ error: "Unauthorized.", reason: expired ? "token_expired" : "invalid_token" }, { status: 401 });
+        const msg = expired ? "Session expired, please log in again." : "Unauthorized.";
+        return Response.json({ error: msg, reason: expired ? "token_expired" : "invalid_token" }, { status: 401 });
     }
 
     try {
