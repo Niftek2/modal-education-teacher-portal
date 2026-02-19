@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
 
             for (const chapter of chapters) {
                 const chapterId = chapter.id;
-                const topicName = chapter.name || '';
+                const topicName = chapter.name || chapter.title || '';
 
                 // Fetch contents (lessons + quizzes) for this chapter
                 const contents = await fetchAllPages('/contents', { 'query[chapter_id]': chapterId });
