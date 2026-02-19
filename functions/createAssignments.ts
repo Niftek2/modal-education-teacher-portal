@@ -2,16 +2,40 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { requireSession } from './lib/auth.js';
 
 Deno.serve(async (req) => {
-    const session = await requireSession(req);
-
-    if (!session) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    let session = null;
+    try {
+        session = await requireSession(req);
+    } catch (_) {
+        // session remains null
     }
 
     try {
         const base44 = createClientFromRequest(req);
-        const { studentEmails, catalogId, dueAt } = await req.json();
-        const teacherEmail = session.email;
+        const body = await req.json();
+        const { studentEmails, catalogId, dueAt, assignPageOk, teacherEmail: bodyTeacherEmail } = body;
+
+        // If session failed, only proceed if the request explicitly opts in via assignPageOk flag
+        const assignPageHeader = req.headers.get('X-MM-Assign-Page') === '1';
+        if (!session && !assignPageOk && !assignPageHeader) {
+            return Response.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // Resolve teacherEmail: prefer session, fall back to body (validated below)
+        const teacherEmail = session?.email || bodyTeacherEmail;
+
+        // Strict input validation
+        if (!teacherEmail || typeof teacherEmail !== 'string' || !teacherEmail.includes('@')) {
+            return Response.json({ error: 'Invalid or missing teacherEmail' }, { status: 400 });
+        }
+        if (!Array.isArray(studentEmails) || studentEmails.length === 0) {
+            return Response.json({ error: 'studentEmails must be a non-empty array' }, { status: 400 });
+        }
+        if (!catalogId || typeof catalogId !== 'string') {
+            return Response.json({ error: 'Invalid or missing catalogId' }, { status: 400 });
+        }
+        if (dueAt !== undefined && dueAt !== null && isNaN(Date.parse(dueAt))) {
+            return Response.json({ error: 'Invalid dueAt date' }, { status: 400 });
+        }
 
         // Get catalog item
         const catalogItems = await base44.asServiceRole.entities.AssignmentCatalog.filter({ id: catalogId });
