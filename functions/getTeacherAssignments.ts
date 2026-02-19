@@ -14,8 +14,7 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const teacherEmail = session.email?.toLowerCase().trim();
 
-        // Instruction 3: allow any enrollment status, not just 'active'
-        const isTeacher = session.isTeacher || session.role === 'teacher' || await hasClassroomEnrollment(teacherEmail);
+        const isTeacher = session.isTeacher === true || session.role === 'teacher';
         if (!isTeacher) {
             return Response.json({ error: "Forbidden: Not authorized as a teacher." }, { status: 403 });
         }
