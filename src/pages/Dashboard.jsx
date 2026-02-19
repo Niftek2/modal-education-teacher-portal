@@ -297,6 +297,20 @@ export default function Dashboard() {
                     </div>
                 </div>
 
+                {/* Roster Sync Banner */}
+                {rosterSyncError && (
+                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <p className="text-sm text-yellow-800 font-medium">
+                            Using saved roster. Sync may be delayed.
+                            {rosterLastUpdated && (
+                                <span className="text-xs text-yellow-600 ml-2">
+                                    (Last updated: {new Date(rosterLastUpdated).toLocaleString()})
+                                </span>
+                            )}
+                        </p>
+                    </div>
+                )}
+
                 {/* Student Table */}
                 <StudentTable 
                     students={filteredStudents} 
@@ -306,7 +320,7 @@ export default function Dashboard() {
                     onStudentSelected={handleStudentSelected}
                     activities={studentActivities}
                 />
-                {filteredStudents.length === 0 && rosterLastUpdated && (
+                {filteredStudents.length === 0 && rosterLastUpdated && !rosterSyncError && (
                     <p className="text-xs text-gray-400 mt-3 text-center">
                         Roster last updated: {new Date(rosterLastUpdated).toLocaleString()}
                     </p>
