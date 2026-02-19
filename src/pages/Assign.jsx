@@ -284,70 +284,134 @@ export default function Assign() {
 
                 {/* RIGHT: Catalog */}
                 <main className="flex-1 overflow-y-auto p-5">
-                    <div className="flex items-center gap-4 mb-5">
-                        <div className="relative max-w-xs w-full">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <Input
-                                placeholder="Search lessons..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-9"
-                            />
-                        </div>
-                    </div>
+                    <div className="flex items-center gap-3 mb-5">
+                        {/* Searchable multiselect dropdown */}
+                        <div className="relative flex-1 max-w-lg" ref={dropdownRef}>
+                            <button
+                                type="button"
+                                onClick={() => { setDropdownOpen(o => !o); setCatalogSearch(''); }}
+                                className="w-full flex items-center justify-between border border-gray-300 rounded-md px-3 py-2 bg-white text-sm text-left hover:border-purple-400 focus:outline-none"
+                            >
+                                <span className={selectedAssignmentIds.length ? 'text-black' : 'text-gray-400'}>
+                                    {selectedAssignmentIds.length
+                                        ? `${selectedAssignmentIds.length} lesson${selectedAssignmentIds.length !== 1 ? 's' : ''} selected`
+                                        : 'Select lessons…'}
+                                </span>
+                                <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            </button>
 
-                    <div className="space-y-6">
-                        {[...LEVEL_ORDER, 'Other'].map(level => {
-                            const items = grouped[level] || [];
-                            if (!items.length) return null;
-                            const allSelected = items.every(i => selectedAssignmentIds.includes(i.id));
-                            return (
-                                <div key={level}>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full text-white ${level === 'Other' ? 'bg-gray-400' : 'bg-purple-900'}`}>
-                                            {level}
-                                        </span>
-                                        <span className="text-xs text-gray-400">{items.length} lesson{items.length !== 1 ? 's' : ''}</span>
-                                        <button
-                                            onClick={() => allSelected
-                                                ? setSelectedAssignmentIds(prev => prev.filter(id => !items.some(i => i.id === id)))
-                                                : setSelectedAssignmentIds(prev => [...new Set([...prev, ...items.map(i => i.id)])])
-                                            }
-                                            className="text-xs text-purple-700 hover:underline ml-auto"
-                                        >
-                                            {allSelected ? 'Deselect all' : 'Select all'}
-                                        </button>
+                            {dropdownOpen && (
+                                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+                                    {/* Search inside dropdown */}
+                                    <div className="p-2 border-b border-gray-100">
+                                        <div className="relative">
+                                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                                            <input
+                                                autoFocus
+                                                placeholder="Search lessons..."
+                                                value={catalogSearch}
+                                                onChange={e => setCatalogSearch(e.target.value)}
+                                                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                        {items.map(item => {
-                                            const selected = selectedAssignmentIds.includes(item.id);
+
+                                    {/* List */}
+                                    <div className="overflow-y-auto max-h-80">
+                                        {[...LEVEL_ORDER, 'Other'].map(level => {
+                                            const levelItems = (grouped[level] || []).filter(item => {
+                                                if (!catalogSearch) return true;
+                                                const s = catalogSearch.toLowerCase();
+                                                return (
+                                                    item.title?.toLowerCase().includes(s) ||
+                                                    item.topic?.toLowerCase().includes(s) ||
+                                                    resolveLevel(item).toLowerCase().includes(s)
+                                                );
+                                            });
+                                            if (!levelItems.length) return null;
                                             return (
-                                                <div
-                                                    key={item.id}
-                                                    onClick={() => toggleAssignment(item.id)}
-                                                    className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${selected ? 'border-purple-400 bg-purple-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
-                                                >
-                                                    <Checkbox
-                                                        checked={selected}
-                                                        onCheckedChange={() => toggleAssignment(item.id)}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        className="mt-0.5 flex-shrink-0"
-                                                    />
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-medium text-black leading-snug">{item.displayTitle || item.title}</p>
-                                                        {item.topic && (
-                                                            <p className="text-xs text-gray-500 uppercase tracking-wide mt-0.5">Chapter: {item.topic}</p>
-                                                        )}
-                                                        <p className="text-xs text-gray-400 mt-0.5 capitalize">{item.type}</p>
+                                                <div key={level}>
+                                                    <div className="px-3 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100">
+                                                        {level}
                                                     </div>
+                                                    {levelItems.map(item => {
+                                                        const selected = selectedAssignmentIds.includes(item.id);
+                                                        return (
+                                                            <div
+                                                                key={item.id}
+                                                                onClick={() => toggleAssignment(item.id)}
+                                                                className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-purple-50 ${selected ? 'bg-purple-50' : ''}`}
+                                                            >
+                                                                <div className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center ${selected ? 'bg-purple-900 border-purple-900' : 'border-gray-300'}`}>
+                                                                    {selected && <Check className="w-3 h-3 text-white" />}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="text-sm text-black leading-snug truncate">{item.displayTitle || item.title}</p>
+                                                                    {item.topic && (
+                                                                        <p className="text-xs text-gray-400 truncate">{item.topic} · <span className="capitalize">{item.type}</span></p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             );
                                         })}
                                     </div>
+
+                                    {/* Footer: clear + close */}
+                                    <div className="p-2 border-t border-gray-100 flex justify-between items-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedAssignmentIds([])}
+                                            className="text-xs text-gray-500 hover:text-gray-700"
+                                        >
+                                            Clear all
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setDropdownOpen(false)}
+                                            className="text-xs text-purple-700 font-medium hover:underline"
+                                        >
+                                            Done
+                                        </button>
+                                    </div>
                                 </div>
-                            );
-                        })}
+                            )}
+                        </div>
+
+                        {/* Sync button */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleSyncCatalog}
+                            disabled={syncingCatalog}
+                            className="flex-shrink-0 border-gray-300 text-gray-600"
+                        >
+                            <RefreshCw className={`w-4 h-4 mr-1.5 ${syncingCatalog ? 'animate-spin' : ''}`} />
+                            {syncingCatalog ? 'Syncing…' : 'Sync'}
+                        </Button>
                     </div>
+
+                    {/* Selected lesson chips */}
+                    {selectedAssignmentIds.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {selectedAssignmentIds.map(id => {
+                                const item = catalog.find(c => c.id === id);
+                                if (!item) return null;
+                                return (
+                                    <span
+                                        key={id}
+                                        onClick={() => toggleAssignment(id)}
+                                        className="flex items-center gap-1.5 text-xs bg-purple-100 text-purple-900 rounded-full px-3 py-1 cursor-pointer hover:bg-purple-200"
+                                    >
+                                        {item.displayTitle || item.title}
+                                        <span className="text-purple-500">×</span>
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    )}
                 </main>
             </div>
         </div>
