@@ -114,6 +114,7 @@ export default function Assign() {
                 .sort((a, b) => a.email.localeCompare(b.email));
 
             setStudents(rosterStudents);
+            setPageLoaded(true);
         } catch (error) {
             console.error('Load error:', error.message);
             localStorage.removeItem('modal_math_session');
