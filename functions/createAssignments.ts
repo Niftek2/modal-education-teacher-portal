@@ -66,19 +66,26 @@ Deno.serve(async (req) => {
             }
             const dedupeKey = `assign:${normalizedEmail}:${catalogId}`;
 
+            const lessonIdStr = catalog.thinkificLessonId ? String(catalog.thinkificLessonId) : (catalog.lessonId || '');
+            const quizIdStr = catalog.thinkificQuizId ? String(catalog.thinkificQuizId) : (catalog.quizId || '');
+            const contentUrl = catalog.thinkificUrl || '';
+
             const assignment = {
                 teacherEmail,
                 groupId: groupId || '',
                 studentEmail: normalizedEmail,
                 catalogId,
+                sourceKey: catalog.sourceKey || '',
                 title: catalog.title,
                 topic: catalog.topic || '',
                 level: catalog.level || 'Elementary',
-                type: catalog.type,
+                type: catalog.contentType || catalog.type,
+                contentType: catalog.contentType || catalog.type,
                 courseId: catalog.courseId || '',
-                lessonId: catalog.lessonId || '',
-                quizId: catalog.quizId || '',
-                thinkificUrl: catalog.thinkificUrl,
+                lessonId: lessonIdStr,
+                quizId: quizIdStr,
+                thinkificUrl: contentUrl,
+                contentUrl,
                 assignedAt: now,
                 dueAt: dueAt || null,
                 status: 'assigned',
