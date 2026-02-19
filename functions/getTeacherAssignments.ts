@@ -1,42 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { requireSession } from './lib/auth.js';
 
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
-const CLASSROOM_COURSE_ID = '552235'; // "Your Classroom" course
 
-async function hasClassroomEnrollment(userEmail) {
-    // Step 1: look up user by email
-    const userRes = await fetch(
-        `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(userEmail)}`,
-        {
-            headers: {
-                'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                'Content-Type': 'application/json'
-            }
-        }
-    );
-    if (!userRes.ok) return false;
-    const userData = await userRes.json();
-    const userId = userData.items?.[0]?.id;
-    if (!userId) return false;
-
-    // Step 2: check if ANY enrollment exists for this course (any status)
-    const enrollRes = await fetch(
-        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[course_id]=${CLASSROOM_COURSE_ID}&limit=1`,
-        {
-            headers: {
-                'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
-                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                'Content-Type': 'application/json'
-            }
-        }
-    );
-    if (!enrollRes.ok) return false;
-    const enrollData = await enrollRes.json();
-    return (enrollData.items || []).length > 0;
-}
 
 Deno.serve(async (req) => {
     const session = await requireSession(req);

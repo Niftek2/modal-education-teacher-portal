@@ -47,9 +47,8 @@ export default function Assign() {
     const [existingAssignments, setExistingAssignments] = useState([]);
     const navigate = useNavigate();
 
-    const sessionToken = localStorage.getItem('modal_math_session');
-
     useEffect(() => {
+        const sessionToken = localStorage.getItem('modal_math_session');
         if (!sessionToken) {
             navigate('/Home');
             return;
