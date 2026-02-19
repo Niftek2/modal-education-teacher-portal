@@ -26,6 +26,7 @@ export default function Dashboard() {
     const [showSnapshot, setShowSnapshot] = useState(false);
     const [showArchived, setShowArchived] = useState(false);
     const [dashboardMetrics, setDashboardMetrics] = useState({ totalQuizAttemptsAllTime: 0, activeStudentsThisWeek: 0 });
+    const [rosterLastUpdated, setRosterLastUpdated] = useState(() => localStorage.getItem('mm_teacher_roster_saved_at'));
     const navigate = useNavigate();
 
     useEffect(() => {
