@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
             base44.asServiceRole.entities.StudentAssignment.filter({ teacherEmail }),
             base44.asServiceRole.entities.AssignmentCatalog.list('title', 2000)
         ]);
+        t2 = Date.now();
 
         const archivedEmailSet = new Set(
             (archivedStudents || []).map(s => s.studentEmail?.toLowerCase().trim()).filter(Boolean)
