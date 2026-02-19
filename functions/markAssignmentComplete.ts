@@ -1,13 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 /**
- * This function should be called from webhook handler AFTER ActivityEvent is created.
- * It matches completed quizzes/lessons to student assignments and marks them complete.
+ * Called from ingestThinkificWebhook AFTER ActivityEvent is created.
+ * Matches completed lessons/quizzes to pending StudentAssignment records
+ * and marks them complete.
  * 
- * Call this from your webhook handler like:
- * await base44.functions.invoke('markAssignmentComplete', { activityEventId: event.id })
+ * ActivityEvent fields used: studentEmail, lessonId, eventType
+ * StudentAssignment fields matched: studentEmail + lessonId (or quizId)
  */
-
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
@@ -21,38 +21,37 @@ Deno.serve(async (req) => {
 
         const event = events[0];
         const normalizedEmail = event.studentEmail?.trim().toLowerCase();
-        
+
         if (!normalizedEmail) {
             return Response.json({ success: false, message: 'No student email in event' });
         }
 
+        // lessonId is stored as an integer on ActivityEvent — normalize to string for matching
+        const lessonId = event.lessonId ? String(event.lessonId) : null;
+        const quizId = event.quizId ? String(event.quizId) : null;
+
         let matchedAssignments = [];
 
-        // Match based on event type
         if (event.eventType === 'quiz_attempted' || event.eventType === 'quiz.attempted') {
-            // Try to match by lessonId first (preferred), then quizId
-            const lessonId = event.metadata?.lessonId || event.contentId;
-            const quizId = event.metadata?.quizId || event.contentId;
-
-            // Find assignments that match this student and lesson/quiz
-            const assignmentsByLesson = lessonId ? await base44.asServiceRole.entities.StudentAssignment.filter({
-                studentEmail: normalizedEmail,
-                lessonId,
-                status: 'assigned'
-            }) : [];
-
-            const assignmentsByQuiz = quizId ? await base44.asServiceRole.entities.StudentAssignment.filter({
-                studentEmail: normalizedEmail,
-                quizId,
-                status: 'assigned'
-            }) : [];
-
-            matchedAssignments = [...assignmentsByLesson, ...assignmentsByQuiz];
+            // Match by lessonId (preferred) or quizId
+            if (lessonId) {
+                const byLesson = await base44.asServiceRole.entities.StudentAssignment.filter({
+                    studentEmail: normalizedEmail,
+                    lessonId,
+                    status: 'assigned'
+                });
+                matchedAssignments.push(...byLesson);
+            }
+            if (quizId && matchedAssignments.length === 0) {
+                const byQuiz = await base44.asServiceRole.entities.StudentAssignment.filter({
+                    studentEmail: normalizedEmail,
+                    quizId,
+                    status: 'assigned'
+                });
+                matchedAssignments.push(...byQuiz);
+            }
 
         } else if (event.eventType === 'lesson_completed' || event.eventType === 'lesson.completed') {
-            // Match by lessonId
-            const lessonId = event.contentId || event.metadata?.lessonId;
-            
             if (lessonId) {
                 matchedAssignments = await base44.asServiceRole.entities.StudentAssignment.filter({
                     studentEmail: normalizedEmail,
@@ -62,13 +61,19 @@ Deno.serve(async (req) => {
             }
         }
 
+        console.log(`[markAssignmentComplete] Event ${activityEventId}: email=${normalizedEmail}, lessonId=${lessonId}, matched=${matchedAssignments.length}`);
+
         // Mark matched assignments as completed
         const completedIds = [];
-        for (const assignment of matchedAssignments || []) {
+        for (const assignment of matchedAssignments) {
             await base44.asServiceRole.entities.StudentAssignment.update(assignment.id, {
                 status: 'completed',
                 completedAt: event.occurredAt,
-                completedByEventId: event.id
+                completedByEventId: event.id,
+                metadata: {
+                    ...(assignment.metadata || {}),
+                    grade: event.grade ?? null
+                }
             });
             completedIds.push(assignment.id);
         }
