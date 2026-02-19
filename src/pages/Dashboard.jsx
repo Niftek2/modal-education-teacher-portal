@@ -54,7 +54,12 @@ export default function Dashboard() {
     const loadDashboard = async (sessionToken) => {
         try {
             setLoading(true);
-            console.log('Loading dashboard with token:', sessionToken ? 'Yes' : 'No');
+            // DEBUG
+            console.log('[Dashboard] load start');
+            console.log('[Dashboard] modal_math_session present:', !!sessionToken);
+            const rosterRaw = localStorage.getItem('mm_teacher_roster_emails');
+            const rosterParsed = (() => { try { return JSON.parse(rosterRaw); } catch { return []; } })();
+            console.log('[Dashboard] mm_teacher_roster_emails length on load start:', Array.isArray(rosterParsed) ? rosterParsed.length : 0);
 
             // Get teacher data (now returns groups array)
             const teacherResponse = await api.call('getTeacherData', { sessionToken }, sessionToken);
