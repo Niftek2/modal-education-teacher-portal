@@ -117,12 +117,9 @@ export default function Dashboard() {
             }
         } catch (error) {
             console.error('[Dashboard] load error:', error.message);
-            // Only redirect on 401 from OUR backend calls (modal_math_session invalid).
-            // Do NOT redirect on platform-level 401s (e.g. Base44 User/me).
-            if (
-                (error.message?.includes('401') || error.message?.includes('Unauthorized')) &&
-                error.message?.includes('getTeacher')
-            ) {
+            // Only redirect if our own magic-key session is rejected (HTTP 401 from our functions).
+            // Platform-level 401s (Base44 User/me) must NOT clear the session or affect the roster.
+            if (error.message === 'Authentication required' || error.message === 'Unauthorized') {
                 localStorage.removeItem('modal_math_session');
                 navigate('/Home');
             }
