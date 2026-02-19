@@ -71,6 +71,16 @@ export default function Assign() {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
+    const getLocalRosterEmails = () => {
+        try {
+            const raw = localStorage.getItem('mm_teacher_roster_emails');
+            const arr = raw ? JSON.parse(raw) : [];
+            return Array.isArray(arr) ? arr : [];
+        } catch {
+            return [];
+        }
+    };
+
     const loadData = async (token) => {
         const activeToken = token || localStorage.getItem('modal_math_session');
         try {
@@ -82,14 +92,42 @@ export default function Assign() {
                 !item.title?.startsWith('[TEST]') && item.level !== '[TEST]'
             );
             setCatalog(catalogData);
-            setStudents(result.students || []);
             setExistingAssignments(result.assignments || []);
+
+            // Use local roster first, fall back to backend result
+            const localEmails = getLocalRosterEmails();
+            const rosterEmails = localEmails.length
+                ? localEmails
+                : (result.students || []).map(s => s.email).filter(Boolean);
+
+            const rosterStudents = rosterEmails
+                .map(email => ({
+                    email: String(email).toLowerCase().trim(),
+                    firstName: String(email).split('@')[0],
+                    lastName: '',
+                }))
+                .sort((a, b) => a.email.localeCompare(b.email));
+
+            setStudents(rosterStudents);
         } catch (error) {
             console.error('Load error:', error.message);
             localStorage.removeItem('modal_math_session');
             navigate('/Home');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSyncCatalog = async () => {
+        try {
+            setSyncingCatalog(true);
+            const activeToken = localStorage.getItem('modal_math_session');
+            await api.call('syncAssignmentCatalog', { sessionToken: activeToken }, activeToken);
+            await loadData(activeToken);
+        } catch (e) {
+            alert(e.message || 'Catalog sync failed');
+        } finally {
+            setSyncingCatalog(false);
         }
     };
 
