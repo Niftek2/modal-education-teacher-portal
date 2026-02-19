@@ -3,8 +3,7 @@ import { requireSession } from './lib/auth.js';
 
 /**
  * Returns the teacher's student roster from StudentAccessCode table.
- * Uses createdByTeacherEmail to identify teacher-owned students.
- * Much more reliable than Thinkific Group API calls.
+ * Auth: magic-link session JWT (modal_math_session) passed as Bearer token.
  */
 Deno.serve(async (req) => {
     const session = await requireSession(req);
@@ -38,7 +37,7 @@ Deno.serve(async (req) => {
 
         console.log(`[getAssignPageData] Found ${studentEmails.length} active students for ${teacherEmail}`);
 
-        return Response.json({ success: true, studentEmails }, { status: 200 });
+        return Response.json({ success: true, studentEmails });
 
     } catch (error) {
         console.error('[getAssignPageData] Error:', error);
