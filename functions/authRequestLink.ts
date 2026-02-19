@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
         
         const emailContent = [
             `To: ${email}`,
-            'From: Modal Math <contact@modalmath.com>',
+            'From: Modal Education Portal <contact@modalmath.com>',
             'Subject: Your Teacher Portal Login Link',
             'MIME-Version: 1.0',
             'Content-Type: text/html; charset=utf-8',
