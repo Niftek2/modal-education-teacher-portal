@@ -84,6 +84,12 @@ export default function Dashboard() {
                     completedLessons: 0
                 }));
 
+                // Persist roster emails for Assign page
+                try {
+                    localStorage.setItem('mm_teacher_roster_emails', JSON.stringify(activityResponse.studentEmails || []));
+                    localStorage.setItem('mm_teacher_roster_saved_at', new Date().toISOString());
+                } catch {}
+
                 setStudents(rosterStudents);
                 setFilteredStudents(rosterStudents);
                 
