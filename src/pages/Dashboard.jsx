@@ -284,6 +284,11 @@ export default function Dashboard() {
                     onStudentSelected={handleStudentSelected}
                     activities={studentActivities}
                 />
+                {filteredStudents.length === 0 && rosterLastUpdated && (
+                    <p className="text-xs text-gray-400 mt-3 text-center">
+                        Roster last updated: {new Date(rosterLastUpdated).toLocaleString()}
+                    </p>
+                )}
             </main>
 
             {/* Add Student Modal */}
