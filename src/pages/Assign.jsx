@@ -62,23 +62,20 @@ export default function Assign() {
         try {
             setLoading(true);
 
-            const [catalogRes, rosterRes, assignmentsRes] = await Promise.all([
-                api.call('getAssignmentCatalog', {}, null),
-                api.call('getAssignPageData', { sessionToken: activeToken }, activeToken),
-                api.call('getTeacherAssignments', { sessionToken: activeToken }, activeToken),
-            ]);
+            const res = await api.call('getTeacherAssignments', { sessionToken: activeToken }, activeToken);
 
-            const catalogData = (catalogRes.catalog || []).filter(item =>
+            const catalogData = (res.catalog || []).filter(item =>
                 !item.title?.startsWith('[TEST]') && item.level !== '[TEST]'
             );
             setCatalog(catalogData);
-            setStudents((rosterRes.studentEmails || []).map(email => ({
-                email,
-                firstName: email.split('@')[0]
+            setStudents((res.students || []).map(s => ({
+                email: s.email,
+                firstName: s.email.split('@')[0],
+                archived: s.archived || false
             })));
-            setExistingAssignments(assignmentsRes.assignments || []);
+            setExistingAssignments(res.assignments || []);
         } catch (error) {
-            console.error('Load error:', error);
+            console.error('Load error:', error.message);
             if (error.message?.includes('401') || error.message?.includes('403')) {
                 navigate('/Home');
             }
