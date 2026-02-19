@@ -1,28 +1,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.2.0';
-
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
-
-async function getSession(req) {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) return { session: null, expired: false };
-    const token = authHeader.substring(7);
-    try {
-        const secret = new TextEncoder().encode(JWT_SECRET);
-        const { payload } = await jose.jwtVerify(token, secret);
-        return { session: payload, expired: false };
-    } catch (e) {
-        const expired = e.code === 'ERR_JWT_EXPIRED';
-        return { session: null, expired };
-    }
-}
+import { requireSession } from './lib/auth.js';
 
 Deno.serve(async (req) => {
-    const { session, expired } = await getSession(req);
+    let session;
+    try {
+        session = await requireSession(req);
+    } catch (e) {
+        return Response.json({ error: e.message }, { status: 401 });
+    }
 
     if (!session) {
-        const msg = expired ? "Session expired, please log in again." : "Unauthorized.";
-        return Response.json({ error: msg, reason: expired ? "token_expired" : "invalid_token" }, { status: 401 });
+        return Response.json({ error: "Unauthorized." }, { status: 401 });
     }
 
     try {
@@ -34,7 +22,6 @@ Deno.serve(async (req) => {
             return Response.json({ error: "Forbidden: Not authorized as a teacher." }, { status: 403 });
         }
 
-        // Instruction 4: DB is source of truth for roster
         const [studentCodes, archivedStudents, assignments, catalogItems] = await Promise.all([
             base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
             base44.asServiceRole.entities.ArchivedStudent.filter({}),
@@ -46,7 +33,6 @@ Deno.serve(async (req) => {
             (archivedStudents || []).map(s => s.studentEmail?.toLowerCase().trim()).filter(Boolean)
         );
 
-        // Active students first, archived at the bottom
         const allEmails = (studentCodes || [])
             .map(s => s.studentEmail?.toLowerCase().trim())
             .filter(email => email && email.endsWith('@modalmath.com'));
@@ -59,9 +45,6 @@ Deno.serve(async (req) => {
             ...archivedEmails.map(email => ({ email, isArchived: true }))
         ];
 
-        // Stable sort: active first, archived last
-        roster.sort((a, b) => (a.isArchived === b.isArchived) ? 0 : a.isArchived ? 1 : -1);
-
         const activeCatalog = (catalogItems || []).filter(item => item.isActive !== false);
 
         return Response.json({
@@ -69,7 +52,6 @@ Deno.serve(async (req) => {
             students: roster,
             catalog: activeCatalog,
             assignments: (assignments || []).sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt)),
-            ...(activeCatalog.length === 0 ? { message: "No active catalog items found" } : {})
         });
 
     } catch (error) {
