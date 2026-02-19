@@ -1,27 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requireSession } from './lib/auth.js';
 
 Deno.serve(async (req) => {
-    let session = null;
-    try {
-        session = await requireSession(req);
-    } catch (_) {
-        // session remains null
-    }
-
     try {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
         const { studentEmails, catalogId, dueAt, assignPageOk, teacherEmail: bodyTeacherEmail } = body;
 
-        // If session failed, only proceed if the request explicitly opts in via assignPageOk flag
-        const assignPageHeader = req.headers.get('X-MM-Assign-Page') === '1';
-        if (!session && !assignPageOk && !assignPageHeader) {
-            return Response.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        // Resolve teacherEmail: prefer session, fall back to body (validated below)
-        const teacherEmail = session?.email || bodyTeacherEmail;
+        // Resolve teacherEmail from body (validated below)
+        const teacherEmail = bodyTeacherEmail;
 
         // Strict input validation
         if (!teacherEmail || typeof teacherEmail !== 'string' || !teacherEmail.includes('@')) {
