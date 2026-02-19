@@ -46,6 +46,7 @@ export default function Assign() {
     const [submitting, setSubmitting] = useState(false);
     const [existingAssignments, setExistingAssignments] = useState([]);
     const [syncingCatalog, setSyncingCatalog] = useState(false);
+    const [teacherEmail, setTeacherEmail] = useState('');
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [catalogSearch, setCatalogSearch] = useState('');
     const dropdownRef = useRef(null);
