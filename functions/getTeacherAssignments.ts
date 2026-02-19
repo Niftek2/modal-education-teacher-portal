@@ -76,16 +76,21 @@ Deno.serve(async (req) => {
         const archivedEmails = allEmails.filter(e => archivedEmailSet.has(e)).sort();
 
         const roster = [
-            ...activeEmails.map(email => ({ email, archived: false })),
-            ...archivedEmails.map(email => ({ email, archived: true }))
+            ...activeEmails.map(email => ({ email, isArchived: false })),
+            ...archivedEmails.map(email => ({ email, isArchived: true }))
         ];
 
-        // Instruction 5: return { success, students, catalog, assignments }
+        // Stable sort: active first, archived last
+        roster.sort((a, b) => (a.isArchived === b.isArchived) ? 0 : a.isArchived ? 1 : -1);
+
+        const activeCatalog = (catalogItems || []).filter(item => item.isActive !== false);
+
         return Response.json({
             success: true,
             students: roster,
-            catalog: catalogItems || [],
-            assignments: (assignments || []).sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt))
+            catalog: activeCatalog,
+            assignments: (assignments || []).sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt)),
+            ...(activeCatalog.length === 0 ? { message: "No active catalog items found" } : {})
         });
 
     } catch (error) {

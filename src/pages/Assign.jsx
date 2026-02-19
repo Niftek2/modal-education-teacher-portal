@@ -62,18 +62,14 @@ export default function Assign() {
         try {
             setLoading(true);
 
-            const res = await api.call('getTeacherAssignments', { sessionToken: activeToken }, activeToken);
+            const result = await api.call('getTeacherAssignments', { sessionToken: activeToken }, activeToken);
 
-            const catalogData = (res.catalog || []).filter(item =>
+            const catalogData = (result.catalog || []).filter(item =>
                 !item.title?.startsWith('[TEST]') && item.level !== '[TEST]'
             );
             setCatalog(catalogData);
-            setStudents((res.students || []).map(s => ({
-                email: s.email,
-                firstName: s.email.split('@')[0],
-                archived: s.archived || false
-            })));
-            setExistingAssignments(res.assignments || []);
+            setStudents(result.students || []);
+            setExistingAssignments(result.assignments || []);
         } catch (error) {
             console.error('Load error:', error.message);
             if (error.message?.includes('401') || error.message?.includes('403')) {
