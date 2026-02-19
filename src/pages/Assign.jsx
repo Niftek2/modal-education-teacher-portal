@@ -180,7 +180,9 @@ export default function Assign() {
                     sessionToken: activeToken,
                     studentEmails,
                     catalogId,
-                    dueAt: dueDate ? new Date(dueDate).toISOString() : null
+                    dueAt: dueDate ? new Date(dueDate).toISOString() : null,
+                    assignPageOk: pageLoaded,
+                    teacherEmail
                 }, activeToken)
             );
             await Promise.all(calls);
