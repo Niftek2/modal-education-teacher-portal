@@ -111,8 +111,8 @@ Deno.serve(async (req) => {
         }
         console.log('Unenroll results:', JSON.stringify(unenrollResults));
 
-        // Step 5: Verify post-archive state
-        await new Promise(r => setTimeout(r, 1000));
+        // Step 5: Verify post-archive state — wait longer for Thinkific to process deletes
+        await new Promise(r => setTimeout(r, 3000));
         const enrollsAfter = await getUserEnrollments(userId);
         const enrolledAfter = enrollsAfter.map(e => String(e.course_id));
         console.log('Enrolled after archive:', enrolledAfter);
