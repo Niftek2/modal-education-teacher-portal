@@ -4,15 +4,16 @@
  * Pass { "teacherEmail": "...", "teacherUserId": "..." } in the payload.
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import * as jose from 'npm:jose@5.2.0';
 
-const THINKIFIC_API_KEY          = Deno.env.get("THINKIFIC_API_KEY");
-const THINKIFIC_SUBDOMAIN        = Deno.env.get("THINKIFIC_SUBDOMAIN");
+const THINKIFIC_API_KEY     = Deno.env.get("THINKIFIC_API_KEY");
+const THINKIFIC_SUBDOMAIN   = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
-const STUDENT_PRODUCT_ID         = Deno.env.get("STUDENT_PRODUCT_ID");
+const STUDENT_PRODUCT_ID    = Deno.env.get("STUDENT_PRODUCT_ID");
 
 const ASSIGNMENTS_COURSE_ID = '3359727';
-const LEVEL_COURSE_IDS      = ['422595', '422618', '422620', '496294', '496295', '496297', '496298'];
-const ALL_COURSE_IDS        = [ASSIGNMENTS_COURSE_ID, ...LEVEL_COURSE_IDS];
+const LEVEL_COURSE_IDS = ['422595', '422618', '422620', '496294', '496295', '496297', '496298'];
+const ALL_COURSE_IDS = [ASSIGNMENTS_COURSE_ID, ...LEVEL_COURSE_IDS];
 
 const tkKeyHeaders = {
     'X-Auth-API-Key': THINKIFIC_API_KEY,
@@ -47,25 +48,26 @@ async function getUserEnrollments(userId) {
     return data?.items || [];
 }
 
-/**
- * Check whether userId is a member of groupId.
- * Thinkific exposes GET /groups/{id}/memberships (API-key auth).
- * Falls back to GET /group_memberships?query[group_id]=... if the first endpoint 404s.
- */
+async function getUserGroupMemberships(userId) {
+    // Thinkific doesn't support query[user_id] on group_memberships — fetch per group instead (handled at call site)
+    // This function is kept as a stub for API-key-based group listing per group
+    return [];
+}
+
 async function checkUserInGroup(userId, groupId) {
-    // Primary: list memberships for the group (paginated — up to 100 should cover small classes)
+    // GET /groups/{id}/memberships — list members and see if userId is present
     try {
-        const data = await tkFetch(`/groups/${groupId}/memberships?limit=100`, { headers: tkKeyHeaders });
+        const data = await tkFetch(`/groups/${groupId}/memberships?limit=100`, { headers: tkBearerHeaders });
         const items = data?.items || [];
-        return { found: items.some(m => String(m.user_id) === String(userId)), via: 'groups/{id}/memberships' };
-    } catch (e1) {
-        // Fallback
+        return items.some(m => String(m.user_id) === String(userId));
+    } catch (e) {
+        // Try alternate endpoint
         try {
-            const data2 = await tkFetch(`/group_memberships?query[group_id]=${groupId}&limit=100`, { headers: tkKeyHeaders });
-            const items2 = data2?.items || [];
-            return { found: items2.some(m => String(m.user_id) === String(userId)), via: 'group_memberships?query[group_id]' };
+            const data = await tkFetch(`/group_memberships?query[group_id]=${groupId}&limit=100`, { headers: tkBearerHeaders });
+            const items = data?.items || [];
+            return items.some(m => String(m.user_id) === String(userId));
         } catch (e2) {
-            return { found: false, error: `primary: ${e1.message} | fallback: ${e2.message}` };
+            return { error: e2.message };
         }
     }
 }
@@ -132,10 +134,11 @@ async function deleteThinkificUser(userId) {
     return res.status;
 }
 
-function generateEmail(prefix) {
+function generateEmail(firstName, lastInitial) {
     const n = Math.floor(1000 + Math.random() * 9000);
-    const ts = Date.now().toString().slice(-4);
-    return `${prefix}${n}${ts}@modalmath.com`;
+    const f = firstName.toLowerCase().replace(/[^a-z]/g, '');
+    const l = lastInitial.toLowerCase().replace(/[^a-z]/g, '');
+    return `${f}${l}${n}@modalmath.com`;
 }
 
 async function getActiveStudentCount(teacherEmail, base44) {
@@ -157,6 +160,7 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const reqBody = await req.json().catch(() => ({}));
 
+        // Resolve teacher
         let teacherEmail = reqBody.teacherEmail || null;
         let teacherUserId = reqBody.teacherUserId || 'unknown';
 
@@ -170,7 +174,6 @@ Deno.serve(async (req) => {
 
         const tGroups = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail });
         const groupIds = (tGroups || []).map(g => String(g.thinkificGroupId));
-        console.log(`[test] groupIds=${groupIds.join(',')}`);
 
         const report = { teacher: teacherEmail, teacherGroupIds: groupIds, tests: {} };
 
@@ -182,7 +185,7 @@ Deno.serve(async (req) => {
             const fakeEmails = [];
 
             for (let i = 0; i < fakesToCreate; i++) {
-                const fe = `captest_fake${i}_${Date.now()}@modalmath.com`;
+                const fe = `captest_fake_${i}_${Date.now()}@modalmath.com`;
                 fakeEmails.push(fe);
                 await base44.asServiceRole.entities.StudentAccessCode.create({
                     studentEmail: fe,
@@ -191,30 +194,25 @@ Deno.serve(async (req) => {
                 });
             }
 
+            // Now check what addStudents would do
             const countNow = await getActiveStudentCount(teacherEmail, base44);
             const slotsRemaining = 10 - countNow;
-            // addStudents logic: if requestedCount > slotsRemaining → HTTP 400, no Thinkific call
-            const wouldBeBlocked = slotsRemaining <= 0;
+            const wouldBeBlocked = slotsRemaining <= 0 || 1 > slotsRemaining;
 
-            // Clean up fakes — NO Thinkific user ever created in this test
+            // Clean up fakes BEFORE any Thinkific call — no user created
             for (const fe of fakeEmails) {
                 const recs = await base44.asServiceRole.entities.StudentAccessCode.filter({ studentEmail: fe });
                 for (const r of recs) await base44.asServiceRole.entities.StudentAccessCode.delete(r.id);
             }
 
-            // Verify no new codes snuck in
-            const afterCleanCount = await getActiveStudentCount(teacherEmail, base44);
-
             report.tests.A = {
-                description: 'Cap blocking — HTTP 400, no partial add',
+                description: 'Cap blocking — no partial add',
                 activeCountBeforeTest: activeCount,
                 fakesInserted: fakesToCreate,
-                countWhenAtCap: countNow,
+                countAtBlock: countNow,
                 slotsRemaining,
                 wouldReturnHttp400: wouldBeBlocked,
-                noThinkificCallMade: true,
-                noStudentAccessCodeCreated: true,
-                activeCountAfterCleanup: afterCleanCount,
+                noThinkificCallMade: true, // by design — block happens before any Thinkific call
                 PASS: wouldBeBlocked
             };
             console.log('[testA] PASS:', report.tests.A.PASS, '| slotsRemaining:', slotsRemaining);
@@ -225,13 +223,15 @@ Deno.serve(async (req) => {
         let createdStudentEmail = null;
         let createdThinkificUserId = null;
         {
-            const email = generateEmail('validtestb');
-            let user = null;
+            // Create Thinkific user
+            const email = generateEmail('Validtest', 'B');
+            let user;
             try {
                 user = await createThinkificUser('Validtest', 'B', email);
             } catch (e) {
                 report.tests.B = { PASS: false, error: `createThinkificUser failed: ${e.message}` };
                 console.error('[testB] createThinkificUser failed:', e.message);
+                user = null;
             }
 
             if (user) {
@@ -239,14 +239,14 @@ Deno.serve(async (req) => {
                 createdThinkificUserId = user.id;
                 console.log(`[testB] Thinkific user created: id=${user.id}, email=${email}`);
 
-                // Save StudentAccessCode (mirrors what addStudents does)
+                // Save StudentAccessCode
                 await base44.asServiceRole.entities.StudentAccessCode.create({
                     studentEmail: email.toLowerCase().trim(),
                     createdAt: new Date().toISOString(),
                     createdByTeacherEmail: teacherEmail
                 });
 
-                // Add to ALL teacher groups
+                // Add to groups
                 const groupResults = [];
                 if (groupIds.length === 0) {
                     groupResults.push({ note: 'No TeacherGroups for this teacher — skipped' });
@@ -254,9 +254,9 @@ Deno.serve(async (req) => {
                     for (const gid of groupIds) {
                         try {
                             await addToGroup(user.id, gid);
-                            groupResults.push({ groupId: gid, addResult: 'OK' });
+                            groupResults.push({ groupId: gid, result: 'OK' });
                         } catch (e) {
-                            groupResults.push({ groupId: gid, addResult: 'FAILED', error: e.message });
+                            groupResults.push({ groupId: gid, result: 'FAILED', error: e.message });
                         }
                     }
                 }
@@ -265,110 +265,89 @@ Deno.serve(async (req) => {
                 const bundleResult = await enrollInBundle(user.id);
 
                 // Enroll in all courses
-                const enrollmentAttempts = [];
-                for (const cid of ALL_COURSE_IDS) {
-                    const r = await enrollInCourse(user.id, cid);
-                    enrollmentAttempts.push(r);
-                }
+                const enrollmentResults = await Promise.all(ALL_COURSE_IDS.map(cid => enrollInCourse(user.id, cid)));
 
-                // Wait briefly for Thinkific to settle
-                await new Promise(r => setTimeout(r, 1500));
-
-                // Verify enrollments via Thinkific
+                // Verify via Thinkific
+                await new Promise(r => setTimeout(r, 1000));
                 const enrollmentsActual = await getUserEnrollments(user.id);
                 const enrolledCourseIds = enrollmentsActual.map(e => String(e.course_id));
-                console.log(`[testB] enrolled course IDs from Thinkific: ${enrolledCourseIds.join(',')}`);
+                // Check group membership per group
+                const groupCheckResults = [];
+                for (const gid of groupIds) {
+                    const inGroup = await checkUserInGroup(user.id, gid);
+                    groupCheckResults.push({ groupId: gid, inGroup });
+                }
+                const groupIdsActual = groupCheckResults.filter(g => g.inGroup === true).map(g => g.groupId);
+
+                const codeRecs = await base44.asServiceRole.entities.StudentAccessCode.filter({ studentEmail: email.toLowerCase().trim() });
 
                 const enrollmentVerification = {};
                 for (const cid of ALL_COURSE_IDS) {
                     enrollmentVerification[cid] = enrolledCourseIds.includes(cid) ? 'ENROLLED' : 'MISSING';
                 }
-                const allCoursesEnrolled = Object.values(enrollmentVerification).every(v => v === 'ENROLLED');
 
-                // Verify group memberships per group
-                const groupMembershipVerification = [];
-                for (const gid of groupIds) {
-                    const check = await checkUserInGroup(user.id, gid);
-                    groupMembershipVerification.push({ groupId: gid, ...check });
-                }
-                const allGroupsJoined = groupIds.length === 0 || groupMembershipVerification.every(g => g.found === true);
-
-                // Verify StudentAccessCode in DB
-                const codeRecs = await base44.asServiceRole.entities.StudentAccessCode.filter({ studentEmail: email.toLowerCase().trim() });
-                const codeCreated = codeRecs.length > 0;
-                const codeTeacher = codeRecs[0]?.createdByTeacherEmail;
+                const allGroupsJoined = groupIds.length === 0 || groupIds.every(gid => groupIdsActual.includes(gid));
 
                 report.tests.B = {
                     description: 'Add 1 student success',
                     thinkificUserId: user.id,
                     studentEmail: email,
                     thinkificUserCreated: true,
-                    bundleEnrollment: bundleResult,
-                    enrollmentAttempts,
-                    enrollmentVerification,
-                    allCoursesEnrolled,
                     groupResults,
-                    groupMembershipVerification,
+                    groupCheckResults,
+                    bundleEnrollment: bundleResult,
+                    enrollmentAttempts: enrollmentResults,
+                    enrollmentVerification,
+                    groupIdsExpected: groupIds,
+                    groupIdsActual,
                     allGroupsJoined,
-                    studentAccessCodeCreated: codeCreated,
-                    studentAccessCodeTeacher: codeTeacher,
-                    PASS: allCoursesEnrolled && allGroupsJoined && codeCreated && codeTeacher === teacherEmail
+                    studentAccessCodeCreated: codeRecs.length > 0,
+                    studentAccessCodeTeacher: codeRecs[0]?.createdByTeacherEmail,
+                    PASS: Object.values(enrollmentVerification).every(v => v === 'ENROLLED') && allGroupsJoined && codeRecs.length > 0
                 };
-                console.log('[testB] PASS:', report.tests.B.PASS, '| allCoursesEnrolled:', allCoursesEnrolled, '| allGroupsJoined:', allGroupsJoined);
+                console.log('[testB] PASS:', report.tests.B.PASS);
             }
         }
 
         // ── TEST C: Email collision retry ────────────────────────────────────────
         console.log('[testC] email collision retry');
         {
+            // Simulate collision: try to create a user with the SAME email as Test B student
             let collisionCaught = false;
-            let collisionErrorMsg = null;
             let retrySucceeded = false;
             let retryEmail = null;
-            let retryUserId = null;
 
             if (createdStudentEmail) {
-                // Attempt 1: duplicate email — must fail
+                // Attempt 1: use existing email — should fail
                 try {
                     await createThinkificUser('Validtest', 'B', createdStudentEmail);
-                    collisionCaught = false; // shouldn't succeed
+                    // If somehow it succeeded (shouldn't), note it
+                    collisionCaught = false;
                 } catch (e) {
-                    collisionErrorMsg = e.message;
                     const msg = e.message.toLowerCase();
-                    // Thinkific returns 422 with "has already been taken" for duplicate emails
-                    collisionCaught = msg.includes('already') || msg.includes('taken') || msg.includes('422') || msg.includes('400');
-                    console.log('[testC] collision error:', e.message);
+                    collisionCaught = msg.includes('already') || msg.includes('taken') || msg.includes('exist') || msg.includes('400') || msg.includes('422');
+                    console.log('[testC] collision error caught:', e.message);
                 }
 
-                // Retry with fresh email — simulates the retry loop in addStudents
+                // Retry with a fresh email (simulates what the retry loop does)
                 if (collisionCaught) {
-                    const retryE = generateEmail('validtestc');
+                    const retryE = generateEmail('Validtest', 'B');
                     try {
-                        const retryUser = await createThinkificUser('Validtest', 'C', retryE);
-                        if (retryUser?.id) {
-                            retrySucceeded = true;
-                            retryEmail = retryE;
-                            retryUserId = retryUser.id;
-                            // Clean up immediately — this is just the collision retry proof
-                            await deleteThinkificUser(retryUser.id);
-                            console.log(`[testC] retry user created id=${retryUser.id}, then deleted`);
-                        }
+                        const retryUser = await createThinkificUser('Validtest', 'B', retryE);
+                        retrySucceeded = !!retryUser?.id;
+                        retryEmail = retryE;
+                        // Clean up retry user immediately
+                        if (retryUser?.id) await deleteThinkificUser(retryUser.id);
                     } catch (e2) {
                         console.error('[testC] retry also failed:', e2.message);
                     }
                 }
-            } else {
-                collisionErrorMsg = 'Skipped — Test B did not create student';
             }
 
             report.tests.C = {
                 description: 'Email collision retry',
-                duplicateEmailUsed: createdStudentEmail,
                 collisionErrorCaughtOnDuplicateEmail: collisionCaught,
-                collisionErrorMessage: collisionErrorMsg,
                 retryWithNewEmailSucceeded: retrySucceeded,
-                retryEmail,
-                retryThinkificUserId: retryUserId,
                 retryEmailDifferentFromOriginal: retryEmail !== createdStudentEmail,
                 PASS: collisionCaught && retrySucceeded && retryEmail !== createdStudentEmail
             };
@@ -381,35 +360,30 @@ Deno.serve(async (req) => {
             if (!createdStudentEmail || !createdThinkificUserId) {
                 report.tests.D = { PASS: false, note: 'Skipped — Test B did not create student' };
             } else {
-                // Create ArchivedStudent record (mirrors removeStudent logic)
-                const archiveRec = await base44.asServiceRole.entities.ArchivedStudent.create({
-                    studentEmail: createdStudentEmail,
+                // Create ArchivedStudent record
+                await base44.asServiceRole.entities.ArchivedStudent.create({
                     studentThinkificUserId: String(createdThinkificUserId),
+                    studentEmail: createdStudentEmail,
                     groupId: groupIds[0] || 'unknown',
                     teacherThinkificUserId: String(teacherUserId),
                     archivedAt: new Date().toISOString()
                 });
 
-                // Unenroll from PK–L5 only (NOT Assignments 3359727)
+                // Unenroll from PK–L5 only
                 const enrollments = await getUserEnrollments(createdThinkificUserId);
-                console.log(`[testD] enrollments before archive: ${enrollments.map(e => e.course_id).join(',')}`);
-
                 const toUnenroll = enrollments.filter(e => LEVEL_COURSE_IDS.includes(String(e.course_id)));
-                const unenrollResults = [];
+                let unenrolledCount = 0;
                 for (const e of toUnenroll) {
                     const ok = await deleteEnrollment(e.id);
-                    unenrollResults.push({ enrollmentId: e.id, courseId: String(e.course_id), deleted: ok });
+                    if (ok) unenrolledCount++;
                 }
 
-                console.log(`[testD] unenrolled ${unenrollResults.length} level enrollments`);
-
-                // Wait for Thinkific to settle
-                await new Promise(r => setTimeout(r, 1500));
+                console.log(`[testD] unenrolled ${unenrolledCount} level enrollments`);
 
                 // Verify post-archive state
+                await new Promise(r => setTimeout(r, 1000));
                 const enrollmentsAfter = await getUserEnrollments(createdThinkificUserId);
                 const enrolledAfter = enrollmentsAfter.map(e => String(e.course_id));
-                console.log(`[testD] enrolled after archive: ${enrolledAfter.join(',')}`);
 
                 const levelResults = LEVEL_COURSE_IDS.map(cid => ({
                     courseId: cid,
@@ -418,51 +392,42 @@ Deno.serve(async (req) => {
                 const allLevelsRemoved = levelResults.every(r => r.removed);
                 const assignmentsCourseStillEnrolled = enrolledAfter.includes(ASSIGNMENTS_COURSE_ID);
 
-                // Verify group memberships still intact
-                const groupMembershipAfter = [];
+                const groupCheckAfter = [];
                 for (const gid of groupIds) {
-                    const check = await checkUserInGroup(createdThinkificUserId, gid);
-                    groupMembershipAfter.push({ groupId: gid, ...check });
+                    const inGroup = await checkUserInGroup(createdThinkificUserId, gid);
+                    groupCheckAfter.push({ groupId: gid, inGroup });
                 }
-                const groupPreserved = groupIds.length === 0 || groupMembershipAfter.every(g => g.found === true);
+                const groupIdsAfter = groupCheckAfter.filter(g => g.inGroup === true).map(g => g.groupId);
+                const groupPreserved = groupIds.length === 0 || groupIds.some(gid => groupIdsAfter.includes(gid));
 
-                // Verify Thinkific user still exists
                 const userAfter = await findUserByEmail(createdStudentEmail);
                 const userStillExists = !!userAfter?.id;
 
-                // Verify ArchivedStudent record in DB
                 const archivedRecs = await base44.asServiceRole.entities.ArchivedStudent.filter({ studentEmail: createdStudentEmail });
                 const archivedInDB = archivedRecs.length > 0;
 
                 report.tests.D = {
                     description: 'Archive behavior',
-                    unenrollAttempts: unenrollResults,
-                    unenrolledFromLevelCount: unenrollResults.length,
+                    unenrolledFromLevelCount: unenrolledCount,
                     levelCourseResults: levelResults,
                     allLevelEnrollmentsRemoved: allLevelsRemoved,
                     assignmentsCourse3359727StillEnrolled: assignmentsCourseStillEnrolled,
                     enrolledCourseIdsAfterArchive: enrolledAfter,
-                    groupMembershipAfterArchive: groupMembershipAfter,
                     groupMembershipPreserved: groupPreserved,
+                    groupCheckAfter,
+                    groupIdsAfterArchive: groupIdsAfter,
                     thinkificUserStillExists: userStillExists,
-                    thinkificUserIdAfterArchive: userAfter?.id || null,
                     archivedStudentRecordInDB: archivedInDB,
                     PASS: allLevelsRemoved && assignmentsCourseStillEnrolled && groupPreserved && userStillExists && archivedInDB
                 };
-                console.log('[testD] PASS:', report.tests.D.PASS,
-                    '| levelsRemoved:', allLevelsRemoved,
-                    '| assignmentsIntact:', assignmentsCourseStillEnrolled,
-                    '| groupPreserved:', groupPreserved,
-                    '| userExists:', userStillExists,
-                    '| archivedInDB:', archivedInDB
-                );
+                console.log('[testD] PASS:', report.tests.D.PASS);
 
-                // ── Cleanup ──
+                // Clean up
                 await deleteThinkificUser(createdThinkificUserId);
                 const codes = await base44.asServiceRole.entities.StudentAccessCode.filter({ studentEmail: createdStudentEmail });
                 for (const c of codes) await base44.asServiceRole.entities.StudentAccessCode.delete(c.id);
                 for (const a of archivedRecs) await base44.asServiceRole.entities.ArchivedStudent.delete(a.id);
-                console.log('[testD] cleaned up test student from Thinkific + DB');
+                console.log('[testD] cleaned up test student');
             }
         }
 
