@@ -294,6 +294,7 @@ Deno.serve(async (req) => {
                     studentEmail: email,
                     thinkificUserCreated: true,
                     groupResults,
+                    groupCheckResults,
                     bundleEnrollment: bundleResult,
                     enrollmentAttempts: enrollmentResults,
                     enrollmentVerification,
