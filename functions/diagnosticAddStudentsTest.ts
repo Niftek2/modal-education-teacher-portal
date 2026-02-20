@@ -100,13 +100,27 @@ Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
 
-        // Find a real teacher to use for testing
-        const teacherGroups = await base44.asServiceRole.entities.TeacherGroup.list('-created_date', 1);
-        if (!teacherGroups || teacherGroups.length === 0) {
-            return Response.json({ error: 'No TeacherGroup records found — cannot run tests' }, { status: 500 });
+        // Accept teacher email from payload, fall back to DB lookup
+        const reqBody = await req.json().catch(() => ({}));
+        let teacherEmail = reqBody.teacherEmail || null;
+        let teacherUserId = reqBody.teacherUserId || 'unknown';
+
+        if (!teacherEmail) {
+            // Try TeacherGroup first
+            const teacherGroups = await base44.asServiceRole.entities.TeacherGroup.list('-created_date', 1);
+            if (teacherGroups && teacherGroups.length > 0) {
+                teacherEmail = teacherGroups[0].teacherEmail;
+                teacherUserId = teacherGroups[0].teacherThinkificUserId || 'unknown';
+            } else {
+                // Fall back to StudentAccessCode
+                const codes = await base44.asServiceRole.entities.StudentAccessCode.list('-created_date', 1);
+                if (codes && codes.length > 0) {
+                    teacherEmail = codes[0].createdByTeacherEmail;
+                } else {
+                    return Response.json({ error: 'No teacher found in DB. Pass { "teacherEmail": "...", "teacherUserId": "..." } in payload.' }, { status: 500 });
+                }
+            }
         }
-        const teacherEmail = teacherGroups[0].teacherEmail;
-        const teacherUserId = teacherGroups[0].teacherThinkificUserId || 'unknown';
 
         console.log(`[test] Using teacher: ${teacherEmail}`);
 
