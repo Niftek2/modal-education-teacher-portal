@@ -413,6 +413,7 @@ Deno.serve(async (req) => {
                     assignmentsCourse3359727StillEnrolled: assignmentsCourseStillEnrolled,
                     enrolledCourseIdsAfterArchive: enrolledAfter,
                     groupMembershipPreserved: groupPreserved,
+                    groupCheckAfter,
                     groupIdsAfterArchive: groupIdsAfter,
                     thinkificUserStillExists: userStillExists,
                     archivedStudentRecordInDB: archivedInDB,
