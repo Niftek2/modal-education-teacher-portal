@@ -290,6 +290,85 @@ export default function Assign() {
                     </div>
                 </aside>
 
+                {/* MIDDLE: Assigned Work + Status */}
+                <section className="w-[420px] flex-shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <span className="font-semibold text-sm text-black">Assigned Work</span>
+                        {selectedStudents.length === 1 && (
+                            <span className="text-xs text-gray-400 truncate max-w-[240px]">
+                                {selectedStudents[0]}
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                        {selectedStudents.length === 0 ? (
+                            <div className="p-4 text-sm text-gray-500">Select a student to view assigned work.</div>
+                        ) : selectedStudents.length > 1 ? (
+                            <div className="p-4 text-sm text-gray-500">Select exactly 1 student to view assignment details.</div>
+                        ) : (() => {
+                            const selectedEmail = selectedStudents[0];
+                            const studentAssignments = (existingAssignments || [])
+                                .filter(a => String(a.studentEmail || '').toLowerCase() === String(selectedEmail || '').toLowerCase())
+                                .sort((a, b) => String(b.assignedAt || '').localeCompare(String(a.assignedAt || '')));
+
+                            if (!studentAssignments.length) {
+                                return <div className="p-4 text-sm text-gray-500">No assignments yet for this student.</div>;
+                            }
+
+                            const pillClass = (status) => {
+                                const s = String(status || '').toLowerCase();
+                                if (s === 'completed') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                                if (s === 'archived') return 'bg-gray-100 text-gray-600 border-gray-200';
+                                return 'bg-purple-100 text-purple-900 border-purple-200';
+                            };
+
+                            const formatDate = (iso) => {
+                                if (!iso) return '';
+                                const d = new Date(iso);
+                                if (isNaN(d.getTime())) return '';
+                                return d.toLocaleString();
+                            };
+
+                            return (
+                                <div className="divide-y divide-gray-100">
+                                    {studentAssignments.map(a => {
+                                        const status = a.status || 'assigned';
+                                        const url = a.contentUrl || a.thinkificUrl || '';
+                                        return (
+                                            <div key={a.id} className="p-4">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-medium text-black leading-snug">{a.title || 'Untitled'}</p>
+                                                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
+                                                            {a.topic ? <span>{a.topic}</span> : null}
+                                                            {a.contentType ? <span>· {String(a.contentType).toLowerCase()}</span> : null}
+                                                        </div>
+                                                    </div>
+                                                    <span className={`text-xs px-2 py-1 rounded-full border whitespace-nowrap ${pillClass(status)}`}>
+                                                        {String(status).toLowerCase()}
+                                                    </span>
+                                                </div>
+                                                <div className="mt-2 text-xs text-gray-500 space-y-1">
+                                                    {a.dueAt ? <div><span className="text-gray-400">Due:</span> {formatDate(a.dueAt)}</div> : null}
+                                                    {String(status).toLowerCase() === 'completed' && a.completedAt ? (
+                                                        <div><span className="text-gray-400">Completed:</span> {formatDate(a.completedAt)}</div>
+                                                    ) : null}
+                                                    {a.assignedAt ? <div><span className="text-gray-400">Assigned:</span> {formatDate(a.assignedAt)}</div> : null}
+                                                </div>
+                                                {url ? (
+                                                    <div className="mt-3">
+                                                        <a href={url} target="_blank" rel="noreferrer" className="text-xs text-purple-700 hover:underline">Open</a>
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </section>
+
                 {/* RIGHT: Catalog */}
                 <main className="flex-1 overflow-y-auto p-5">
                     <div className="flex items-center gap-3 mb-5">
