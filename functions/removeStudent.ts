@@ -50,17 +50,19 @@ Deno.serve(async (req) => {
         }
 
         const base44 = createClientFromRequest(req);
-        const { studentEmail, groupId, teacherId } = await req.json();
+        const { studentEmail, groupId } = await req.json();
 
         if (!studentEmail) {
             return Response.json({ error: 'studentEmail is required' }, { status: 400 });
         }
 
         const normalizedEmail = studentEmail.toLowerCase().trim();
-        const resolvedTeacherId = String(teacherId || session?.userId || session?.thinkificUserId || 'unknown');
+
+        // Derive teacher identity from session only — never from request body
+        const teacherThinkificUserId = String(session.userId || session.thinkificUserId || 'unknown');
         const resolvedGroupId = String(groupId || 'unknown');
 
-        // Step 1: Find Thinkific user BEFORE writing ArchivedStudent
+        // Step 1: Find Thinkific user by email
         let found = null;
         try {
             found = await findUserByEmail(normalizedEmail);
@@ -68,22 +70,22 @@ Deno.serve(async (req) => {
             console.warn(`[removeStudent] Could not look up Thinkific user: ${e.message}`);
         }
 
-        const thinkificUserId = found?.id ? String(found.id) : 'unknown';
-        console.log(`[removeStudent] Thinkific user for ${normalizedEmail}: ${thinkificUserId}`);
+        const studentThinkificUserId = found?.id ? String(found.id) : 'unknown';
+        console.log(`[removeStudent] Thinkific user for ${normalizedEmail}: ${studentThinkificUserId}`);
 
         // Step 2: Archive in DB — idempotent (skip if already archived for this teacher)
         const existing = await base44.asServiceRole.entities.ArchivedStudent.filter({
             studentEmail: normalizedEmail,
-            teacherThinkificUserId: resolvedTeacherId
+            teacherThinkificUserId
         });
 
         if (existing.length === 0) {
             await base44.asServiceRole.entities.ArchivedStudent.create({
-                studentThinkificUserId: thinkificUserId,
+                studentThinkificUserId,
                 studentEmail: normalizedEmail,
                 studentFirstName: found?.first_name || '',
                 studentLastName: found?.last_name || '',
-                teacherThinkificUserId: resolvedTeacherId,
+                teacherThinkificUserId,
                 groupId: resolvedGroupId,
                 archivedAt: new Date().toISOString()
             });
