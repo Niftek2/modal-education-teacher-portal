@@ -433,7 +433,11 @@ Deno.serve(async (req) => {
 
         const allPass = Object.values(report.tests).every(t => t.PASS === true);
         report.overallPass = allPass;
-        // stringify fully — no truncation
+
+        // Log full report so it's visible in logs even if response is truncated
+        console.log('=== FULL REPORT ===');
+        console.log(JSON.stringify(report, null, 2));
+
         return new Response(JSON.stringify(report, null, 2), { headers: { 'Content-Type': 'application/json' } });
 
     } catch (error) {
