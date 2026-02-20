@@ -68,7 +68,7 @@ async function mintSessionToken(email, userId) {
 
 async function callAddStudents(token, payload) {
     const APP_ID = '698c9549de63fc919dec560c';
-    const res = await fetch(`/api/apps/${APP_ID}/functions/addStudents`, {
+    const res = await fetch(`https://run.base44.com/api/apps/${APP_ID}/functions/addStudents`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -82,7 +82,7 @@ async function callAddStudents(token, payload) {
 
 async function callRemoveStudent(token, payload) {
     const APP_ID = '698c9549de63fc919dec560c';
-    const res = await fetch(`/api/apps/${APP_ID}/functions/removeStudent`, {
+    const res = await fetch(`https://run.base44.com/api/apps/${APP_ID}/functions/removeStudent`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
