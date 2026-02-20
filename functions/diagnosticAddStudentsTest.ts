@@ -391,8 +391,12 @@ Deno.serve(async (req) => {
                 const allLevelsRemoved = levelResults.every(r => r.removed);
                 const assignmentsCourseStillEnrolled = enrolledAfter.includes(ASSIGNMENTS_COURSE_ID);
 
-                const groupsAfter = await getUserGroupMemberships(createdThinkificUserId);
-                const groupIdsAfter = groupsAfter.map(m => String(m.group_id));
+                const groupCheckAfter = [];
+                for (const gid of groupIds) {
+                    const inGroup = await checkUserInGroup(createdThinkificUserId, gid);
+                    groupCheckAfter.push({ groupId: gid, inGroup });
+                }
+                const groupIdsAfter = groupCheckAfter.filter(g => g.inGroup === true).map(g => g.groupId);
                 const groupPreserved = groupIds.length === 0 || groupIds.some(gid => groupIdsAfter.includes(gid));
 
                 const userAfter = await findUserByEmail(createdStudentEmail);
