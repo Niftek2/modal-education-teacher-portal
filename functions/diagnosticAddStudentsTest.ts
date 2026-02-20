@@ -49,8 +49,27 @@ async function getUserEnrollments(userId) {
 }
 
 async function getUserGroupMemberships(userId) {
-    const data = await tkFetch(`/group_memberships?query[user_id]=${userId}&limit=100`, { headers: tkBearerHeaders });
-    return data?.items || [];
+    // Thinkific doesn't support query[user_id] on group_memberships — fetch per group instead (handled at call site)
+    // This function is kept as a stub for API-key-based group listing per group
+    return [];
+}
+
+async function checkUserInGroup(userId, groupId) {
+    // GET /groups/{id}/memberships — list members and see if userId is present
+    try {
+        const data = await tkFetch(`/groups/${groupId}/memberships?limit=100`, { headers: tkBearerHeaders });
+        const items = data?.items || [];
+        return items.some(m => String(m.user_id) === String(userId));
+    } catch (e) {
+        // Try alternate endpoint
+        try {
+            const data = await tkFetch(`/group_memberships?query[group_id]=${groupId}&limit=100`, { headers: tkBearerHeaders });
+            const items = data?.items || [];
+            return items.some(m => String(m.user_id) === String(userId));
+        } catch (e2) {
+            return { error: e2.message };
+        }
+    }
 }
 
 async function createThinkificUser(firstName, lastInitial, email) {
