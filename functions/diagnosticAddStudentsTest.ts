@@ -433,7 +433,8 @@ Deno.serve(async (req) => {
 
         const allPass = Object.values(report.tests).every(t => t.PASS === true);
         report.overallPass = allPass;
-        return Response.json(report);
+        // stringify fully — no truncation
+        return new Response(JSON.stringify(report, null, 2), { headers: { 'Content-Type': 'application/json' } });
 
     } catch (error) {
         console.error('Diagnostic error:', error?.stack || error);
