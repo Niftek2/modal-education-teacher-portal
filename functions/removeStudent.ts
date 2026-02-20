@@ -57,30 +57,49 @@ Deno.serve(async (req) => {
         }
 
         const normalizedEmail = studentEmail.toLowerCase().trim();
+        const resolvedTeacherId = String(teacherId || session?.userId || session?.thinkificUserId || 'unknown');
+        const resolvedGroupId = String(groupId || 'unknown');
 
-        // Step 1: Archive in DB (soft delete — do NOT remove StudentAccessCode)
-        await base44.asServiceRole.entities.ArchivedStudent.create({
+        // Step 1: Find Thinkific user BEFORE writing ArchivedStudent
+        let found = null;
+        try {
+            found = await findUserByEmail(normalizedEmail);
+        } catch (e) {
+            console.warn(`[removeStudent] Could not look up Thinkific user: ${e.message}`);
+        }
+
+        const thinkificUserId = found?.id ? String(found.id) : 'unknown';
+        console.log(`[removeStudent] Thinkific user for ${normalizedEmail}: ${thinkificUserId}`);
+
+        // Step 2: Archive in DB — idempotent (skip if already archived for this teacher)
+        const existing = await base44.asServiceRole.entities.ArchivedStudent.filter({
             studentEmail: normalizedEmail,
-            groupId: String(groupId || 'unknown'),
-            teacherThinkificUserId: String(teacherId || session?.userId || 'unknown'),
-            archivedAt: new Date().toISOString()
+            teacherThinkificUserId: resolvedTeacherId
         });
 
-        console.log(`[removeStudent] Archived ${normalizedEmail} in DB`);
+        if (existing.length === 0) {
+            await base44.asServiceRole.entities.ArchivedStudent.create({
+                studentThinkificUserId: thinkificUserId,
+                studentEmail: normalizedEmail,
+                studentFirstName: found?.first_name || '',
+                studentLastName: found?.last_name || '',
+                teacherThinkificUserId: resolvedTeacherId,
+                groupId: resolvedGroupId,
+                archivedAt: new Date().toISOString()
+            });
+            console.log(`[removeStudent] Archived ${normalizedEmail} in DB`);
+        } else {
+            console.log(`[removeStudent] Already archived in DB, skipping create`);
+        }
 
-        // Step 2: Find Thinkific user
-        const found = await findUserByEmail(normalizedEmail);
+        // Step 3: If user not found in Thinkific, return early
         if (!found?.id) {
-            // Already archived in DB — that's fine, just warn
             console.warn(`[removeStudent] Thinkific user not found for ${normalizedEmail}`);
             return Response.json({ success: true, unenrolled: 0, note: 'Archived in DB; Thinkific user not found' });
         }
 
-        const thinkificUserId = found.id;
-        console.log(`[removeStudent] Found Thinkific user ${thinkificUserId} for ${normalizedEmail}`);
-
-        // Step 3: Unenroll from PK–L5 courses only (keep group membership and account)
-        const enrollments = await getEnrollmentsForUser(thinkificUserId);
+        // Step 4: Unenroll from PK–L5 courses only (keep group membership and account)
+        const enrollments = await getEnrollmentsForUser(found.id);
         const targetEnrollments = enrollments.filter(e =>
             COURSE_IDS_TO_UNENROLL.includes(String(e.course_id))
         );
