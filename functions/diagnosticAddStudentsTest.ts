@@ -271,8 +271,13 @@ Deno.serve(async (req) => {
                 await new Promise(r => setTimeout(r, 1000));
                 const enrollmentsActual = await getUserEnrollments(user.id);
                 const enrolledCourseIds = enrollmentsActual.map(e => String(e.course_id));
-                const groupsActual = await getUserGroupMemberships(user.id);
-                const groupIdsActual = groupsActual.map(m => String(m.group_id));
+                // Check group membership per group
+                const groupCheckResults = [];
+                for (const gid of groupIds) {
+                    const inGroup = await checkUserInGroup(user.id, gid);
+                    groupCheckResults.push({ groupId: gid, inGroup });
+                }
+                const groupIdsActual = groupCheckResults.filter(g => g.inGroup === true).map(g => g.groupId);
 
                 const codeRecs = await base44.asServiceRole.entities.StudentAccessCode.filter({ studentEmail: email.toLowerCase().trim() });
 
