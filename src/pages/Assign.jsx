@@ -470,17 +470,23 @@ export default function Assign() {
                                                                     {selected && <Check className="w-3 h-3 text-white" />}
                                                                 </div>
                                                                 <div className="min-w-0">
-                                                                   <p className="text-sm text-black leading-snug truncate">
-                                                                       <span className="font-medium text-purple-800">
-                                                                           {item.contentType === 'quiz' ? 'Quiz' : 'Lesson'}:
-                                                                       </span>{' '}
-                                                                       {item.chapterName
-                                                                           ? `${item.chapterName} → ${item.title}`
-                                                                           : item.title}
-                                                                   </p>
-                                                                   {item.lessonType && (
-                                                                       <p className="text-xs text-gray-400 truncate">{item.lessonType}</p>
-                                                                   )}
+                                                                  <p className="text-sm text-black leading-snug truncate">
+                                                                      {(() => {
+                                                                          const chapter = getChapterName(item);
+                                                                          return (
+                                                                              <>
+                                                                                  <span className="font-medium text-purple-800">
+                                                                                      {chapter ? `Chapter: ${chapter}` : (item.contentType === 'quiz' ? 'Quiz' : item.contentType === 'lesson' ? 'Lesson' : 'Item')}
+                                                                                  </span>{' '}
+                                                                                  {chapter ? '· ' : ''}
+                                                                                  {item.title}
+                                                                              </>
+                                                                          );
+                                                                      })()}
+                                                                  </p>
+                                                                  {item.lessonType && (
+                                                                      <p className="text-xs text-gray-400 truncate">{item.lessonType}</p>
+                                                                  )}
                                                                 </div>
                                                             </div>
                                                         );
