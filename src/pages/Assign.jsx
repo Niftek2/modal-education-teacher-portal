@@ -23,6 +23,19 @@ function resolveLevel(item) {
     return fromCourse || item.level || 'Other';
 }
 
+function deriveChapterFromItem(item) {
+    if (!item) return '';
+    const direct =
+        item.chapterName ||
+        item.chapterTitle ||
+        item.topic ||
+        '';
+    if (direct && String(direct).trim()) return String(direct).trim();
+    const t = String(item.title || '');
+    if (t.includes(':')) return t.split(':')[0].trim();
+    return '';
+}
+
 function groupCatalogByLevel(catalog) {
     const grouped = {};
     for (const level of LEVEL_ORDER) grouped[level] = [];
