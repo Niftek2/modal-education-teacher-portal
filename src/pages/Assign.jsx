@@ -538,13 +538,22 @@ export default function Assign() {
                                 if (!item) return null;
                                 return (
                                     <span
-                                        key={id}
-                                        onClick={() => toggleAssignment(id)}
-                                        className="flex items-center gap-1.5 text-xs bg-purple-100 text-purple-900 rounded-full px-3 py-1 cursor-pointer hover:bg-purple-200"
+                                       key={id}
+                                       onClick={() => toggleAssignment(id)}
+                                       className="flex items-center gap-1.5 text-xs bg-purple-100 text-purple-900 rounded-full px-3 py-1 cursor-pointer hover:bg-purple-200"
                                     >
-                                        <span className="font-medium">{item.contentType === 'quiz' ? 'Quiz' : 'Lesson'}:</span>{' '}
-                                        {item.chapterName ? `${item.chapterName} → ${item.title}` : item.title}
-                                        <span className="text-purple-500">×</span>
+                                       {(() => {
+                                           const chapter = getChapterName(item);
+                                           return (
+                                               <>
+                                                   <span className="font-medium">
+                                                       {chapter ? `Chapter: ${chapter}` : (item.contentType === 'quiz' ? 'Quiz' : 'Lesson')}:
+                                                   </span>{' '}
+                                                   {chapter ? `· ${item.title}` : item.title}
+                                               </>
+                                           );
+                                       })()}
+                                       <span className="text-purple-500">×</span>
                                     </span>
                                 );
                             })}
