@@ -179,6 +179,30 @@ export default function Assign() {
 
     const grouped = groupCatalogByLevel(filteredCatalog);
 
+    const lessonChapterByLessonId = React.useMemo(() => {
+        const map = new Map();
+        for (const it of catalog || []) {
+            const ct = String(it.contentType || it.type || '').toLowerCase();
+            if (ct !== 'lesson') continue;
+            const lid = it.lessonId ? String(it.lessonId) : '';
+            if (!lid) continue;
+            const ch = deriveChapterFromItem(it);
+            if (ch) map.set(lid, ch);
+        }
+        return map;
+    }, [catalog]);
+
+    const getChapterName = (item) => {
+        const ct = String(item.contentType || item.type || '').toLowerCase();
+        const base = deriveChapterFromItem(item);
+        if (base) return base;
+        if (ct === 'quiz') {
+            const lid = item.lessonId ? String(item.lessonId) : '';
+            if (lid && lessonChapterByLessonId.has(lid)) return lessonChapterByLessonId.get(lid);
+        }
+        return '';
+    };
+
     const handleAssign = async () => {
         if (!selectedAssignmentIds.length || !selectedStudents.length) {
             alert('Please select at least one student and one assignment.');
