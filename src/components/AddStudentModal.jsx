@@ -196,17 +196,6 @@ export default function AddStudentModal({ groupId, onClose, onSuccess }) {
                         </Button>
                     )}
 
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm text-gray-700 mb-2">
-                            <strong>Auto-generated credentials:</strong>
-                        </p>
-                        <ul className="text-xs text-gray-600 space-y-1">
-                            <li>• Email: firstname + lastinitial + random digits + @modalmath.com</li>
-                            <li>• Password: Math1234!</li>
-                            <li>• Students will be enrolled in the Student bundle</li>
-                        </ul>
-                    </div>
-
                     <div className="flex gap-3">
                         <Button
                             type="button"
