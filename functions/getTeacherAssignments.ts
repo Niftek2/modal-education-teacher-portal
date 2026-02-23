@@ -77,24 +77,22 @@ Deno.serve(async (req) => {
 
         function computeScore(ev) {
             if (!ev) return { scorePercent: null, correctCount: null, totalQuestions: null };
+
+            // Step 2: Use payload.grade as the primary score source
+            const grade = ev.grade;
+            let scorePercent = null;
+            if (typeof grade === 'number') {
+                if (grade >= 0 && grade <= 1) scorePercent = Math.round(grade * 100);
+                else if (grade > 1 && grade <= 100) scorePercent = Math.round(grade);
+            }
+
+            // Step 3: Attach correct/total only if both are strictly numbers
             const cc = ev.correctCount;
             const ic = ev.incorrectCount;
-            if (typeof cc === 'number' && typeof ic === 'number') {
-                const total = cc + ic;
-                if (total > 0) {
-                    return { scorePercent: Math.round((cc / total) * 100), correctCount: cc, totalQuestions: total };
-                }
-                return { scorePercent: null, correctCount: null, totalQuestions: null };
-            }
-            const grade = ev.grade;
-            if (typeof grade === 'number') {
-                let pct;
-                if (grade >= 0 && grade <= 1) pct = Math.round(grade * 100);
-                else if (grade > 1 && grade <= 100) pct = Math.round(grade);
-                else return { scorePercent: null, correctCount: null, totalQuestions: null };
-                return { scorePercent: pct, correctCount: null, totalQuestions: null };
-            }
-            return { scorePercent: null, correctCount: null, totalQuestions: null };
+            const correctCount = (typeof cc === 'number') ? cc : null;
+            const totalQuestions = (typeof cc === 'number' && typeof ic === 'number') ? cc + ic : null;
+
+            return { scorePercent, correctCount, totalQuestions };
         }
 
         const sortedAssignments = (assignments || [])
