@@ -53,7 +53,60 @@ Deno.serve(async (req) => {
         const activeCatalog = (catalogItems || []).filter(item => item.isActive !== false);
         t3 = Date.now();
 
-        const sortedAssignments = (assignments || []).sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt));
+        // Fetch quiz attempt events for all students of this teacher to attach scores
+        const studentEmailList = roster.map(r => r.email);
+        let quizEvents = [];
+        try {
+            quizEvents = await base44.asServiceRole.entities.ActivityEvent.filter({ eventType: 'quiz.attempted' });
+        } catch (_e) {
+            quizEvents = [];
+        }
+
+        // Build a map: "studentEmail:lessonId" -> latest attempt event
+        const latestAttemptMap = new Map();
+        for (const ev of quizEvents) {
+            const email = String(ev.studentEmail || '').toLowerCase().trim();
+            const lid = ev.lessonId != null ? String(ev.lessonId) : null;
+            if (!email || !lid) continue;
+            const key = `${email}:${lid}`;
+            const existing = latestAttemptMap.get(key);
+            if (!existing || new Date(ev.occurredAt) > new Date(existing.occurredAt)) {
+                latestAttemptMap.set(key, ev);
+            }
+        }
+
+        function computeScore(ev) {
+            if (!ev) return { scorePercent: null, correctCount: null, totalQuestions: null };
+            const cc = ev.correctCount;
+            const ic = ev.incorrectCount;
+            if (typeof cc === 'number' && typeof ic === 'number') {
+                const total = cc + ic;
+                if (total > 0) {
+                    return { scorePercent: Math.round((cc / total) * 100), correctCount: cc, totalQuestions: total };
+                }
+                return { scorePercent: null, correctCount: null, totalQuestions: null };
+            }
+            const grade = ev.grade;
+            if (typeof grade === 'number') {
+                let pct;
+                if (grade >= 0 && grade <= 1) pct = Math.round(grade * 100);
+                else if (grade > 1 && grade <= 100) pct = Math.round(grade);
+                else return { scorePercent: null, correctCount: null, totalQuestions: null };
+                return { scorePercent: pct, correctCount: null, totalQuestions: null };
+            }
+            return { scorePercent: null, correctCount: null, totalQuestions: null };
+        }
+
+        const sortedAssignments = (assignments || [])
+            .sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt))
+            .map(a => {
+                const email = String(a.studentEmail || '').toLowerCase().trim();
+                const lid = a.lessonId != null ? String(a.lessonId) : null;
+                const key = lid ? `${email}:${lid}` : null;
+                const ev = key ? latestAttemptMap.get(key) : null;
+                const score = computeScore(ev);
+                return { ...a, ...score };
+            });
         const studentsCount = roster?.length || 0;
         const catalogCount = activeCatalog?.length || 0;
         const assignmentsCount = sortedAssignments?.length || 0;
