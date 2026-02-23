@@ -252,6 +252,65 @@ async function handleUserSignin(base44, payload, webhookId, dedupeKey, occurredA
     console.log(`[WEBHOOK] ✓ User signin logged`);
 }
 
+const YOUR_CLASSROOM_COURSE_ID = 552235;
+
+async function createThinkificClassroomGroup(userId, firstName, lastName, email) {
+    const subdomain = Deno.env.get('THINKIFIC_SUBDOMAIN');
+    const token = Deno.env.get('THINKIFIC_API_ACCESS_TOKEN');
+    const headers = {
+        'Authorization': `Bearer ${token}`,
+        'X-Auth-Subdomain': subdomain,
+        'Content-Type': 'application/json'
+    };
+
+    const groupName = (firstName && lastName)
+        ? `${firstName} ${lastName}'s Classroom`
+        : `${email}'s Classroom`;
+
+    // Check if group already exists
+    const searchRes = await fetch(
+        `https://api.thinkific.com/api/public/v1/groups?query[name]=${encodeURIComponent(groupName)}`,
+        { headers }
+    );
+    const searchData = await searchRes.json();
+    const existingGroup = (searchData.items || []).find(g => g.name === groupName);
+
+    let groupId;
+    if (existingGroup) {
+        groupId = existingGroup.id;
+        console.log(`[WEBHOOK] Group already exists: "${groupName}" (id=${groupId})`);
+    } else {
+        const createRes = await fetch('https://api.thinkific.com/api/public/v1/groups', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ name: groupName })
+        });
+        const createData = await createRes.json();
+        groupId = createData.id;
+        console.log(`[WEBHOOK] ✓ Created group: "${groupName}" (id=${groupId})`);
+    }
+
+    if (!groupId) {
+        console.error(`[WEBHOOK] Failed to get/create group for "${groupName}"`);
+        return;
+    }
+
+    // Add user to group
+    const addRes = await fetch('https://api.thinkific.com/api/public/v1/group_users', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ group_id: groupId, user_id: userId })
+    });
+
+    if (addRes.ok) {
+        console.log(`[WEBHOOK] ✓ Added user ${userId} to group ${groupId}`);
+    } else {
+        const errBody = await addRes.text();
+        // Ignore "already a member" type errors
+        console.log(`[WEBHOOK] Add user to group response (${addRes.status}): ${errBody}`);
+    }
+}
+
 async function handleEnrollmentCreated(base44, payload, webhookId, dedupeKey, occurredAt, rawBody) {
     const user = payload?.user;
     const course = payload?.course;
@@ -283,6 +342,16 @@ async function handleEnrollmentCreated(base44, payload, webhookId, dedupeKey, oc
 
     await base44.asServiceRole.entities.ActivityEvent.create(activity);
     console.log(`[WEBHOOK] ✓ Enrollment created logged`);
+
+    // Auto-create Thinkific group when enrolling in "Your Classroom"
+    if (Number(course?.id) === YOUR_CLASSROOM_COURSE_ID) {
+        if (!email) {
+            console.error('[WEBHOOK] Missing email for Your Classroom group creation, skipping');
+            return;
+        }
+        console.log(`[WEBHOOK] Your Classroom enrollment detected for ${email}, creating group...`);
+        await createThinkificClassroomGroup(userId, firstName, lastName, email);
+    }
 }
 
 async function handleUserSignup(base44, payload, webhookId, dedupeKey, occurredAt, rawBody) {
