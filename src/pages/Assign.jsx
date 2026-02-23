@@ -632,6 +632,13 @@ export default function Assign() {
                                                                             <span className="text-xs text-gray-400">Due: {formatDate(a.dueAt)}</span>
                                                                         )}
                                                                     </div>
+                                                                    <p className="text-xs text-gray-400 mt-0.5">
+                                                                        {typeof a.scorePercent === 'number' && typeof a.correctCount === 'number' && typeof a.totalQuestions === 'number'
+                                                                            ? `Score: ${a.scorePercent}% • ${a.correctCount}/${a.totalQuestions}`
+                                                                            : typeof a.scorePercent === 'number'
+                                                                                ? `Score: ${a.scorePercent}%`
+                                                                                : 'Score: —'}
+                                                                    </p>
                                                                 </div>
                                                                 {url && (
                                                                     <a href={url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 text-purple-700 hover:text-purple-900 mt-0.5">
