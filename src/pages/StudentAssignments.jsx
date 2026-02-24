@@ -11,6 +11,60 @@ function formatDate(iso) {
 function AssignmentRow({ assignment }) {
     const done = assignment.status === 'completed';
     const contentLabel = assignment.contentType === 'quiz' ? 'Quiz' : 'Lesson';
+    const [linkLoading, setLinkLoading] = useState(false);
+    const [linkError, setLinkError] = useState('');
+
+    // Detect if the stored URL uses a numeric course ID (broken pattern)
+    function isBrokenUrl(url) {
+        if (!url) return true;
+        // e.g. /courses/take/422618/... — numeric segment after /take/
+        return /\/courses\/take\/\d+\//.test(url);
+    }
+
+    async function handleStart(e) {
+        e.preventDefault();
+        const url = assignment.contentUrl || assignment.thinkificUrl;
+
+        // If URL looks good already, open directly
+        if (url && !isBrokenUrl(url)) {
+            window.open(url, '_blank');
+            return;
+        }
+
+        // Need to resolve a slug-based URL
+        setLinkLoading(true);
+        setLinkError('');
+
+        const timeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Request timed out after 10 seconds')), 10000)
+        );
+
+        try {
+            const result = await Promise.race([
+                api.call('resolveAssignmentUrl', {
+                    assignmentId: assignment.id,
+                    catalogId: assignment.catalogId,
+                    courseId: assignment.courseId,
+                    contentType: assignment.contentType || assignment.type,
+                    contentId: assignment.contentType === 'quiz'
+                        ? (assignment.quizId || assignment.lessonId)
+                        : (assignment.lessonId || assignment.quizId),
+                }),
+                timeout
+            ]);
+            if (result.url) {
+                window.open(result.url, '_blank');
+            } else {
+                setLinkError('Could not resolve link. Please try again.');
+            }
+        } catch (err) {
+            setLinkError(err.message || 'Failed to open assignment. Please try again.');
+        } finally {
+            setLinkLoading(false);
+        }
+    }
+
+    const hasLink = !!(assignment.contentUrl || assignment.thinkificUrl);
 
     return (
         <div className={`flex items-start gap-3 py-3 px-4 rounded-lg border ${done ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
@@ -35,16 +89,28 @@ function AssignmentRow({ assignment }) {
                         <span className="text-xs text-green-600">Completed {formatDate(assignment.completedAt)}</span>
                     )}
                 </div>
+                {linkError && (
+                    <div className="flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                        <p className="text-xs text-red-600">{linkError}</p>
+                        <button
+                            onClick={handleStart}
+                            className="text-xs text-purple-600 underline ml-1"
+                        >Try Again</button>
+                    </div>
+                )}
             </div>
-            {assignment.contentUrl && !done && (
-                <a
-                    href={assignment.contentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-md border border-purple-200 transition-colors"
+            {hasLink && !done && (
+                <button
+                    onClick={handleStart}
+                    disabled={linkLoading}
+                    className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-md border border-purple-200 transition-colors disabled:opacity-50"
                 >
-                    Start <ExternalLink className="w-3 h-3" />
-                </a>
+                    {linkLoading
+                        ? <><RefreshCw className="w-3 h-3 animate-spin" /> Opening…</>
+                        : <>Start <ExternalLink className="w-3 h-3" /></>
+                    }
+                </button>
             )}
         </div>
     );
