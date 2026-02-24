@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Circle, ExternalLink } from 'lucide-react';
+import { CheckCircle2, Circle, ExternalLink, AlertCircle, RefreshCw } from 'lucide-react';
 import { api } from '@/components/api';
 
 function formatDate(iso) {
