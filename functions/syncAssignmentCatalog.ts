@@ -66,6 +66,30 @@ function getLessonType(content) {
     return content.lesson_type || content.lesson_type_label || content.type_label || null;
 }
 
+/**
+ * Build a valid Thinkific URL using free_path or course slug.
+ * Returns null if unable to build a valid URL (numeric IDs are forbidden).
+ */
+async function buildThinkificUrl(content, courseId, contentType) {
+    const domain = 'https://learn.modaleducation.com';
+    
+    // Priority 1: Use free_path if available
+    if (content.free_path) {
+        return `${domain}${content.free_path}`;
+    }
+    
+    // Priority 2: Fetch course slug and build URL
+    const courseSlug = await getCourseSlug(courseId);
+    if (courseSlug) {
+        const contentId = content.id;
+        const contentKind = contentType === 'quiz' ? 'quizzes' : 'lessons';
+        return `${domain}/courses/take/${courseSlug}/${contentKind}/${contentId}`;
+    }
+    
+    // Priority 3: Cannot build a valid URL
+    return null;
+}
+
 Deno.serve(async (req) => {
     let session;
     try {
