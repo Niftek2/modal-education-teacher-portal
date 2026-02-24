@@ -145,9 +145,14 @@ Deno.serve(async (req) => {
                     const sourceKey = `thinkific:${courseId}:${contentType}:${contentId}`;
 
                     const subdomain = Deno.env.get("THINKIFIC_SUBDOMAIN");
+                    // Use free_path (slug-based) when available — it looks like /courses/take/level-2/lessons/123-slug
+                    // Fallback: build slug using level label (e.g. "level-2") derived from COURSE_LEVEL_MAP
+                    const levelLabel = (COURSE_LEVEL_MAP[courseId] || 'course').toLowerCase().replace(/^l(\d)$/, 'level-$1').replace(/^pk$/, 'pre-k').replace(/^k$/, 'kindergarten');
+                    const contentKind = contentType === 'quiz' ? 'quizzes' : 'lessons';
+                    const fallbackUrl = `https://learn.modaleducation.com/courses/take/${levelLabel}/${contentKind}/${contentId}`;
                     const thinkificUrl = content.free_path
-                        ? `https://${subdomain}.thinkific.com${content.free_path}`
-                        : `https://${subdomain}.thinkific.com/courses/take/${courseId}/lessons/${contentId}`;
+                        ? `https://learn.modaleducation.com${content.free_path}`
+                        : fallbackUrl;
 
                     const catalogData = {
                         title: contentTitle,
