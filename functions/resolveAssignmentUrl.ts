@@ -69,8 +69,9 @@ Deno.serve(async (req) => {
 
     try {
         let resolvedUrl = null;
+        let contentData = null;
 
-        // Step 1: Try fetching free_path from /contents API by searching chapters
+        // Step 1: Try fetching content with free_path from /contents API
         const chaptersResult = await requestRest('/chapters', 'GET', { 'query[course_id]': String(courseId) });
         if (chaptersResult.ok) {
             const chapters = chaptersResult.data?.items || [];
@@ -81,27 +82,29 @@ Deno.serve(async (req) => {
                 const contents = contentsResult.data?.items || [];
                 for (const c of contents) {
                     if (String(c.id) === String(contentId)) {
-                        if (c.free_path) {
-                            resolvedUrl = `https://learn.modaleducation.com${c.free_path}`;
-                        }
+                        contentData = c;
                         break outerLoop;
                     }
                 }
             }
         }
 
-        // Step 2: If no free_path, fetch real course slug and build URL
+        // Step 2: Try using free_path from content
+        if (contentData?.free_path) {
+            resolvedUrl = `https://learn.modaleducation.com${contentData.free_path}`;
+        }
+
+        // Step 3: If no free_path, fetch course slug and build URL
         if (!resolvedUrl) {
             const courseSlug = await getCourseSlug(courseId);
-            if (courseSlug) {
-                const contentKind = contentType === 'quiz' ? 'quizzes' : 'lessons';
-                resolvedUrl = `https://learn.modaleducation.com/courses/take/${courseSlug}/${contentKind}/${contentId}`;
+            if (courseSlug && contentData) {
+                resolvedUrl = buildUrlFromContent(contentData, courseSlug, contentType);
             }
         }
 
-        // Step 3: Fail cleanly if we cannot resolve
+        // Step 4: Fail cleanly — never return a numeric-ID URL
         if (!resolvedUrl) {
-            console.warn(`[resolveUrl] Cannot resolve URL: courseId=${courseId}, contentId=${contentId}`);
+            console.warn(`[resolveUrl] Cannot resolve URL: courseId=${courseId}, contentId=${contentId}, free_path=${contentData?.free_path || 'none'}`);
             return Response.json({ error: 'Unable to resolve assignment URL. Please try again.' }, { status: 404 });
         }
 
