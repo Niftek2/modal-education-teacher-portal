@@ -184,20 +184,12 @@ Deno.serve(async (req) => {
                     const contentId = content.id;
                     const sourceKey = `thinkific:${courseId}:${contentType}:${contentId}`;
 
-                    // Priority: use free_path if available, otherwise fetch real course slug
-                    let thinkificUrl = null;
-                    if (content.free_path) {
-                        thinkificUrl = `https://learn.modaleducation.com${content.free_path}`;
-                    } else {
-                        const courseSlug = await getCourseSlug(courseId);
-                        if (courseSlug) {
-                            const contentKind = contentType === 'quiz' ? 'quizzes' : 'lessons';
-                            thinkificUrl = `https://learn.modaleducation.com/courses/take/${courseSlug}/${contentKind}/${contentId}`;
-                        }
-                    }
-                    // If we still don't have a URL, set a placeholder that resolver will fix
+                    // Build valid URL or skip
+                    const thinkificUrl = await buildThinkificUrl(content, courseId, contentType);
                     if (!thinkificUrl) {
-                        thinkificUrl = `about:blank`; // Placeholder; resolver will fetch the real slug
+                        console.log(`SKIP: Cannot build valid URL for content id=${content.id} ("${contentTitle}") - no free_path and course slug unavailable`);
+                        itemsSkipped++;
+                        continue;
                     }
 
                     const catalogData = {
