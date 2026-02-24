@@ -38,6 +38,22 @@ async function fetchAllPages(path, queryParams = {}) {
     return items;
 }
 
+// Cache course slugs from Thinkific API
+const courseSlugCache = {};
+async function getCourseSlug(courseId) {
+    if (courseSlugCache[courseId]) return courseSlugCache[courseId];
+    try {
+        const result = await requestRest(`/courses/${courseId}`);
+        if (result.ok && result.data?.slug) {
+            courseSlugCache[courseId] = result.data.slug;
+            return result.data.slug;
+        }
+    } catch (e) {
+        console.warn(`Could not fetch course slug for ${courseId}:`, e.message);
+    }
+    return null;
+}
+
 function normalizeContentType(content) {
     // Thinkific may return content_type, type, or kind
     const raw = (content.content_type || content.type || content.kind || '').toLowerCase();
