@@ -3,33 +3,21 @@ import { requestRest } from './lib/thinkificClient.js';
 
 /**
  * Resolves a slug-based Thinkific URL for a given assignment.
- * Uses free_path from the /contents API when available.
- * Falls back to /courses/{id} slug + level-label construction.
+ * 
+ * Hierarchy:
+ * 1. Use content.free_path when available (best).
+ * 2. Fetch real course slug from /courses/{id} and build /courses/take/{slug}/...
+ * 3. Fail cleanly (404) if neither available.
+ * 
+ * Always prepends https://learn.modaleducation.com (custom domain).
  */
 
-const COURSE_LEVEL_MAP = {
-    [Deno.env.get("PK_COURSE_ID")]: 'pre-k',
-    [Deno.env.get("K_COURSE_ID")]: 'kindergarten',
-    [Deno.env.get("L1_COURSE_ID")]: 'level-1',
-    [Deno.env.get("L2_COURSE_ID")]: 'level-2',
-    [Deno.env.get("L3_COURSE_ID")]: 'level-3',
-    [Deno.env.get("L4_COURSE_ID")]: 'level-4',
-    [Deno.env.get("L5_COURSE_ID")]: 'level-5',
-};
-
-// In-memory cache for course slugs (warm across requests in same instance)
+// In-memory cache for course slugs
 const courseSlugCache = {};
 
 async function getCourseSlug(courseId) {
     if (courseSlugCache[courseId]) return courseSlugCache[courseId];
 
-    // Prefer hardcoded map
-    if (COURSE_LEVEL_MAP[String(courseId)]) {
-        courseSlugCache[courseId] = COURSE_LEVEL_MAP[String(courseId)];
-        return courseSlugCache[courseId];
-    }
-
-    // Fall back to Thinkific API
     try {
         const result = await requestRest(`/courses/${courseId}`);
         if (result.ok && result.data?.slug) {
@@ -37,7 +25,7 @@ async function getCourseSlug(courseId) {
             return result.data.slug;
         }
     } catch (e) {
-        console.error(`getCourseSlug failed for ${courseId}:`, e.message);
+        console.warn(`Could not fetch course slug for ${courseId}:`, e.message);
     }
     return null;
 }
@@ -62,22 +50,9 @@ Deno.serve(async (req) => {
     }
 
     try {
-        // Check catalog for existing good URL first
-        if (catalogId) {
-            const cats = await base44.asServiceRole.entities.AssignmentCatalog.filter({ id: catalogId });
-            const cat = cats?.[0];
-            if (cat?.thinkificUrl && !cat.thinkificUrl.includes(`/courses/take/${courseId}/`)) {
-                // URL doesn't contain numeric courseId in take path — it's slug-based, use it
-                console.log(`[resolveUrl] Using stored slug URL from catalog: ${cat.thinkificUrl}`);
-                return Response.json({ url: cat.thinkificUrl });
-            }
-        }
-
-        // Try fetching free_path from /contents API
-        // We need to search by chapter — not directly by content id, so use course chapters
         let resolvedUrl = null;
 
-        // Attempt: fetch chapters for course, then contents for each chapter until we find our content
+        // Step 1: Try fetching free_path from /contents API by searching chapters
         const chaptersResult = await requestRest('/chapters', 'GET', { 'query[course_id]': String(courseId) });
         if (chaptersResult.ok) {
             const chapters = chaptersResult.data?.items || [];
@@ -97,39 +72,40 @@ Deno.serve(async (req) => {
             }
         }
 
-        // Fallback: build from course slug
+        // Step 2: If no free_path, fetch real course slug and build URL
         if (!resolvedUrl) {
-            const courseSlug = await getCourseSlug(String(courseId));
+            const courseSlug = await getCourseSlug(courseId);
             if (courseSlug) {
-                const kind = contentType === 'quiz' ? 'quizzes' : 'lessons';
-                resolvedUrl = `https://learn.modaleducation.com/courses/take/${courseSlug}/${kind}/${contentId}`;
+                const contentKind = contentType === 'quiz' ? 'quizzes' : 'lessons';
+                resolvedUrl = `https://learn.modaleducation.com/courses/take/${courseSlug}/${contentKind}/${contentId}`;
             }
         }
 
+        // Step 3: Fail cleanly if we cannot resolve
         if (!resolvedUrl) {
-            return Response.json({ error: 'Could not resolve URL for this assignment' }, { status: 404 });
+            console.warn(`[resolveUrl] Cannot resolve URL: courseId=${courseId}, contentId=${contentId}`);
+            return Response.json({ error: 'Unable to resolve assignment URL. Please try again.' }, { status: 404 });
         }
 
-        // Update catalog with the resolved URL so future calls are instant
+        // Update catalog and assignment with resolved URL (non-fatal if this fails)
         if (catalogId) {
             await base44.asServiceRole.entities.AssignmentCatalog.update(catalogId, {
                 thinkificUrl: resolvedUrl,
                 contentUrl: resolvedUrl,
-            }).catch(() => {}); // non-fatal
+            }).catch(() => {});
         }
-        // Update assignment too
         if (assignmentId) {
             await base44.asServiceRole.entities.StudentAssignment.update(assignmentId, {
                 contentUrl: resolvedUrl,
                 thinkificUrl: resolvedUrl,
-            }).catch(() => {}); // non-fatal
+            }).catch(() => {});
         }
 
-        console.log(`[resolveUrl] Resolved: ${resolvedUrl}`);
+        console.log(`[resolveUrl] Resolved to: ${resolvedUrl}`);
         return Response.json({ url: resolvedUrl });
 
     } catch (error) {
         console.error('[resolveUrl] Error:', error.message);
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: 'Failed to resolve URL. Please try again.' }, { status: 500 });
     }
 });
