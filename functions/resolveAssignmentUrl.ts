@@ -7,7 +7,7 @@ import { requestRest } from './lib/thinkificClient.js';
  * Hierarchy:
  * 1. Use content.free_path when available (best).
  * 2. Fetch real course slug from /courses/{id} and build /courses/take/{slug}/...
- * 3. Fail cleanly (404) if neither available.
+ * 3. Fail cleanly (404) if neither available — NEVER use numeric course IDs.
  * 
  * Always prepends https://learn.modaleducation.com (custom domain).
  */
@@ -27,6 +27,24 @@ async function getCourseSlug(courseId) {
     } catch (e) {
         console.warn(`Could not fetch course slug for ${courseId}:`, e.message);
     }
+    return null;
+}
+
+/**
+ * Build a valid Thinkific URL from content or slug.
+ */
+function buildUrlFromContent(content, courseSlug, contentType) {
+    const domain = 'https://learn.modaleducation.com';
+    
+    if (content?.free_path) {
+        return `${domain}${content.free_path}`;
+    }
+    
+    if (courseSlug && content?.id) {
+        const contentKind = contentType === 'quiz' ? 'quizzes' : 'lessons';
+        return `${domain}/courses/take/${courseSlug}/${contentKind}/${content.id}`;
+    }
+    
     return null;
 }
 
