@@ -160,15 +160,21 @@ Deno.serve(async (req) => {
                     const contentId = content.id;
                     const sourceKey = `thinkific:${courseId}:${contentType}:${contentId}`;
 
-                    const subdomain = Deno.env.get("THINKIFIC_SUBDOMAIN");
-                    // Use free_path (slug-based) when available — it looks like /courses/take/level-2/lessons/123-slug
-                    // Fallback: build slug using level label (e.g. "level-2") derived from COURSE_LEVEL_MAP
-                    const levelLabel = (COURSE_LEVEL_MAP[courseId] || 'course').toLowerCase().replace(/^l(\d)$/, 'level-$1').replace(/^pk$/, 'pre-k').replace(/^k$/, 'kindergarten');
-                    const contentKind = contentType === 'quiz' ? 'quizzes' : 'lessons';
-                    const fallbackUrl = `https://learn.modaleducation.com/courses/take/${levelLabel}/${contentKind}/${contentId}`;
-                    const thinkificUrl = content.free_path
-                        ? `https://learn.modaleducation.com${content.free_path}`
-                        : fallbackUrl;
+                    // Priority: use free_path if available, otherwise fetch real course slug
+                    let thinkificUrl = null;
+                    if (content.free_path) {
+                        thinkificUrl = `https://learn.modaleducation.com${content.free_path}`;
+                    } else {
+                        const courseSlug = await getCourseSlug(courseId);
+                        if (courseSlug) {
+                            const contentKind = contentType === 'quiz' ? 'quizzes' : 'lessons';
+                            thinkificUrl = `https://learn.modaleducation.com/courses/take/${courseSlug}/${contentKind}/${contentId}`;
+                        }
+                    }
+                    // If we still don't have a URL, set a placeholder that resolver will fix
+                    if (!thinkificUrl) {
+                        thinkificUrl = `about:blank`; // Placeholder; resolver will fetch the real slug
+                    }
 
                     const catalogData = {
                         title: contentTitle,
