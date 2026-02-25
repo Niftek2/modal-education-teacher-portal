@@ -5,7 +5,7 @@ const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const STUDENT_PRODUCT_ID = Deno.env.get("STUDENT_PRODUCT_ID");
 
-const CLASSROOM_COURSE_ID = 552235;
+const CLASSROOM_COURSE_ID = Deno.env.get("CLASSROOM_COURSE_ID");
 
 // In-memory cache: email -> { allowed: bool, checkedAt: timestamp }
 const enrollmentCache = new Map();
