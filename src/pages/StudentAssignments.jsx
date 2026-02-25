@@ -25,19 +25,25 @@ function AssignmentRow({ assignment }) {
             window.open(url, '_blank');
             return;
         }
-        // Missing URL or numeric-ID take link — must resolve
 
-        // URL is missing or uses a numeric ID — resolve via backend
+        // Missing URL or numeric-ID take link — must resolve via Thinkific API
         setLinkLoading(true);
         setLinkError('');
 
         const contentType = assignment.contentType || assignment.type || 'lesson';
+        // Pick the canonical content ID for this type
         const contentId = contentType === 'quiz'
             ? (assignment.quizId || assignment.lessonId)
             : (assignment.lessonId || assignment.quizId);
 
+        if (!assignment.courseId || !contentId) {
+            setLinkError('Missing course or content info. Cannot open this assignment.');
+            setLinkLoading(false);
+            return;
+        }
+
         const timeout = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Request timed out after 10 seconds')), 10000)
+            setTimeout(() => reject(new Error('Request timed out after 15 seconds')), 15000)
         );
 
         try {
@@ -51,8 +57,11 @@ function AssignmentRow({ assignment }) {
                 }),
                 timeout
             ]);
-            if (result.url) {
+            if (result.url && !NUMERIC_TAKE.test(result.url)) {
                 window.open(result.url, '_blank');
+            } else if (result.url) {
+                // Resolver returned a numeric URL — do not open
+                setLinkError('Could not resolve a valid link. Please contact your teacher.');
             } else {
                 setLinkError('Could not resolve link. Please try again.');
             }
