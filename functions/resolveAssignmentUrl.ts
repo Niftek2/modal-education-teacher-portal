@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
         if (assignmentId) {
             const rows = await base44.asServiceRole.entities.StudentAssignment.filter({ id: assignmentId });
             const cached = rows?.[0]?.contentUrl;
-            if (validateUrl(cached, contentType)) {
+            if (validateUrl(cached, contentType, contentId)) {
                 console.log(`[resolveUrl] Returning cached URL: ${cached}`);
                 return Response.json({ url: cached });
             }
