@@ -15,6 +15,7 @@ import { requestRest } from './lib/thinkificClient.js';
 
 const NUMERIC_TAKE = /\/courses\/take\/\d+(\/|$)/;
 
+// Resolver: fetch free_path from Thinkific, persist slug URL, never return numeric take URLs
 Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
 
