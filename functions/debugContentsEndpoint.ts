@@ -26,11 +26,8 @@ Deno.serve(async (req) => {
 
         return Response.json({
             status,
-            chapterId,
-            itemCount: data?.items?.length || 0,
-            // Show full first item to see all available fields
-            firstItem: data?.items?.[0] || null,
-            allItemIds: data?.items?.map(i => ({ id: i.id, name: i.name, free_path: i.free_path, slug: i.slug })) || [],
+            lessonId,
+            fullData: data,
         });
 
     } catch (error) {
