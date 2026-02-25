@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
         }
 
         function computeScore(ev) {
-            if (!ev) return { scorePercent: null, correctCount: null, totalQuestions: null };
+            if (!ev) return { scorePercent: null, correctCount: null, totalQuestions: null, courseName: null, level: null };
 
             // Step 2: Use payload.grade as the primary score source
             const grade = ev.grade;
@@ -104,7 +104,11 @@ Deno.serve(async (req) => {
             const correctCount = (typeof cc === 'number') ? cc : null;
             const totalQuestions = (typeof cc === 'number' && typeof ic === 'number') ? cc + ic : null;
 
-            return { scorePercent, correctCount, totalQuestions };
+            // Determine courseName/level for activity display
+            let courseName = ev.courseName || null;
+            let level = COURSE_LEVEL_MAP[String(ev.courseId)] || null;
+
+            return { scorePercent, correctCount, totalQuestions, courseName, level };
         }
 
         const sortedAssignments = (assignments || [])
