@@ -208,7 +208,14 @@ Deno.serve(async (req) => {
     const session = await requireSession(req);
 
     if (!session) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
+        console.log(`[addStudents] DENY_401: sessionPresent=false enrollmentFound=false decision=DENY_401`);
+        return Response.json({ error: "Please sign in again." }, { status: 401 });
+    }
+
+    try {
+        await assertTeacherAccess(session);
+    } catch (err) {
+        return Response.json({ error: err.message }, { status: err.status || 403 });
     }
 
     try {
