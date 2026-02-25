@@ -452,35 +452,32 @@ export default function Assign() {
                                 <div className="divide-y divide-gray-100">
                                     {studentAssignments.map(a => {
                                         const status = a.status || 'assigned';
-                                        const url = a.contentUrl || a.thinkificUrl || '';
-                                        return (
-                                            <div key={a.id} className="p-4">
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-medium text-black leading-snug">{a.title || 'Untitled'}</p>
-                                                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
-                                                            {a.topic ? <span>{a.topic}</span> : null}
-                                                            {a.contentType ? <span>· {String(a.contentType).toLowerCase()}</span> : null}
+                                                return (
+                                                    <div key={a.id} className="p-4">
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-medium text-black leading-snug">{a.title || 'Untitled'}</p>
+                                                                <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
+                                                                    {a.topic ? <span>{a.topic}</span> : null}
+                                                                    {a.contentType ? <span>· {String(a.contentType).toLowerCase()}</span> : null}
+                                                                </div>
+                                                            </div>
+                                                            <span className={`text-xs px-2 py-1 rounded-full border whitespace-nowrap ${pillClass(status)}`}>
+                                                                {String(status).toLowerCase()}
+                                                            </span>
+                                                        </div>
+                                                        <div className="mt-2 text-xs text-gray-500 space-y-1">
+                                                            {a.dueAt ? <div><span className="text-gray-400">Due:</span> {formatDate(a.dueAt)}</div> : null}
+                                                            {String(status).toLowerCase() === 'completed' && a.completedAt ? (
+                                                                <div><span className="text-gray-400">Completed:</span> {formatDate(a.completedAt)}</div>
+                                                            ) : null}
+                                                            {a.assignedAt ? <div><span className="text-gray-400">Assigned:</span> {formatDate(a.assignedAt)}</div> : null}
+                                                        </div>
+                                                        <div className="mt-3">
+                                                            <AssignmentLink assignment={a} onResolved={handleAssignmentResolved} />
                                                         </div>
                                                     </div>
-                                                    <span className={`text-xs px-2 py-1 rounded-full border whitespace-nowrap ${pillClass(status)}`}>
-                                                        {String(status).toLowerCase()}
-                                                    </span>
-                                                </div>
-                                                <div className="mt-2 text-xs text-gray-500 space-y-1">
-                                                    {a.dueAt ? <div><span className="text-gray-400">Due:</span> {formatDate(a.dueAt)}</div> : null}
-                                                    {String(status).toLowerCase() === 'completed' && a.completedAt ? (
-                                                        <div><span className="text-gray-400">Completed:</span> {formatDate(a.completedAt)}</div>
-                                                    ) : null}
-                                                    {a.assignedAt ? <div><span className="text-gray-400">Assigned:</span> {formatDate(a.assignedAt)}</div> : null}
-                                                </div>
-                                                {url ? (
-                                                    <div className="mt-3">
-                                                        <a href={url} target="_blank" rel="noreferrer" className="text-xs text-purple-700 hover:underline">Open</a>
-                                                    </div>
-                                                ) : null}
-                                            </div>
-                                        );
+                                                );
                                     })}
                                 </div>
                             );
