@@ -6,10 +6,10 @@ Deno.serve(async (req) => {
         const body = await req.json().catch(() => ({}));
         const chapterId = body.chapterId || '1745945'; // "Shapes and Colors" chapter from PK course
 
-        // Test what the contents endpoint actually looks like
+        // Test chapter individual endpoint
         const chapterId = '1745945';
         const response = await fetch(
-            `https://api.thinkific.com/api/public/v1/chapters/${chapterId}`,
+            `https://api.thinkific.com/api/public/v1/chapters/${chapterId}/contents`,
             {
                 headers: {
                     'X-Auth-API-Key': THINKIFIC_API_KEY,
