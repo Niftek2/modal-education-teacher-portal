@@ -19,6 +19,18 @@ Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         const teacherEmail = session.email?.toLowerCase().trim();
+        
+        const ASSIGNMENTS_COURSE_ID = Deno.env.get("ASSIGNMENTS_COURSE_ID") || '3359727';
+        const COURSE_LEVEL_MAP = {
+            [Deno.env.get("PK_COURSE_ID")]: 'PK',
+            [Deno.env.get("K_COURSE_ID")]: 'K',
+            [Deno.env.get("L1_COURSE_ID")]: 'L1',
+            [Deno.env.get("L2_COURSE_ID")]: 'L2',
+            [Deno.env.get("L3_COURSE_ID")]: 'L3',
+            [Deno.env.get("L4_COURSE_ID")]: 'L4',
+            [Deno.env.get("L5_COURSE_ID")]: 'L5',
+            [ASSIGNMENTS_COURSE_ID]: 'Assignments',
+        };
         t1 = Date.now();
 
         const isTeacher = session.isTeacher === true || session.role === 'teacher';
