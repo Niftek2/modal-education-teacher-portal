@@ -98,6 +98,17 @@ Deno.serve(async (req) => {
         const sortedAssignments = (assignments || [])
             .sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt))
             .map(a => {
+                // Primary: use score persisted directly on the assignment
+                if (typeof a.score === 'number') {
+                    const md = a.metadata || {};
+                    return {
+                        ...a,
+                        scorePercent: a.score,
+                        correctCount: typeof md.correctCount === 'number' ? md.correctCount : null,
+                        totalQuestions: typeof md.totalQuestions === 'number' ? md.totalQuestions : null,
+                    };
+                }
+                // Fallback: derive from ActivityEvent
                 const email = String(a.studentEmail || '').toLowerCase().trim();
                 const lid = a.lessonId != null ? String(a.lessonId) : null;
                 const key = lid ? `${email}:${lid}` : null;
