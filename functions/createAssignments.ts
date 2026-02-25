@@ -69,7 +69,10 @@ Deno.serve(async (req) => {
 
         const lessonIdStr = catalog.thinkificLessonId ? String(catalog.thinkificLessonId) : (catalog.lessonId || '');
         const quizIdStr = catalog.thinkificQuizId ? String(catalog.thinkificQuizId) : (catalog.quizId || '');
-        const contentUrl = catalog.contentUrl || catalog.thinkificUrl || '';
+
+        // Never store a numeric-ID take URL — store blank and let the client resolve it
+        const rawUrl = catalog.contentUrl || catalog.thinkificUrl || '';
+        const contentUrl = /\/courses\/take\/\d+\//.test(rawUrl) ? '' : rawUrl;
 
         // Create assignments
         const assignments = [];
