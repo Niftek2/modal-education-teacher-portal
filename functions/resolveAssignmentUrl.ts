@@ -161,18 +161,18 @@ Deno.serve(async (req) => {
 
         const finalUrl = `${DOMAIN}${freePath}`;
 
-        // Step C: Validate
-        if (!validateUrl(finalUrl, contentType)) {
-            console.error(`[resolveUrl] Invalid resolved URL for contentType=${contentType}: ${finalUrl}`);
+        // Step C: Validate — path must contain /quizzes/{contentId}- or /lessons/{contentId}-
+        if (!validateUrl(finalUrl, contentType, contentId)) {
+            console.error(`[resolveUrl] Validation failed for contentType=${contentType} contentId=${contentId}: ${finalUrl}`);
             return Response.json(
-                { error: `Resolved URL is invalid for content type "${contentType}": ${finalUrl}` },
+                { error: `Resolved URL failed validation for content type "${contentType}" id=${contentId}: ${finalUrl}` },
                 { status: 404 }
             );
         }
 
         console.log(`[resolveUrl] Resolved: ${finalUrl}`);
 
-        // Step D: Persist to DB (non-fatal)
+        // Step D: Persist to BOTH StudentAssignment.contentUrl and AssignmentCatalog.contentUrl (non-fatal)
         if (assignmentId) {
             await base44.asServiceRole.entities.StudentAssignment.update(assignmentId, {
                 contentUrl: finalUrl,
@@ -180,6 +180,7 @@ Deno.serve(async (req) => {
         }
         if (catalogId) {
             await base44.asServiceRole.entities.AssignmentCatalog.update(catalogId, {
+                contentUrl: finalUrl,
                 thinkificUrl: finalUrl,
             }).catch(e => console.warn('[resolveUrl] AssignmentCatalog update failed:', e.message));
         }
