@@ -3,50 +3,17 @@ import { requestRest } from './lib/thinkificClient.js';
 
 /**
  * Resolves a slug-based Thinkific URL for a given assignment.
- * 
- * Hierarchy:
- * 1. Use content.free_path when available (best).
- * 2. Fetch real course slug from /courses/{id} and build /courses/take/{slug}/...
- * 3. Fail cleanly (404) if neither available — NEVER use numeric course IDs.
- * 
- * Always prepends https://learn.modaleducation.com (custom domain).
+ *
+ * Steps:
+ * A) If cached contentUrl is already slug-based, return immediately.
+ * B) Fetch Thinkific content record and use free_path only.
+ * C) Fail cleanly (404) if free_path unavailable — NEVER use numeric course IDs.
+ * D) Persist resolved slug URL to StudentAssignment and AssignmentCatalog.
+ *
+ * Always uses https://learn.modaleducation.com as the domain.
  */
 
-// In-memory cache for course slugs
-const courseSlugCache = {};
-
-async function getCourseSlug(courseId) {
-    if (courseSlugCache[courseId]) return courseSlugCache[courseId];
-
-    try {
-        const result = await requestRest(`/courses/${courseId}`);
-        if (result.ok && result.data?.slug) {
-            courseSlugCache[courseId] = result.data.slug;
-            return result.data.slug;
-        }
-    } catch (e) {
-        console.warn(`Could not fetch course slug for ${courseId}:`, e.message);
-    }
-    return null;
-}
-
-/**
- * Build a valid Thinkific URL from content or slug.
- */
-function buildUrlFromContent(content, courseSlug, contentType) {
-    const domain = 'https://learn.modaleducation.com';
-    
-    if (content?.free_path) {
-        return `${domain}${content.free_path}`;
-    }
-    
-    if (courseSlug && content?.id) {
-        const contentKind = contentType === 'quiz' ? 'quizzes' : 'lessons';
-        return `${domain}/courses/take/${courseSlug}/${contentKind}/${content.id}`;
-    }
-    
-    return null;
-}
+const NUMERIC_TAKE = /\/courses\/take\/\d+(\/|$)/;
 
 Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
@@ -67,11 +34,21 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'courseId, contentType, and contentId are required' }, { status: 400 });
     }
 
-    try {
-        let resolvedUrl = null;
-        let contentData = null;
+    console.log(`[resolveUrl] Resolving: courseId=${courseId}, contentType=${contentType}, contentId=${contentId}, assignmentId=${assignmentId}, catalogId=${catalogId}`);
 
-        // Step 1: Try fetching content with free_path from /contents API
+    try {
+        // Step A: Check if the assignment already has a good slug-based URL cached
+        if (assignmentId) {
+            const existing = await base44.asServiceRole.entities.StudentAssignment.filter({ id: assignmentId });
+            const cached = existing?.[0]?.contentUrl;
+            if (cached && !NUMERIC_TAKE.test(cached)) {
+                console.log(`[resolveUrl] Returning cached slug URL: ${cached}`);
+                return Response.json({ url: cached });
+            }
+        }
+
+        // Step B: Fetch Thinkific content record and use free_path only
+        let contentData = null;
         const chaptersResult = await requestRest('/chapters', 'GET', { 'query[course_id]': String(courseId) });
         if (chaptersResult.ok) {
             const chapters = chaptersResult.data?.items || [];
@@ -89,40 +66,38 @@ Deno.serve(async (req) => {
             }
         }
 
-        // Step 2: Try using free_path from content
-        if (contentData?.free_path) {
-            resolvedUrl = `https://learn.modaleducation.com${contentData.free_path}`;
+        console.log(`[resolveUrl] Content found: ${!!contentData}, free_path: ${contentData?.free_path || 'none'}`);
+
+        // Step C: Only use free_path — never construct numeric URLs
+        if (!contentData?.free_path) {
+            console.warn(`[resolveUrl] No free_path for courseId=${courseId}, contentId=${contentId}`);
+            return Response.json({ error: 'Unable to resolve assignment URL: content not found or free_path unavailable.' }, { status: 404 });
         }
 
-        // Step 3: If no free_path, fetch course slug and build URL
-        if (!resolvedUrl) {
-            const courseSlug = await getCourseSlug(courseId);
-            if (courseSlug && contentData) {
-                resolvedUrl = buildUrlFromContent(contentData, courseSlug, contentType);
-            }
+        const resolvedUrl = `https://learn.modaleducation.com${contentData.free_path}`;
+
+        // Guard: never persist or return a numeric take URL
+        if (NUMERIC_TAKE.test(resolvedUrl)) {
+            console.error(`[resolveUrl] Blocked numeric URL from free_path: ${resolvedUrl}`);
+            return Response.json({ error: 'Resolved URL contains a numeric course ID, which is not allowed.' }, { status: 404 });
         }
 
-        // Step 4: Fail cleanly — never return a numeric-ID URL
-        if (!resolvedUrl) {
-            console.warn(`[resolveUrl] Cannot resolve URL: courseId=${courseId}, contentId=${contentId}, free_path=${contentData?.free_path || 'none'}`);
-            return Response.json({ error: 'Unable to resolve assignment URL. Please try again.' }, { status: 404 });
-        }
+        console.log(`[resolveUrl] Resolved to: ${resolvedUrl}`);
 
-        // Update catalog and assignment with resolved URL (non-fatal if this fails)
-        if (catalogId) {
-            await base44.asServiceRole.entities.AssignmentCatalog.update(catalogId, {
-                thinkificUrl: resolvedUrl,
-                contentUrl: resolvedUrl,
-            }).catch(() => {});
-        }
+        // Step D: Persist to both StudentAssignment and AssignmentCatalog
         if (assignmentId) {
             await base44.asServiceRole.entities.StudentAssignment.update(assignmentId, {
                 contentUrl: resolvedUrl,
                 thinkificUrl: resolvedUrl,
-            }).catch(() => {});
+            }).catch(e => console.warn('[resolveUrl] Failed to update StudentAssignment:', e.message));
+        }
+        if (catalogId) {
+            await base44.asServiceRole.entities.AssignmentCatalog.update(catalogId, {
+                contentUrl: resolvedUrl,
+                thinkificUrl: resolvedUrl,
+            }).catch(e => console.warn('[resolveUrl] Failed to update AssignmentCatalog:', e.message));
         }
 
-        console.log(`[resolveUrl] Resolved to: ${resolvedUrl}`);
         return Response.json({ url: resolvedUrl });
 
     } catch (error) {
