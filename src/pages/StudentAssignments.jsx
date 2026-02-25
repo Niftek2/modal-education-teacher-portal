@@ -14,26 +14,24 @@ function AssignmentRow({ assignment }) {
     const [linkLoading, setLinkLoading] = useState(false);
     const [linkError, setLinkError] = useState('');
 
-    // Detect if the stored URL uses a numeric course ID (broken pattern)
-    function isBrokenUrl(url) {
-        if (!url) return true;
-        // e.g. /courses/take/422618/... — numeric segment after /take/
-        return /\/courses\/take\/\d+\//.test(url);
-    }
-
     async function handleStart(e) {
         e.preventDefault();
-        const url = assignment.contentUrl || assignment.thinkificUrl;
+        const url = assignment.contentUrl;
 
-        // If URL looks good already, open directly
-        if (url && !isBrokenUrl(url)) {
+        // If URL is already a valid slug-based URL, open it directly
+        if (url && !/\/courses\/take\/\d+\//.test(url)) {
             window.open(url, '_blank');
             return;
         }
 
-        // Need to resolve a slug-based URL
+        // URL is missing or uses a numeric ID — resolve via backend
         setLinkLoading(true);
         setLinkError('');
+
+        const contentType = assignment.contentType || assignment.type || 'lesson';
+        const contentId = contentType === 'quiz'
+            ? (assignment.quizId || assignment.lessonId)
+            : (assignment.lessonId || assignment.quizId);
 
         const timeout = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Request timed out after 10 seconds')), 10000)
@@ -45,10 +43,8 @@ function AssignmentRow({ assignment }) {
                     assignmentId: assignment.id,
                     catalogId: assignment.catalogId,
                     courseId: assignment.courseId,
-                    contentType: assignment.contentType || assignment.type,
-                    contentId: assignment.contentType === 'quiz'
-                        ? (assignment.quizId || assignment.lessonId)
-                        : (assignment.lessonId || assignment.quizId),
+                    contentType,
+                    contentId,
                 }),
                 timeout
             ]);
@@ -64,7 +60,8 @@ function AssignmentRow({ assignment }) {
         }
     }
 
-    const hasLink = !!(assignment.contentUrl || assignment.thinkificUrl);
+    // Show the Start button whenever there's a catalogId/courseId to resolve against
+    const hasLink = !!(assignment.contentUrl || assignment.catalogId || assignment.courseId);
 
     return (
         <div className={`flex items-start gap-3 py-3 px-4 rounded-lg border ${done ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
