@@ -97,6 +97,13 @@ function AssignmentRow({ assignment }) {
                     {done && assignment.completedAt && (
                         <span className="text-xs text-green-600">Completed {formatDate(assignment.completedAt)}</span>
                     )}
+                    {done && assignment.contentType === 'quiz' && (
+                        <span className="text-xs text-gray-500">
+                            Score: {typeof assignment.scorePercent === 'number'
+                                ? `${assignment.scorePercent}%${typeof assignment.correctCount === 'number' && typeof assignment.totalQuestions === 'number' ? ` (${assignment.correctCount}/${assignment.totalQuestions})` : ''}`
+                                : '—'}
+                        </span>
+                    )}
                 </div>
                 {linkError && (
                     <div className="flex items-center gap-1 mt-1">
