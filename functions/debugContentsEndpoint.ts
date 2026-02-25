@@ -24,12 +24,7 @@ Deno.serve(async (req) => {
         let data = null;
         try { data = JSON.parse(text); } catch { data = null; }
 
-        return Response.json({
-            status,
-            slug: data?.slug,
-            name: data?.name,
-            fullData: data,
-        });
+        return Response.json({ status, fullData: data });
 
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });
