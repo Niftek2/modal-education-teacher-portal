@@ -161,27 +161,48 @@ Deno.serve(async (req) => {
 
         const finalUrl = `${DOMAIN}${freePath}`;
 
-        // Step C: Validate — path must contain /quizzes/{contentId}- or /lessons/{contentId}-
-        if (!validateUrl(finalUrl, contentType, contentId)) {
-            console.error(`[resolveUrl] Validation failed for contentType=${contentType} contentId=${contentId}: ${finalUrl}`);
+        // Step C: Infer true content type from path (passed-in contentType is treated as a hint only)
+        let trueType = null;
+        if (freePath.includes('/quizzes/')) trueType = 'quiz';
+        else if (freePath.includes('/lessons/')) trueType = 'lesson';
+
+        if (!trueType) {
+            console.error(`[resolveUrl] Cannot infer content type from path: ${freePath}`);
             return Response.json(
-                { error: `Resolved URL failed validation for content type "${contentType}" id=${contentId}: ${finalUrl}` },
+                { error: `Cannot determine content type from resolved path: ${finalUrl}` },
                 { status: 404 }
             );
         }
 
-        console.log(`[resolveUrl] Resolved: ${finalUrl}`);
+        if (trueType !== contentType) {
+            console.warn(`[resolveUrl] contentType mismatch: passed="${contentType}" inferred="${trueType}" for contentId=${contentId}. Using inferred.`);
+        }
 
-        // Step D: Persist to BOTH StudentAssignment.contentUrl and AssignmentCatalog.contentUrl (non-fatal)
+        // Validate using trueType
+        if (!validateUrl(finalUrl, trueType, contentId)) {
+            console.error(`[resolveUrl] Validation failed for trueType=${trueType} contentId=${contentId}: ${finalUrl}`);
+            return Response.json(
+                { error: `Resolved URL failed validation for content type "${trueType}" id=${contentId}: ${finalUrl}` },
+                { status: 404 }
+            );
+        }
+
+        console.log(`[resolveUrl] Resolved: ${finalUrl} (trueType=${trueType})`);
+
+        // Step D: Persist finalUrl AND corrected contentType to both entities (non-fatal)
         if (assignmentId) {
             await base44.asServiceRole.entities.StudentAssignment.update(assignmentId, {
                 contentUrl: finalUrl,
+                contentType: trueType,
+                type: trueType,
             }).catch(e => console.warn('[resolveUrl] StudentAssignment update failed:', e.message));
         }
         if (catalogId) {
             await base44.asServiceRole.entities.AssignmentCatalog.update(catalogId, {
                 contentUrl: finalUrl,
                 thinkificUrl: finalUrl,
+                contentType: trueType,
+                type: trueType,
             }).catch(e => console.warn('[resolveUrl] AssignmentCatalog update failed:', e.message));
         }
 
