@@ -51,7 +51,9 @@ async function assertTeacherAccess(session) {
     if (thinkificUserId) {
         const enrollRes = await thinkificGet(`/enrollments?query[user_id]=${thinkificUserId}&query[course_id]=${CLASSROOM_COURSE_ID}`);
         const enrollments = enrollRes.data?.items || [];
-        enrollmentFound = enrollments.some(e => e.activated_at && !e.expiry_date || (e.expiry_date && new Date(e.expiry_date) > new Date()));
+        enrollmentFound = enrollments.some(e =>
+            e.activated_at && (!e.expiry_date || new Date(e.expiry_date) > new Date())
+        );
     }
 
     const decision = enrollmentFound ? 'ALLOW' : 'DENY_403';
