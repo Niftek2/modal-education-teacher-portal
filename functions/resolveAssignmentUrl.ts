@@ -13,17 +13,19 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 const DOMAIN = 'https://learn.modaleducation.com';
 const NUMERIC_TAKE = /\/courses\/take\/\d+(\/|$)/;
 
-const THINKIFIC_API_TOKEN = Deno.env.get('THINKIFIC_API_ACCESS_TOKEN');
+const THINKIFIC_API_KEY = Deno.env.get('THINKIFIC_API_KEY');
+const THINKIFIC_SUBDOMAIN = Deno.env.get('THINKIFIC_SUBDOMAIN');
 const REST_BASE = 'https://api.thinkific.com/api/public/v1';
 
 async function thinkificGet(path, query = {}) {
-    const url = new URL(path, REST_BASE);
+    const url = new URL(`${REST_BASE}${path}`);
     for (const [k, v] of Object.entries(query)) {
         url.searchParams.append(k, String(v));
     }
     const res = await fetch(url.toString(), {
         headers: {
-            'Authorization': `Bearer ${THINKIFIC_API_TOKEN}`,
+            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
             'Content-Type': 'application/json',
         },
     });
