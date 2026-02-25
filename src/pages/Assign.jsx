@@ -688,7 +688,6 @@ export default function Assign() {
                                                 <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden">
                                                     {items.map(a => {
                                                         const title = a.title || catalog.find(c => c.id === a.catalogId)?.title || '—';
-                                                        const url = a.contentUrl || a.thinkificUrl;
                                                         const isCompleted = a.status === 'completed';
                                                         return (
                                                             <div key={a.id} className="flex items-start gap-3 px-4 py-3">
@@ -719,11 +718,7 @@ export default function Assign() {
                                                                                 : 'Score: —'}
                                                                     </p>
                                                                 </div>
-                                                                {url && (
-                                                                    <a href={url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 text-purple-700 hover:text-purple-900 mt-0.5">
-                                                                        <ExternalLink className="w-3.5 h-3.5" />
-                                                                    </a>
-                                                                )}
+                                                                <AssignmentLink assignment={a} onResolved={handleAssignmentResolved} />
                                                             </div>
                                                         );
                                                     })}
