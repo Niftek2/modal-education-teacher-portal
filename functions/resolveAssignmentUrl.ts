@@ -100,12 +100,33 @@ async function resolveFreePath(courseId, contentType, contentId) {
     return null;
 }
 
-function validateUrl(finalUrl, contentType) {
+/**
+ * Extracts the canonical path from a Thinkific URL (take_url or free_path).
+ * Always strips any domain and returns just the pathname.
+ */
+function extractPath(urlOrPath) {
+    if (!urlOrPath) return null;
+    try {
+        return new URL(urlOrPath).pathname;
+    } catch {
+        // Already a path
+        return urlOrPath.startsWith('/') ? urlOrPath : null;
+    }
+}
+
+/**
+ * Validates the final URL against all hard rules:
+ * - Must start with our canonical DOMAIN
+ * - Must NOT be a numeric take URL
+ * - Path must contain /quizzes/{contentId}- for quizzes
+ * - Path must contain /lessons/{contentId}- for lessons
+ */
+function validateUrl(finalUrl, contentType, contentId) {
     if (!finalUrl) return false;
-    if (NUMERIC_TAKE.test(finalUrl)) return false;
     if (!finalUrl.startsWith(DOMAIN)) return false;
-    if (contentType === 'quiz' && !finalUrl.includes('/quizzes/')) return false;
-    if (contentType === 'lesson' && !finalUrl.includes('/lessons/')) return false;
+    if (NUMERIC_TAKE.test(finalUrl)) return false;
+    if (contentType === 'quiz' && !finalUrl.includes(`/quizzes/${contentId}-`)) return false;
+    if (contentType === 'lesson' && !finalUrl.includes(`/lessons/${contentId}-`)) return false;
     return true;
 }
 
