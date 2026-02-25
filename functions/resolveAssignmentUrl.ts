@@ -73,9 +73,9 @@ Deno.serve(async (req) => {
         // Step B: Walk Thinkific chapters+contents to find free_path
         let freePath = null;
 
-        const chaptersRes = await thinkificGet('/chapters', { 'query[course_id]': String(courseId) });
+        const chaptersRes = await thinkificGet(`/courses/${courseId}/chapters`);
         if (!chaptersRes.ok) {
-            console.warn(`[resolveUrl] Thinkific /chapters failed: ${chaptersRes.status}`);
+            console.warn(`[resolveUrl] Thinkific /courses/${courseId}/chapters failed: ${chaptersRes.status}`);
             return Response.json({ error: 'Could not reach Thinkific API.' }, { status: 502 });
         }
 
