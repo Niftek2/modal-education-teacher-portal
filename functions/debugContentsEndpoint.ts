@@ -26,7 +26,11 @@ Deno.serve(async (req) => {
 
         return Response.json({
             status,
-            lessonId,
+            chapterId: chapterId2,
+            authMethod: 'Bearer ACCESS_TOKEN',
+            itemCount: data?.items?.length || 0,
+            firstItem: data?.items?.[0] || null,
+            allItems: data?.items?.map(i => ({ id: i.id, name: i.name, free_path: i.free_path, slug: i.slug })) || [],
             fullData: data,
         });
 
