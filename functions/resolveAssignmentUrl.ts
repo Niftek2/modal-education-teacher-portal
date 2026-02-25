@@ -73,18 +73,9 @@ async function resolveFreePath(courseId, contentType, contentId) {
         const items = contentsRes.data?.items || [];
         for (const item of items) {
             if (String(item.id) === String(contentId)) {
-                // Prefer take_url path, then free_path
-                const takeUrl = item.take_url || null;
-                if (takeUrl) {
-                    try {
-                        const parsed = new URL(takeUrl);
-                        console.log(`[resolveUrl] Chapter walk found id=${item.id} take_url path=${parsed.pathname}`);
-                        return parsed.pathname;
-                    } catch { /* fall through */ }
-                }
-                const fp = item.free_path || null;
-                console.log(`[resolveUrl] Chapter walk found id=${item.id} free_path=${fp}`);
-                return fp;
+                const path = extractPath(item.take_url) || extractPath(item.free_path) || null;
+                console.log(`[resolveUrl] Chapter walk found id=${item.id} path=${path}`);
+                return path;
             }
         }
     }
