@@ -34,7 +34,8 @@ Deno.serve(async (req) => {
                 contentType: a.contentType || a.type,
                 topic: a.topic || '',
                 level: a.level || '',
-                contentUrl: a.contentUrl || a.thinkificUrl || '',
+                // Return contentUrl as-is; frontend will detect numeric URLs and resolve them
+                contentUrl: a.contentUrl || '',
                 catalogId: a.catalogId || '',
                 courseId: a.courseId || '',
                 lessonId: a.lessonId || '',
