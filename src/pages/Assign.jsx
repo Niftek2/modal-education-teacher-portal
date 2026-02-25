@@ -134,6 +134,12 @@ export default function Assign() {
     const [dueDate, setDueDate] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [existingAssignments, setExistingAssignments] = useState([]);
+
+    const handleAssignmentResolved = (assignmentId, resolvedUrl) => {
+        setExistingAssignments(prev =>
+            prev.map(a => a.id === assignmentId ? { ...a, contentUrl: resolvedUrl } : a)
+        );
+    };
     const [syncingCatalog, setSyncingCatalog] = useState(false);
     const [teacherEmail, setTeacherEmail] = useState('');
     const [pageLoaded, setPageLoaded] = useState(false);
