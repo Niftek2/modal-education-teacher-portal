@@ -215,12 +215,6 @@ Deno.serve(async (req) => {
     }
 
     try {
-        await assertTeacherAccess(session);
-    } catch (err) {
-        return Response.json({ error: err.message }, { status: err.status || 403 });
-    }
-
-    try {
         const { students } = await req.json();
         const base44 = createClientFromRequest(req);
 
