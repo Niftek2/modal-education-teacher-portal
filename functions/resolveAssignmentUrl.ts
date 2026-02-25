@@ -45,25 +45,17 @@ async function thinkificGet(path) {
  */
 async function resolveFreePath(courseId, contentType, contentId) {
     // Direct fetch: GET /contents/{contentId}
-    // The API returns `take_url` (full URL) and `free_path` (path only). Use take_url first.
+    // take_url is a full URL (may use any domain) — always extract path only, then rebuild with DOMAIN.
+    // free_path is a path string — use as fallback.
     const direct = await thinkificGet(`/contents/${contentId}`);
     if (direct.ok && direct.data) {
-        const takeUrl = direct.data.take_url || null;
-        const freePath = direct.data.free_path || null;
-        if (takeUrl) {
-            // take_url is a full URL — extract the path portion
-            try {
-                const parsed = new URL(takeUrl);
-                console.log(`[resolveUrl] Direct /contents/${contentId} → take_url path=${parsed.pathname}`);
-                return parsed.pathname;
-            } catch { /* fall through */ }
-        }
-        if (freePath) {
-            console.log(`[resolveUrl] Direct /contents/${contentId} → free_path=${freePath}`);
-            return freePath;
+        const path = extractPath(direct.data.take_url) || extractPath(direct.data.free_path) || null;
+        if (path) {
+            console.log(`[resolveUrl] Direct /contents/${contentId} → path=${path}`);
+            return path;
         }
     }
-    console.log(`[resolveUrl] Direct /contents/${contentId} failed or no path (status=${direct.status}), falling back to chapter walk`);
+    console.log(`[resolveUrl] Direct /contents/${contentId} returned no usable path (status=${direct.status}), falling back to chapter walk`);
 
     // Fallback: walk chapters to find this contentId
     const chaptersRes = await thinkificGet(`/courses/${courseId}/chapters`);
