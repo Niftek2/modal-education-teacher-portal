@@ -14,15 +14,18 @@ function AssignmentRow({ assignment }) {
     const [linkLoading, setLinkLoading] = useState(false);
     const [linkError, setLinkError] = useState('');
 
+    const NUMERIC_TAKE = /\/courses\/take\/\d+(\/|$)/;
+
     async function handleStart(e) {
         e.preventDefault();
         const url = assignment.contentUrl;
 
-        // If URL is already a valid slug-based URL, open it directly
-        if (url && !/\/courses\/take\/\d+\//.test(url)) {
+        // Good slug URL — open immediately, no resolver needed
+        if (url && !NUMERIC_TAKE.test(url)) {
             window.open(url, '_blank');
             return;
         }
+        // Missing URL or numeric-ID take link — must resolve
 
         // URL is missing or uses a numeric ID — resolve via backend
         setLinkLoading(true);

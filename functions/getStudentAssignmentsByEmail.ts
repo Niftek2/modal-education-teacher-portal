@@ -21,13 +21,6 @@ Deno.serve(async (req) => {
         });
 
         // Return only assigned and completed (not archived)
-        // Strip numeric-ID take URLs — client will resolve on demand
-        function sanitizeUrl(url) {
-            if (!url) return '';
-            if (/\/courses\/take\/\d+\//.test(url)) return '';
-            return url;
-        }
-
         const active = (assignments || [])
             .filter(a => a.status !== 'archived')
             .sort((a, b) => {
@@ -41,8 +34,7 @@ Deno.serve(async (req) => {
                 contentType: a.contentType || a.type,
                 topic: a.topic || '',
                 level: a.level || '',
-                contentUrl: sanitizeUrl(a.contentUrl || a.thinkificUrl),
-                // Pass through IDs so client can resolve URL if contentUrl is blank
+                contentUrl: a.contentUrl || a.thinkificUrl || '',
                 catalogId: a.catalogId || '',
                 courseId: a.courseId || '',
                 lessonId: a.lessonId || '',
