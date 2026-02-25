@@ -5,6 +5,66 @@ const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const STUDENT_PRODUCT_ID = Deno.env.get("STUDENT_PRODUCT_ID");
 
+const CLASSROOM_COURSE_ID = 552235;
+
+// In-memory cache: email -> { allowed: bool, checkedAt: timestamp }
+const enrollmentCache = new Map();
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+async function thinkificGet(path) {
+    const res = await fetch(`https://api.thinkific.com/api/public/v1${path}`, {
+        headers: {
+            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Content-Type': 'application/json',
+        },
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+}
+
+async function assertTeacherAccess(session) {
+    const email = session?.email?.trim().toLowerCase();
+    if (!email) {
+        console.log(`[addStudents] DENY_401: no email in session`);
+        throw Object.assign(new Error('Please sign in again.'), { status: 401 });
+    }
+
+    // Check in-memory cache first
+    const cached = enrollmentCache.get(email);
+    if (cached && (Date.now() - cached.checkedAt) < CACHE_TTL_MS) {
+        if (cached.allowed) {
+            console.log(`[addStudents] ALLOW (cached) email=${email}`);
+            return;
+        } else {
+            console.log(`[addStudents] DENY_403 (cached) email=${email} enrollmentFound=false`);
+            throw Object.assign(new Error("Access required: enroll in 'Your Classroom' to add students."), { status: 403 });
+        }
+    }
+
+    // Look up Thinkific user by email
+    const userRes = await thinkificGet(`/users?query[email]=${encodeURIComponent(email)}`);
+    const thinkificUser = (userRes.data?.items || [])[0] || null;
+    const thinkificUserId = thinkificUser?.id || null;
+
+    let enrollmentFound = false;
+    if (thinkificUserId) {
+        const enrollRes = await thinkificGet(`/enrollments?query[user_id]=${thinkificUserId}&query[course_id]=${CLASSROOM_COURSE_ID}`);
+        const enrollments = enrollRes.data?.items || [];
+        enrollmentFound = enrollments.some(e => e.activated_at && !e.expiry_date || (e.expiry_date && new Date(e.expiry_date) > new Date()));
+    }
+
+    const decision = enrollmentFound ? 'ALLOW' : 'DENY_403';
+    console.log(`[addStudents] ${decision} email=${email} sessionPresent=true thinkificUserId=${thinkificUserId} enrollmentFound=${enrollmentFound} course=${CLASSROOM_COURSE_ID}`);
+
+    // Cache result
+    enrollmentCache.set(email, { allowed: enrollmentFound, checkedAt: Date.now() });
+
+    if (!enrollmentFound) {
+        throw Object.assign(new Error("Access required: enroll in 'Your Classroom' to add students."), { status: 403 });
+    }
+}
+
 // Hardcoded course IDs — never rely on env vars so this cannot break
 const ASSIGNMENTS_COURSE_ID = '3359727';
 const LEVEL_COURSE_IDS = ['422595', '422618', '422620', '496294', '496295', '496297', '496298'];
