@@ -72,6 +72,17 @@ Deno.serve(async (req) => {
 
         console.log(`[markAssignmentComplete] Event ${activityEventId}: email=${normalizedEmail}, lessonId=${lessonId}, quizId=${quizId}, matched=${matchedAssignments.length}`);
 
+        // Compute score from ActivityEvent
+        let incomingScore = null;
+        if (typeof event.grade === 'number') {
+            const raw = event.grade;
+            incomingScore = Math.min(100, Math.max(0, Math.round(raw <= 1 ? raw * 100 : raw)));
+        }
+
+        const cc = typeof event.correctCount === 'number' ? event.correctCount : null;
+        const ic = typeof event.incorrectCount === 'number' ? event.incorrectCount : null;
+        const totalQuestions = (cc !== null && ic !== null) ? cc + ic : null;
+
         // Mark matched assignments as completed (idempotent)
         const completedIds = [];
         for (const assignment of matchedAssignments) {
@@ -80,14 +91,29 @@ Deno.serve(async (req) => {
                 continue;
             }
             const completedAt = event.occurredAt || new Date().toISOString();
+
+            // Idempotency: don't regress a later completion
+            const existingCompleted = assignment.completedAt;
+            const useCompletedAt = (existingCompleted && new Date(existingCompleted) > new Date(completedAt))
+                ? existingCompleted
+                : completedAt;
+
+            // Don't regress score if already set from a later event
+            const updateScore = incomingScore !== null;
+
             await base44.asServiceRole.entities.StudentAssignment.update(assignment.id, {
                 status: 'completed',
-                completedAt,
+                completedAt: useCompletedAt,
                 completionEventId: webhookId,
-                metadata: {
-                    ...(assignment.metadata || {}),
-                    grade: event.grade ?? null
-                }
+                ...(updateScore ? {
+                    score: incomingScore,
+                    metadata: {
+                        ...(assignment.metadata || {}),
+                        grade: event.grade ?? null,
+                        correctCount: cc,
+                        totalQuestions
+                    }
+                } : {}),
             });
             completedIds.push(assignment.id);
             console.log(`[markAssignmentComplete] Completed assignment ${assignment.id} for ${normalizedEmail} at ${completedAt}`);
