@@ -6,14 +6,13 @@ Deno.serve(async (req) => {
         const body = await req.json().catch(() => ({}));
         const chapterId = body.chapterId || '1745945'; // "Shapes and Colors" chapter from PK course
 
-        // Try contents endpoint with access token auth instead
-        const ACCESS_TOKEN = Deno.env.get('THINKIFIC_API_ACCESS_TOKEN');
-        const chapterId2 = '1745945';
+        // Try course slug endpoint directly
         const response = await fetch(
-            `https://api.thinkific.com/api/public/v1/contents?query[chapter_id]=${chapterId2}`,
+            `https://api.thinkific.com/api/public/v1/courses/422595`,
             {
                 headers: {
-                    'Authorization': `Bearer ${ACCESS_TOKEN}`,
+                    'X-Auth-API-Key': THINKIFIC_API_KEY,
+                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
                     'Content-Type': 'application/json',
                 }
             }
