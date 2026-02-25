@@ -1,13 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 /**
- * Resolves a slug-based Thinkific URL for a given assignment.
+ * Resolves a canonical slug-based Thinkific URL for a given lesson or quiz.
  *
- * A) If StudentAssignment already has a valid slug contentUrl, return it immediately.
- * B) Fetch Thinkific chapters+contents for courseId, find the item by contentId, read free_path.
- * C) Fail (404) if free_path is not available — NEVER use numeric course ID URLs.
- * D) Persist resolvedUrl to StudentAssignment and AssignmentCatalog.
- * E) Return resolvedUrl.
+ * Strategy:
+ * A) If cached contentUrl is valid (slug-based, not numeric), return it immediately.
+ * B) Fetch the individual content item directly from Thinkific by contentType + contentId:
+ *    - quiz: GET /contents/{contentId}  → read free_path (contains /quizzes/{id}-{slug})
+ *    - lesson: GET /contents/{contentId} → read free_path (contains /lessons/{id}-{slug})
+ *    The /contents/{id} endpoint returns free_path for both lessons and quizzes.
+ * C) Validate the resolved URL:
+ *    - Must NOT match /\/courses\/take\/\d+(\/|$)/
+ *    - Must contain "/quizzes/" if contentType=quiz, "/lessons/" if contentType=lesson
+ * D) Persist to StudentAssignment.contentUrl and AssignmentCatalog.contentUrl.
+ * E) Return finalUrl or 404 if unresolvable.
  */
 
 const DOMAIN = 'https://learn.modaleducation.com';
@@ -17,12 +23,9 @@ const THINKIFIC_API_KEY = Deno.env.get('THINKIFIC_API_KEY');
 const THINKIFIC_SUBDOMAIN = Deno.env.get('THINKIFIC_SUBDOMAIN');
 const REST_BASE = 'https://api.thinkific.com/api/public/v1';
 
-async function thinkificGet(path, query = {}) {
-    const url = new URL(`${REST_BASE}${path}`);
-    for (const [k, v] of Object.entries(query)) {
-        url.searchParams.append(k, String(v));
-    }
-    const res = await fetch(url.toString(), {
+async function thinkificGet(path) {
+    const url = `${REST_BASE}${path}`;
+    const res = await fetch(url, {
         headers: {
             'X-Auth-API-Key': THINKIFIC_API_KEY,
             'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
@@ -33,6 +36,55 @@ async function thinkificGet(path, query = {}) {
     let data = null;
     try { data = JSON.parse(text); } catch { data = {}; }
     return { ok: res.ok, status: res.status, data };
+}
+
+/**
+ * Fetch free_path for a content item (lesson or quiz) by contentId.
+ * Tries /contents/{id} directly first (works for both lessons and quizzes).
+ * Falls back to walking course chapters if direct fetch fails.
+ */
+async function resolveFreePath(courseId, contentType, contentId) {
+    // Direct fetch: GET /contents/{contentId}
+    const direct = await thinkificGet(`/contents/${contentId}`);
+    if (direct.ok && direct.data?.free_path) {
+        console.log(`[resolveUrl] Direct /contents/${contentId} → free_path=${direct.data.free_path}`);
+        return direct.data.free_path;
+    }
+    console.log(`[resolveUrl] Direct /contents/${contentId} failed (${direct.status}), falling back to chapter walk`);
+
+    // Fallback: walk chapters to find this contentId
+    const chaptersRes = await thinkificGet(`/courses/${courseId}/chapters`);
+    if (!chaptersRes.ok) {
+        console.warn(`[resolveUrl] /courses/${courseId}/chapters failed: ${chaptersRes.status}`);
+        return null;
+    }
+
+    const chapterIds = (chaptersRes.data?.items || []).map(c => c.id);
+    console.log(`[resolveUrl] Walking ${chapterIds.length} chapters for courseId=${courseId}`);
+
+    for (const chapterId of chapterIds) {
+        const contentsRes = await thinkificGet(`/chapters/${chapterId}/contents`);
+        if (!contentsRes.ok) continue;
+        const items = contentsRes.data?.items || [];
+        for (const item of items) {
+            if (String(item.id) === String(contentId)) {
+                const fp = item.free_path || null;
+                console.log(`[resolveUrl] Chapter walk found id=${item.id} free_path=${fp}`);
+                return fp;
+            }
+        }
+    }
+
+    return null;
+}
+
+function validateUrl(finalUrl, contentType) {
+    if (!finalUrl) return false;
+    if (NUMERIC_TAKE.test(finalUrl)) return false;
+    if (!finalUrl.startsWith(DOMAIN)) return false;
+    if (contentType === 'quiz' && !finalUrl.includes('/quizzes/')) return false;
+    if (contentType === 'lesson' && !finalUrl.includes('/lessons/')) return false;
+    return true;
 }
 
 Deno.serve(async (req) => {
@@ -60,80 +112,54 @@ Deno.serve(async (req) => {
     console.log(`[resolveUrl] courseId=${courseId} contentType=${contentType} contentId=${contentId} assignmentId=${assignmentId} catalogId=${catalogId}`);
 
     try {
-        // Step A: Return cached slug URL if already good
+        // Step A: Return cached slug URL if already valid
         if (assignmentId) {
             const rows = await base44.asServiceRole.entities.StudentAssignment.filter({ id: assignmentId });
             const cached = rows?.[0]?.contentUrl;
-            if (cached && !NUMERIC_TAKE.test(cached) && cached.startsWith(DOMAIN)) {
+            if (validateUrl(cached, contentType)) {
                 console.log(`[resolveUrl] Returning cached URL: ${cached}`);
                 return Response.json({ url: cached });
             }
         }
 
-        // Step B: Walk Thinkific chapters+contents to find free_path
-        let freePath = null;
+        // Step B: Resolve free_path from Thinkific
+        const freePath = await resolveFreePath(courseId, contentType, contentId);
 
-        const chaptersRes = await thinkificGet(`/courses/${courseId}/chapters`);
-        if (!chaptersRes.ok) {
-            console.warn(`[resolveUrl] Thinkific /courses/${courseId}/chapters failed: ${chaptersRes.status}`);
-            return Response.json({ error: 'Could not reach Thinkific API.' }, { status: 502 });
-        }
-
-        const chapters = chaptersRes.data?.items || [];
-        console.log(`[resolveUrl] Got ${chapters.length} chapters for courseId=${courseId}`);
-
-        outer:
-        for (const chapter of chapters) {
-            const contentsRes = await thinkificGet('/contents', { 'query[chapter_id]': String(chapter.id) });
-            if (!contentsRes.ok) continue;
-            const contents = contentsRes.data?.items || [];
-            for (const c of contents) {
-                if (String(c.id) === String(contentId)) {
-                    freePath = c.free_path || null;
-                    console.log(`[resolveUrl] Found content id=${c.id} free_path=${freePath}`);
-                    break outer;
-                }
-            }
-        }
-
-        // Step C: Fail cleanly if no free_path
         if (!freePath) {
-            console.warn(`[resolveUrl] free_path not found for courseId=${courseId} contentId=${contentId}`);
+            console.warn(`[resolveUrl] free_path not found for courseId=${courseId} contentType=${contentType} contentId=${contentId}`);
             return Response.json(
-                { error: 'Unable to resolve assignment URL: free_path not available for this content.' },
+                { error: 'Unable to resolve assignment URL: content not found in Thinkific.' },
                 { status: 404 }
             );
         }
 
-        const resolvedUrl = `${DOMAIN}${freePath}`;
+        const finalUrl = `${DOMAIN}${freePath}`;
 
-        // Extra guard: reject if free_path itself contained a numeric course ID
-        if (NUMERIC_TAKE.test(resolvedUrl)) {
-            console.error(`[resolveUrl] Blocked numeric URL: ${resolvedUrl}`);
+        // Step C: Validate
+        if (!validateUrl(finalUrl, contentType)) {
+            console.error(`[resolveUrl] Invalid resolved URL for contentType=${contentType}: ${finalUrl}`);
             return Response.json(
-                { error: 'Resolved URL still contains a numeric course ID — cannot open.' },
+                { error: `Resolved URL is invalid for content type "${contentType}": ${finalUrl}` },
                 { status: 404 }
             );
         }
 
-        console.log(`[resolveUrl] Resolved: ${resolvedUrl}`);
+        console.log(`[resolveUrl] Resolved: ${finalUrl}`);
 
         // Step D: Persist to DB (non-fatal)
         if (assignmentId) {
             await base44.asServiceRole.entities.StudentAssignment.update(assignmentId, {
-                contentUrl: resolvedUrl,
-                thinkificUrl: resolvedUrl,
+                contentUrl: finalUrl,
             }).catch(e => console.warn('[resolveUrl] StudentAssignment update failed:', e.message));
         }
         if (catalogId) {
             await base44.asServiceRole.entities.AssignmentCatalog.update(catalogId, {
-                contentUrl: resolvedUrl,
-                thinkificUrl: resolvedUrl,
+                thinkificUrl: finalUrl,
             }).catch(e => console.warn('[resolveUrl] AssignmentCatalog update failed:', e.message));
         }
 
         // Step E: Return
-        return Response.json({ url: resolvedUrl });
+        return Response.json({ url: finalUrl });
 
     } catch (error) {
         console.error('[resolveUrl] Unexpected error:', error.message);
