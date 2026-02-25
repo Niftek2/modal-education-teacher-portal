@@ -13,8 +13,7 @@ Deno.serve(async (req) => {
             `https://api.thinkific.com/api/public/v1/contents?query[chapter_id]=${chapterId2}`,
             {
                 headers: {
-                    'X-Auth-API-Key': THINKIFIC_API_KEY,
-                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                    'Authorization': `Bearer ${ACCESS_TOKEN}`,
                     'Content-Type': 'application/json',
                 }
             }
