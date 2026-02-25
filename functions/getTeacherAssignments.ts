@@ -122,6 +122,8 @@ Deno.serve(async (req) => {
                         scorePercent: a.score,
                         correctCount: typeof md.correctCount === 'number' ? md.correctCount : null,
                         totalQuestions: typeof md.totalQuestions === 'number' ? md.totalQuestions : null,
+                        courseName: a.courseName || COURSE_LEVEL_MAP[String(a.courseId)] || null,
+                        level: a.level || COURSE_LEVEL_MAP[String(a.courseId)] || null,
                     };
                 }
                 // Fallback: derive from ActivityEvent
@@ -129,8 +131,13 @@ Deno.serve(async (req) => {
                 const lid = a.lessonId != null ? String(a.lessonId) : null;
                 const key = lid ? `${email}:${lid}` : null;
                 const ev = key ? latestAttemptMap.get(key) : null;
-                const score = computeScore(ev);
-                return { ...a, ...score };
+                const scoreDetails = computeScore(ev);
+                return { 
+                    ...a, 
+                    ...scoreDetails,
+                    courseName: scoreDetails.courseName || a.courseName || COURSE_LEVEL_MAP[String(a.courseId)] || null,
+                    level: scoreDetails.level || a.level || COURSE_LEVEL_MAP[String(a.courseId)] || null,
+                };
             });
         const studentsCount = roster?.length || 0;
         const catalogCount = activeCatalog?.length || 0;
