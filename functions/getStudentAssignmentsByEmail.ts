@@ -28,23 +28,38 @@ Deno.serve(async (req) => {
                 if (b.status === 'assigned' && a.status !== 'assigned') return 1;
                 return new Date(b.assignedAt) - new Date(a.assignedAt);
             })
-            .map(a => ({
-                id: a.id,
-                title: a.title,
-                contentType: a.contentType || a.type,
-                topic: a.topic || '',
-                level: a.level || '',
-                // Return contentUrl as-is; frontend will detect numeric URLs and resolve them
-                contentUrl: a.contentUrl || '',
-                catalogId: a.catalogId || '',
-                courseId: a.courseId || '',
-                lessonId: a.lessonId || '',
-                quizId: a.quizId || '',
-                status: a.status,
-                completedAt: a.completedAt || null,
-                dueAt: a.dueAt || null,
-                assignedAt: a.assignedAt
-            }));
+            .map(a => {
+                const md = a.metadata || {};
+                let scorePercent = null;
+                let correctCount = null;
+                let totalQuestions = null;
+
+                if (typeof a.score === 'number') {
+                    scorePercent = a.score;
+                    correctCount = typeof md.correctCount === 'number' ? md.correctCount : null;
+                    totalQuestions = typeof md.totalQuestions === 'number' ? md.totalQuestions : null;
+                }
+
+                return {
+                    id: a.id,
+                    title: a.title,
+                    contentType: a.contentType || a.type,
+                    topic: a.topic || '',
+                    level: a.level || '',
+                    contentUrl: a.contentUrl || '',
+                    catalogId: a.catalogId || '',
+                    courseId: a.courseId || '',
+                    lessonId: a.lessonId || '',
+                    quizId: a.quizId || '',
+                    status: a.status,
+                    completedAt: a.completedAt || null,
+                    dueAt: a.dueAt || null,
+                    assignedAt: a.assignedAt,
+                    scorePercent,
+                    correctCount,
+                    totalQuestions,
+                };
+            });
 
         return Response.json({ success: true, assignments: active });
 
