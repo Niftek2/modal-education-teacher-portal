@@ -18,6 +18,82 @@ const COURSE_LEVEL_MAP = {
 
 const LEVEL_ORDER = ['PK', 'K', 'L1', 'L2', 'L3', 'L4', 'L5'];
 
+const NUMERIC_TAKE = /\/courses\/take\/\d+(\/|$)/;
+
+function isGoodUrl(url) {
+    return !!url && !NUMERIC_TAKE.test(url);
+}
+
+function AssignmentLink({ assignment, onResolved }) {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const url = assignment.contentUrl;
+    const good = isGoodUrl(url);
+
+    const handleResolve = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+
+        const contentType = assignment.contentType || assignment.type || 'lesson';
+        const contentId = contentType === 'quiz'
+            ? (assignment.quizId || assignment.lessonId)
+            : (assignment.lessonId || assignment.quizId);
+
+        if (!assignment.courseId || !contentId) {
+            setError('Missing course or content info.');
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const result = await api.call('resolveAssignmentUrl', {
+                assignmentId: assignment.id,
+                catalogId: assignment.catalogId,
+                courseId: assignment.courseId,
+                contentType,
+                contentId,
+            });
+            if (result.url && isGoodUrl(result.url)) {
+                onResolved(assignment.id, result.url);
+                window.open(result.url, '_blank');
+            } else {
+                setError('Could not resolve a valid link.');
+            }
+        } catch (err) {
+            setError(err.message || 'Failed to resolve link.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (good) {
+        return (
+            <a href={url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 text-purple-700 hover:text-purple-900 mt-0.5">
+                <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+        );
+    }
+
+    return (
+        <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
+            <button
+                onClick={handleResolve}
+                disabled={loading}
+                className="text-xs text-purple-600 hover:text-purple-900 underline disabled:opacity-50 whitespace-nowrap"
+            >
+                {loading ? 'Loading…' : url ? 'Fix Link' : 'Get Link'}
+            </button>
+            {error && (
+                <span className="text-xs text-red-500 flex items-center gap-0.5">
+                    <AlertCircle className="w-3 h-3" />{error}
+                </span>
+            )}
+        </div>
+    );
+}
+
 function resolveLevel(item) {
     const fromCourse = item.courseId && COURSE_LEVEL_MAP[String(item.courseId)];
     return fromCourse || item.level || 'Other';
