@@ -270,32 +270,31 @@ Deno.serve(async (req) => {
                     const score = node.score;
                     const maxScore = node.maxScore;
                     const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+                    const normalizedEmail = studentEmail.toLowerCase().trim();
+                    const level = inferLevel(courseId, courseName);
 
-                    console.log(`[SYNC]     Quiz: ${quizName} (${quizId}) attempted at ${attemptedAt}, score ${score}/${maxScore}`);
+                    console.log(`[SYNC]     Quiz: ${quizName} (${quizId}) attempted at ${attemptedAt}, score ${score}/${maxScore}, level=${level}`);
 
-                    const dedupeKey = await createDedupeKey('quiz_attempted', userId, quizId, courseId, attemptedAt);
+                    // Primary dedupe key: email+quizId+timestamp (consistent with webhook handler)
+                    const dedupeKey = `quiz:${normalizedEmail}:${quizId}:${attemptedAt}`;
                     const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
 
                     if (existing.length === 0) {
                         await base44.asServiceRole.entities.ActivityEvent.create({
-                            studentUserId: String(userId),
-                            studentEmail: studentEmail,
+                            thinkificUserId: userId,
+                            studentEmail: normalizedEmail,
                             studentDisplayName: userName,
-                            courseId: String(courseId),
+                            courseId: courseId ? Number(courseId) : null,
                             courseName: courseName,
-                            eventType: 'quiz_attempted',
-                            contentId: String(quizId),
-                            contentTitle: quizName,
+                            eventType: 'quiz.attempted',
+                            lessonId: quizId ? Number(quizId) : null,
+                            lessonName: quizName,
                             occurredAt: attemptedAt,
                             source: 'graphql_backfill',
-                            rawEventId: '',
                             rawPayload: JSON.stringify(node),
                             dedupeKey,
-                            metadata: {
-                                score,
-                                maxScore,
-                                percentage
-                            }
+                            grade: percentage,
+                            ...(level ? { level } : {})
                         });
                         courseResult.quizzesInserted++;
                         quizzesInserted++;
