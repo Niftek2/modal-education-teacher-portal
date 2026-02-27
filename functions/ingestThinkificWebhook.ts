@@ -192,7 +192,7 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
     const course = payload?.course;
     
     const userId = user?.id;
-    const email = user?.email;
+    const email = (user?.email || '').toLowerCase().trim();
     const firstName = user?.first_name;
     const lastName = user?.last_name;
     
@@ -203,12 +203,21 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
 
     await upsertStudentProfile(base44, userId, email, firstName, lastName, occurredAt);
 
-    // Extract fields directly from payload
     const grade = payload.grade;
-    const quizName = quiz.name;
+    const quizName = quiz.name || payload.name || null;
     const attemptNumber = payload.attempts;
     const correctCount = payload.correct_count;
     const incorrectCount = payload.incorrect_count;
+    const courseId = course?.id || null;
+    const courseName = course?.name || quizName || null;
+
+    // Secondary dedupe: email+quizId+timestamp to prevent cross-webhook duplicates
+    const secondaryKey = `quiz:${email}:${quiz.id}:${occurredAt}`;
+    const secondaryExisting = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey: secondaryKey });
+    if (secondaryExisting.length > 0) {
+        console.log(`[WEBHOOK] Secondary dedupe hit for quiz ${quiz.id}, skipping`);
+        return;
+    }
 
     // Normalize grade to percentage
     let gradePercent = null;
@@ -216,28 +225,30 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
         gradePercent = grade <= 1 ? grade * 100 : grade;
     }
 
+    const level = inferLevel(courseId, courseName || quizName);
+
     const activity = {
         thinkificUserId: userId,
         source: 'webhook',
-        eventType: 'quiz_attempted',
+        eventType: 'quiz.attempted',
         occurredAt,
         dedupeKey,
         webhookEventId: String(webhookId),
-        courseId: course?.id || null,
-        courseName: course?.name || null,
+        courseId,
+        courseName,
         lessonId: lesson?.id || null,
         lessonName: quizName,
-        attemptNumber: attemptNumber,
+        attemptNumber,
         grade: gradePercent,
-        scorePercent: gradePercent,
-        correctCount: correctCount,
-        incorrectCount: incorrectCount,
-        studentEmail: (email || '').toLowerCase().trim(),
+        correctCount,
+        incorrectCount,
+        studentEmail: email,
         studentDisplayName: `${firstName || ''} ${lastName || ''}`.trim(),
-        rawPayload: JSON.stringify(rawBody)
+        rawPayload: JSON.stringify(rawBody),
+        ...(level ? { level } : {})
     };
 
-    console.log(`[WEBHOOK] Quiz data extracted: name="${quizName}", grade=${gradePercent}%, attempt=${attemptNumber}`);
+    console.log(`[WEBHOOK] Quiz data extracted: name="${quizName}", grade=${gradePercent}%, attempt=${attemptNumber}, level=${level}, courseName=${courseName}`);
 
     const created = await base44.asServiceRole.entities.ActivityEvent.create(activity);
     console.log(`[WEBHOOK] ✓ Quiz attempted saved: ${created.id}`);
