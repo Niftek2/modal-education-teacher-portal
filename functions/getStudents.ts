@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
                 firstName: u.first_name,
                 lastName: u.last_name,
                 email: u.email?.toLowerCase().trim(),
+                password: 'Math1234!',
             }));
 
         const activeStudents = students.filter(s => !archivedEmailSet.has(s.email));
