@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Trash2, AlertTriangle, HelpCircle } from 'lucide-react';
+import StudentCredentialsPopover from '@/components/StudentCredentialsPopover';
 import { api } from '@/components/api';
 import { Button } from '@/components/ui/button';
 import {
