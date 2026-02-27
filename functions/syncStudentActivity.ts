@@ -186,6 +186,7 @@ Deno.serve(async (req) => {
                     const lessonId = node.lessonId;
                     const lessonName = node.lesson?.name || `Lesson ${lessonId}`;
                     const completedAt = node.completedAt;
+                    const normalizedEmail = studentEmail.toLowerCase().trim();
 
                     console.log(`[SYNC]     Lesson: ${lessonName} (${lessonId}) completed at ${completedAt}`);
 
@@ -194,20 +195,18 @@ Deno.serve(async (req) => {
 
                     if (existing.length === 0) {
                         await base44.asServiceRole.entities.ActivityEvent.create({
-                            studentUserId: String(userId),
-                            studentEmail: studentEmail,
+                            thinkificUserId: userId,
+                            studentEmail: normalizedEmail,
                             studentDisplayName: userName,
-                            courseId: String(courseId),
+                            courseId: courseId ? Number(courseId) : null,
                             courseName: courseName,
                             eventType: 'lesson_completed',
-                            contentId: String(lessonId),
-                            contentTitle: lessonName,
+                            lessonId: lessonId ? Number(lessonId) : null,
+                            lessonName: lessonName,
                             occurredAt: completedAt,
                             source: 'graphql_backfill',
-                            rawEventId: '',
                             rawPayload: JSON.stringify(node),
                             dedupeKey,
-                            metadata: {}
                         });
                         courseResult.lessonsInserted++;
                         lessonsInserted++;
