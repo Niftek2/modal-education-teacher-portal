@@ -117,7 +117,10 @@ export default function StudentTable({ students, groupId, onStudentRemoved, sess
                                 onClick={() => onStudentSelected(student)}
                             >
                                 <TableCell className="font-medium text-black">
-                                    {student.firstName} {student.lastName}
+                                    <div className="flex items-center gap-1">
+                                        {student.firstName} {student.lastName}
+                                        <StudentCredentialsPopover student={student} />
+                                    </div>
                                 </TableCell>
                                 <TableCell className="text-gray-600 text-sm">
                                     {student.email}
