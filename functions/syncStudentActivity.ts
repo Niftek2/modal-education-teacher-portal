@@ -270,12 +270,14 @@ Deno.serve(async (req) => {
                     const maxScore = node.maxScore;
                     const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
                     const normalizedEmail = studentEmail.toLowerCase().trim();
-                    const level = inferLevel(courseId, courseName);
+                    // Map courseId → level label (absolute source of truth)
+                    const level = inferLevel(courseId, quizName);
+                    const mappedCourseName = level || courseName;
 
-                    console.log(`[SYNC]     Quiz: ${quizName} (${quizId}) attempted at ${attemptedAt}, score ${score}/${maxScore}, level=${level}`);
+                    console.log(`[SYNC]     Quiz: ${quizName} (${quizId}) attempted at ${attemptedAt}, score ${score}/${maxScore}, courseId=${courseId}, level=${level}`);
 
-                    // Primary dedupe key: email+quizId+timestamp (consistent with webhook handler)
-                    const dedupeKey = `quiz:${normalizedEmail}:${quizId}:${attemptedAt}`;
+                    // Primary dedupe key: email+quizId+courseId+timestamp (consistent with webhook handler)
+                    const dedupeKey = `quiz:${normalizedEmail}:${quizId}:${courseId || 'x'}:${attemptedAt}`;
                     const existing = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupeKey });
 
                     if (existing.length === 0) {
@@ -284,7 +286,7 @@ Deno.serve(async (req) => {
                             studentEmail: normalizedEmail,
                             studentDisplayName: userName,
                             courseId: courseId ? Number(courseId) : null,
-                            courseName: courseName,
+                            courseName: mappedCourseName,
                             eventType: 'quiz.attempted',
                             lessonId: quizId ? Number(quizId) : null,
                             lessonName: quizName,
@@ -293,7 +295,7 @@ Deno.serve(async (req) => {
                             rawPayload: JSON.stringify(node),
                             dedupeKey,
                             grade: percentage,
-                            ...(level ? { level } : {})
+                            level: level || null,
                         });
                         courseResult.quizzesInserted++;
                         quizzesInserted++;
