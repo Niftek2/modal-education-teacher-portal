@@ -6,6 +6,29 @@ const JWT_SECRET = Deno.env.get("JWT_SECRET");
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 
+const COURSE_LEVEL_MAP = {
+    '422595': 'PK',
+    '422618': 'K',
+    '422620': 'L1',
+    '496294': 'L2',
+    '496295': 'L3',
+    '496297': 'L4',
+    '496298': 'L5',
+};
+
+function inferLevel(courseId, name) {
+    if (courseId && COURSE_LEVEL_MAP[String(courseId)]) return COURSE_LEVEL_MAP[String(courseId)];
+    if (!name) return null;
+    if (/\bPK\b/i.test(name)) return 'PK';
+    if (/\bL5\b/i.test(name)) return 'L5';
+    if (/\bL4\b/i.test(name)) return 'L4';
+    if (/\bL3\b/i.test(name)) return 'L3';
+    if (/\bL2\b/i.test(name)) return 'L2';
+    if (/\bL1\b/i.test(name)) return 'L1';
+    if (/\bK\b/i.test(name)) return 'K';
+    return null;
+}
+
 async function verifySession(token) {
     if (!token) throw new Error('Unauthorized');
     const secret = new TextEncoder().encode(JWT_SECRET);
