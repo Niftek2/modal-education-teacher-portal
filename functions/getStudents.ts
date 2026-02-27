@@ -1,140 +1,56 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.2.0';
 
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
+const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
 
-async function verifySession(token) {
-    if (!token) {
-        throw new Error('Unauthorized');
-    }
-
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jose.jwtVerify(token, secret);
-    
-    return payload;
-}
+const thinkificHeaders = {
+    'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
+    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+    'Content-Type': 'application/json',
+};
 
 async function getGroupMembers(groupId) {
-    // Get all users then filter by group assignment via API
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/users?query[group_id]=${groupId}`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Get group users error:', response.status, errorText);
-        throw new Error(`Failed to fetch group members: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const res = await fetch(
+        `https://api.thinkific.com/api/public/v1/users?query[group_id]=${groupId}&limit=100`,
+        { headers: thinkificHeaders }
+    );
+    if (!res.ok) throw new Error(`Failed to fetch group members: ${res.status}`);
+    const data = await res.json();
     return data.items || [];
-}
-
-async function getLastSignIn(userId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/events?query[user_id]=${userId}&query[name]=user.signin`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-
-    if (!response.ok) {
-        return null;
-    }
-
-    const data = await response.json();
-    const signInEvents = data.items || [];
-    
-    if (signInEvents.length === 0) {
-        return null;
-    }
-
-    // Get the most recent sign-in event
-    const latestSignIn = signInEvents
-        .map(e => e.occurred_at)
-        .filter(Boolean)
-        .sort()
-        .reverse()[0];
-
-    return latestSignIn;
-}
-
-async function getUserProgress(userId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/course_progresses?query[user_id]=${userId}`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-            'Content-Type': 'application/json'
-        }
-    });
-
-    if (!response.ok) {
-        return { percentage: 0, lastActivity: null, lastLogin: null };
-    }
-
-    const data = await response.json();
-    const progresses = data.items || [];
-    
-    if (progresses.length === 0) {
-        return { percentage: 0, lastActivity: null, lastLogin: null };
-    }
-
-    const avgProgress = progresses.reduce((sum, p) => sum + (p.percentage_completed || 0), 0) / progresses.length;
-    const latestActivity = progresses
-        .map(p => p.updated_at)
-        .filter(Boolean)
-        .sort()
-        .reverse()[0];
-
-    return {
-        percentage: Math.round(avgProgress),
-        lastActivity: latestActivity,
-        completedLessons: progresses.reduce((sum, p) => sum + (p.completed_chapters || 0), 0)
-    };
 }
 
 Deno.serve(async (req) => {
     try {
-        const { groupId, sessionToken } = await req.json();
-        await verifySession(sessionToken);
+        const base44 = createClientFromRequest(req);
+        const { groupId, teacherEmail: rawTeacherEmail } = await req.json();
 
-        if (!groupId) {
-            return Response.json({ error: 'Group ID required' }, { status: 400 });
-        }
+        const teacherEmail = rawTeacherEmail?.toLowerCase().trim();
 
-        // Get group members
-        const groupUsers = await getGroupMembers(groupId);
-        
-        // Filter students by email domain (those with @modalmath.com emails)
-        const students = groupUsers
-            .filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
+        if (!groupId) return Response.json({ error: 'groupId is required' }, { status: 400 });
+        if (!teacherEmail) return Response.json({ error: 'teacherEmail is required' }, { status: 400 });
 
-        // Get progress and last sign-in for each student
-        const studentsWithProgress = await Promise.all(
-            students.map(async (student) => {
-                const [progress, lastSignIn] = await Promise.all([
-                    getUserProgress(student.id),
-                    getLastSignIn(student.id)
-                ]);
-                return {
-                    id: student.id,
-                    firstName: student.first_name,
-                    lastName: student.last_name,
-                    email: student.email,
-                    ...progress,
-                    lastLogin: lastSignIn
-                };
-            })
+        const [groupUsers, archivedRecords] = await Promise.all([
+            getGroupMembers(groupId),
+            base44.asServiceRole.entities.ArchivedStudent.filter({ teacherEmail }),
+        ]);
+
+        const archivedEmailSet = new Set(
+            (archivedRecords || []).map(s => s.studentEmail?.toLowerCase().trim()).filter(Boolean)
         );
 
-        return Response.json({ students: studentsWithProgress });
+        const students = groupUsers
+            .filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'))
+            .map(u => ({
+                id: u.id,
+                firstName: u.first_name,
+                lastName: u.last_name,
+                email: u.email?.toLowerCase().trim(),
+            }));
+
+        const activeStudents = students.filter(s => !archivedEmailSet.has(s.email));
+        const archivedStudents = students.filter(s => archivedEmailSet.has(s.email));
+
+        return Response.json({ activeStudents, archivedStudents });
 
     } catch (error) {
         console.error('Get students error:', error);
