@@ -38,98 +38,37 @@ export default function Dashboard() {
     const loadDashboard = async (sessionToken) => {
         try {
             setLoading(true);
-            setRosterSyncError(false);
-            // DEBUG
             console.log('[Dashboard] load start');
-            console.log('[Dashboard] modal_math_session present:', !!sessionToken);
-            const rosterRaw = localStorage.getItem('mm_teacher_roster_emails');
-            const rosterParsed = (() => { try { return JSON.parse(rosterRaw); } catch { return []; } })();
-            console.log('[Dashboard] mm_teacher_roster_emails length on load start:', Array.isArray(rosterParsed) ? rosterParsed.length : 0);
 
-            // Get teacher data (now returns groups array)
             const teacherResponse = await api.call('getTeacherData', { sessionToken }, sessionToken);
-
-            // DEBUG
-            console.log('[Dashboard] getTeacherData response - groups:', teacherResponse.groups?.length ?? 'undefined');
             setTeacher(teacherResponse.teacher);
-            
-            // Use first group or show "no groups" message
-            const primaryGroup = teacherResponse.groups && teacherResponse.groups.length > 0 
-                ? teacherResponse.groups[0] 
-                : null;
+
+            const primaryGroup = teacherResponse.groups?.[0] || null;
             setGroup(primaryGroup);
 
-            // Get students only from roster-based activity filtering
-            if (primaryGroup) {
-                try {
-                    // Get students via teacher's roster (group membership union)
-                    const activityResponse = await api.call('getStudentActivityForTeacher', {
-                        sessionToken
-                    }, sessionToken);
+            if (primaryGroup && teacherResponse.teacher?.email) {
+                const teacherEmail = teacherResponse.teacher.email.toLowerCase().trim();
 
-                    // DEBUG
-                    console.log('[Dashboard] getStudentActivityForTeacher studentEmails length:', activityResponse.studentEmails?.length ?? 'undefined');
+                // Fetch students (active + archived) and activity in parallel
+                const [studentsResponse, activityResponse] = await Promise.all([
+                    base44.functions.invoke('getStudents', { teacherEmail, groupId: primaryGroup.id }),
+                    api.call('getStudentActivityForTeacher', { sessionToken }, sessionToken).catch(() => ({ studentEmails: [], events: [] })),
+                ]);
 
-                    // Persist roster emails for Assign page (guard: never write empty array)
-                    const rosterEmails = activityResponse.studentEmails || [];
-                    console.log('[Dashboard] writing roster to localStorage, length =', rosterEmails.length);
-                    try {
-                        if (rosterEmails.length > 0) {
-                            const ts = new Date().toISOString();
-                            localStorage.setItem('mm_teacher_roster_emails', JSON.stringify(rosterEmails));
-                            localStorage.setItem('mm_teacher_roster_saved_at', ts);
-                            setRosterLastUpdated(ts);
-                            setRosterSyncError(false);
-                        } else {
-                            console.warn('[Dashboard] WARNING: roster came back empty, NOT overwriting localStorage');
-                            setRosterSyncError(true);
-                        }
-                    } catch {}
+                const { activeStudents: active = [], archivedStudents: archived = [] } = studentsResponse.data || {};
+                setActiveStudents(active);
+                setArchivedStudents(archived);
+                setStudentActivities(activityResponse.events || []);
 
-                    // Build student list from roster emails (use fresh data if available, otherwise use saved)
-                    const finalRosterEmails = rosterEmails.length > 0 ? rosterEmails : rosterParsed;
-                    const rosterStudents = finalRosterEmails.map(email => ({
-                        email,
-                        firstName: email.split('@')[0],
-                        lastName: '',
-                        percentage: 0,
-                        completedLessons: 0
-                    }));
-
-                    setStudents(rosterStudents);
-                    setFilteredStudents(rosterStudents);
-                    
-                    // Store activities for last active tracking
-                    setStudentActivities(activityResponse.events || []);
-                } catch (rosterError) {
-                    console.error('[Dashboard] roster sync failed:', rosterError.message);
-                    // Fall back to saved roster
-                    setRosterSyncError(true);
-                    const savedRosterEmails = rosterParsed;
-                    const rosterStudents = savedRosterEmails.map(email => ({
-                        email,
-                        firstName: email.split('@')[0],
-                        lastName: '',
-                        percentage: 0,
-                        completedLessons: 0
-                    }));
-                    setStudents(rosterStudents);
-                    setFilteredStudents(rosterStudents);
-                }
-
-                // Fetch dashboard metrics (non-critical)
-                try {
-                    const metricsResponse = await api.call('getTeacherDashboardMetrics', { sessionToken }, sessionToken);
-                    setDashboardMetrics(metricsResponse);
-                } catch (metricsError) {
-                    console.error('[Dashboard] metrics fetch failed:', metricsError.message);
-                    // Metrics are non-critical, don't fail the page
+                // Persist roster for Assign page
+                const rosterEmails = activityResponse.studentEmails || [];
+                if (rosterEmails.length > 0) {
+                    localStorage.setItem('mm_teacher_roster_emails', JSON.stringify(rosterEmails));
+                    localStorage.setItem('mm_teacher_roster_saved_at', new Date().toISOString());
                 }
             }
         } catch (error) {
             console.error('[Dashboard] load error:', error.message);
-            // NEVER clear session and NEVER redirect, even on errors
-            // Session should only be cleared if the user explicitly logs out
         } finally {
             setLoading(false);
         }
