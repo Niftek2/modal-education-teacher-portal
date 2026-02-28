@@ -46,13 +46,13 @@ export default function StudentTable({ students, type = 'active', teacherEmail, 
 
     const handleRemove = async (student) => {
         try {
-            setRemoving(student.id);
+            setRemoving(student.id || student.email);
 
             await api.call(
                 'removeStudent',
                 {
-                    studentId: student.id,
-                    groupId: groupId,
+                    studentEmail: student.email,
+                    teacherEmail: teacherEmail,
                 },
                 sessionToken
             );
