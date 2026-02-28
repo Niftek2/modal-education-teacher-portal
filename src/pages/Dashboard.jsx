@@ -14,20 +14,15 @@ import { base44 } from '@/api/base44Client';
 export default function Dashboard() {
     const [teacher, setTeacher] = useState(null);
     const [group, setGroup] = useState(null);
-    const [students, setStudents] = useState([]);
-    const [filteredStudents, setFilteredStudents] = useState([]);
+    const [activeStudents, setActiveStudents] = useState([]);
+    const [archivedStudents, setArchivedStudents] = useState([]);
     const [studentActivities, setStudentActivities] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [showStudentDetail, setShowStudentDetail] = useState(false);
-    const [syncingQuizzes, setSyncingQuizzes] = useState(false);
     const [showSnapshot, setShowSnapshot] = useState(false);
-    const [showArchived, setShowArchived] = useState(false);
-    const [dashboardMetrics, setDashboardMetrics] = useState({ totalQuizAttemptsAllTime: 0, activeStudentsThisWeek: 0 });
-    const [rosterLastUpdated, setRosterLastUpdated] = useState(() => localStorage.getItem('mm_teacher_roster_saved_at'));
-    const [rosterSyncError, setRosterSyncError] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
