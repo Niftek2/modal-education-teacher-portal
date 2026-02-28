@@ -119,25 +119,35 @@ Deno.serve(async (req) => {
                 const normalizedEmail = email.toLowerCase().trim();
 
                 // Always persist to StudentAccessCode so this teacher's roster is correct
-                await base44.asServiceRole.entities.StudentAccessCode.create({
-                    studentEmail: normalizedEmail,
-                    createdAt: new Date().toISOString(),
-                    createdByTeacherEmail: teacherEmail,
-                });
+                // Non-fatal: enrollment is the priority if DB write fails
+                try {
+                    await base44.asServiceRole.entities.StudentAccessCode.create({
+                        studentEmail: normalizedEmail,
+                        createdAt: new Date().toISOString(),
+                        createdByTeacherEmail: teacherEmail,
+                    });
+                } catch (dbErr) {
+                    console.error(`[addStudents] DB write failed for ${normalizedEmail}:`, dbErr.message);
+                }
 
                 // Add to group
                 await addToGroup(userId, groupId);
 
                 // Sequential per-course enrollment with granular error reporting
                 const enrollmentResults = [];
+                const failedCourses = [];
                 for (const course of COURSE_ENROLLMENTS) {
                     try {
                         const ok = await enrollInCourse(userId, course.id);
                         enrollmentResults.push({ course: course.name, success: ok });
-                        if (!ok) console.warn(`[addStudents] Enrollment returned non-ok for ${course.name} (userId=${userId})`);
+                        if (!ok) {
+                            console.warn(`[addStudents] Enrollment non-ok for ${course.name} (userId=${userId})`);
+                            failedCourses.push(course.name);
+                        }
                     } catch (err) {
                         console.error(`[addStudents] Failed to enroll in ${course.name}:`, err.message);
-                        enrollmentResults.push({ course: course.name, success: false, error: `Failed to enroll in ${course.name}` });
+                        enrollmentResults.push({ course: course.name, success: false, error: err.message });
+                        failedCourses.push(course.name);
                     }
                 }
 
@@ -151,6 +161,7 @@ Deno.serve(async (req) => {
                         password: 'Math1234!',
                     },
                     enrollmentResults,
+                    failedCourses,
                 });
             } catch (error) {
                 console.error(`[addStudents] Failed for ${student.firstName}:`, error.message);
