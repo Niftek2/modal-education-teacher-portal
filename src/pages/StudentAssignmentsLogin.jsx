@@ -27,6 +27,7 @@ export default function StudentAssignmentsLogin() {
 
             localStorage.setItem('student_session', result.token);
             localStorage.setItem('student_email', result.studentEmail);
+            localStorage.setItem('modal_student_email', result.studentEmail);
 
             navigate('/StudentAssignments');
         } catch (err) {
