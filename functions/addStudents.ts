@@ -64,7 +64,13 @@ async function enrollInCourse(userId, courseId) {
         course_id: parseInt(courseId, 10),
         activated_at: new Date().toISOString(),
     });
-    return res.ok;
+    if (res.ok) return true;
+    // Treat "already enrolled" as success — idempotent
+    const errMsg = (res.data?.message || res.data?.errors?.[0]?.message || '').toLowerCase();
+    if (res.status === 422 && (errMsg.includes('already enrolled') || errMsg.includes('already been taken'))) {
+        return true;
+    }
+    return false;
 }
 
 async function getGroupIdForTeacher(teacherEmail, base44) {
