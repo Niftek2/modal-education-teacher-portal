@@ -149,18 +149,20 @@ export default function StudentTable({ students, type = 'active', teacherEmail, 
                                     </TooltipProvider>
                                 </TableCell>
                                 <TableCell>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowConfirm(student);
-                                        }}
-                                        disabled={removing === student.id}
-                                        className="text-gray-400 hover:text-red-600"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
+                                    {type === 'active' && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShowConfirm(student);
+                                            }}
+                                            disabled={removing === (student.id || student.email)}
+                                            className="text-gray-400 hover:text-red-600"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    )}
                                 </TableCell>
                             </TableRow>
                             );
