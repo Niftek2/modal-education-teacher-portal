@@ -171,59 +171,76 @@ export default function Dashboard() {
                     </div>
                     <div className="flex gap-2 flex-wrap">
                         <Button
-                            onClick={() => setShowArchived(true)}
-                            variant="outline"
-                            className="border-gray-300"
-                        >
-                            <Archive className="w-4 h-4 mr-2" />
-                            Archived
-                        </Button>
-                        <Button
                             onClick={() => navigate('/Assign')}
                             variant="outline"
-                            className="border-purple-900 text-purple-900 hover:bg-purple-50"
+                            className="border-[#632a8c] text-[#632a8c] hover:bg-purple-50"
                         >
                             <Plus className="w-4 h-4 mr-2" />
                             Assign
                         </Button>
                         <Button
                             onClick={() => setShowAddModal(true)}
-                            className="bg-purple-900 hover:bg-purple-800 text-white"
+                            className="bg-[#632a8c] hover:bg-[#7b35ae] text-white"
                         >
                             <Plus className="w-4 h-4 mr-2" />
-                            Add Students
+                            Add Students ({activeStudents.length}/10)
                         </Button>
                     </div>
                 </div>
 
-                {/* Roster Sync Banner */}
-                {rosterSyncError && (
-                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                        <p className="text-sm text-yellow-800 font-medium">
-                            Using saved roster. Sync may be delayed.
-                            {rosterLastUpdated && (
-                                <span className="text-xs text-yellow-600 ml-2">
-                                    (Last updated: {new Date(rosterLastUpdated).toLocaleString()})
-                                </span>
-                            )}
-                        </p>
-                    </div>
-                )}
+                {/* Tabbed Roster */}
+                <Tabs defaultValue="active">
+                    <TabsList className="mb-4 bg-gray-100">
+                        <TabsTrigger
+                            value="active"
+                            className="data-[state=active]:bg-[#632a8c] data-[state=active]:text-white"
+                        >
+                            Active Roster ({activeStudents.length})
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="archived"
+                            className="data-[state=active]:bg-[#632a8c] data-[state=active]:text-white"
+                        >
+                            Archive ({archivedStudents.length})
+                        </TabsTrigger>
+                    </TabsList>
 
-                {/* Student Table */}
-                <StudentTable 
-                    students={filteredStudents} 
-                    groupId={group.id}
-                    onStudentRemoved={handleStudentsAdded}
-                    sessionToken={localStorage.getItem('modal_math_session')}
-                    onStudentSelected={handleStudentSelected}
-                    activities={studentActivities}
-                />
-                {filteredStudents.length === 0 && rosterLastUpdated && !rosterSyncError && (
-                    <p className="text-xs text-gray-400 mt-3 text-center">
-                        Roster last updated: {new Date(rosterLastUpdated).toLocaleString()}
-                    </p>
-                )}
+                    <TabsContent value="active">
+                        <StudentTable
+                            students={activeStudents.filter(s =>
+                                !searchTerm ||
+                                s.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                s.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                s.email?.toLowerCase().includes(searchTerm.toLowerCase())
+                            )}
+                            type="active"
+                            teacherEmail={teacher?.email}
+                            groupId={group.id}
+                            onStudentRemoved={handleStudentsAdded}
+                            sessionToken={localStorage.getItem('modal_math_session')}
+                            onStudentSelected={handleStudentSelected}
+                            activities={studentActivities}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="archived">
+                        <StudentTable
+                            students={archivedStudents.filter(s =>
+                                !searchTerm ||
+                                s.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                s.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                s.email?.toLowerCase().includes(searchTerm.toLowerCase())
+                            )}
+                            type="archived"
+                            teacherEmail={teacher?.email}
+                            groupId={group.id}
+                            onStudentRemoved={handleStudentsAdded}
+                            sessionToken={localStorage.getItem('modal_math_session')}
+                            onStudentSelected={handleStudentSelected}
+                            activities={studentActivities}
+                        />
+                    </TabsContent>
+                </Tabs>
             </main>
 
             {/* Add Student Modal */}
