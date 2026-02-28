@@ -91,29 +91,7 @@ export default function Dashboard() {
 
 
 
-    const handleSyncQuizzes = async () => {
-        try {
-            setSyncingQuizzes(true);
-            const sessionToken = localStorage.getItem('modal_math_session');
-            
-            const result = await api.call('syncActivityBackfill', {
-                groupId: group.id,
-                sessionToken
-            }, sessionToken);
-            
-            console.log('Sync result:', result);
-            
-            // Reload dashboard to show new data
-            await loadDashboard(sessionToken);
-            
-            alert(result.message || `Success! Imported ${result.eventsImported} activity events for ${result.studentsProcessed} students.`);
-        } catch (error) {
-            console.error('Failed to sync data:', error);
-            alert(error.message || 'Sync failed. Please try again.');
-        } finally {
-            setSyncingQuizzes(false);
-        }
-    };
+
 
     if (loading) {
         return (
