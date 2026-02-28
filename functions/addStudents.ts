@@ -21,10 +21,26 @@ function generateStudentEmail(firstName, lastInitial) {
     return `${cleanFirst}${cleanLast}${randomDigits}@modalmath.com`;
 }
 
+// Check if a Thinkific user already exists by email
+async function findThinkificUserByEmail(email) {
+    const res = await requestRest('/users', 'GET', { 'query[email]': email });
+    if (res.ok && res.data?.items?.length > 0) {
+        return res.data.items[0].id;
+    }
+    return null;
+}
+
 // Create a new Thinkific user, or return the existing user's ID if email is taken
 async function provisionThinkificUser(firstName, lastInitial) {
     for (let attempt = 0; attempt < 5; attempt++) {
         const email = generateStudentEmail(firstName, lastInitial);
+
+        // Check-before-create: skip POST if user already exists
+        const existingId = await findThinkificUserByEmail(email);
+        if (existingId) {
+            console.log(`[addStudents] Found existing user for ${email} (id=${existingId})`);
+            return { userId: existingId, email };
+        }
 
         const createRes = await requestRest('/users', 'POST', null, {
             first_name: firstName,
