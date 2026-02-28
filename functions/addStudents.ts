@@ -52,10 +52,11 @@ async function provisionThinkificUser(firstName, lastInitial) {
 
 async function addToGroup(userId, groupId) {
     const res = await requestRest(`/groups/${groupId}/members`, 'POST', null, { user_id: userId });
-    if (!res.ok) {
-        const msg = res.data?.message || res.data?.errors?.[0]?.message || `status ${res.status}`;
-        throw new Error(`Failed to add to group: ${msg}`);
-    }
+    if (res.ok) return;
+    const errMsg = (res.data?.message || res.data?.errors?.[0]?.message || '').toLowerCase();
+    // Treat "already a member" as success
+    if (res.status === 422 && (errMsg.includes('already') || errMsg.includes('member'))) return;
+    throw new Error(`Failed to add to group: ${res.data?.message || `status ${res.status}`}`);
 }
 
 async function enrollInCourse(userId, courseId) {

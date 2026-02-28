@@ -212,8 +212,8 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
 
     // Map courseId → level label (absolute source of truth)
     const level = inferLevel(courseId, quizName);
-    // Use the mapped level as courseName when available, otherwise fall back to raw course name
-    const courseName = level || course?.name || null;
+    // courseName = the quiz topic name (NOT the level code); level is stored separately
+    const courseName = quizName || course?.name || null;
 
     // Secondary dedupe: email+quizId+courseId+timestamp
     const secondaryKey = `quiz:${email}:${quiz.id}:${courseId || 'x'}:${occurredAt}`;
