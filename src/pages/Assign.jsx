@@ -183,23 +183,22 @@ export default function Assign() {
         try {
             setLoading(true);
 
-            const result = await api.call('getTeacherAssignments', { sessionToken: activeToken }, activeToken);
+            const [assignmentsResult, rosterResult] = await Promise.all([
+                api.call('getTeacherAssignments', { sessionToken: activeToken }, activeToken),
+                api.call('getAssignPageData', { sessionToken: activeToken }, activeToken),
+            ]);
 
             // Capture teacher email from session result for use during assignment
-            if (result.teacherEmail) setTeacherEmail(result.teacherEmail);
+            if (assignmentsResult.teacherEmail) setTeacherEmail(assignmentsResult.teacherEmail);
 
-            const catalogData = (result.catalog || []).filter(item =>
+            const catalogData = (assignmentsResult.catalog || []).filter(item =>
                 !item.title?.startsWith('[TEST]') && item.level !== '[TEST]'
             );
             setCatalog(catalogData);
-            setExistingAssignments(result.assignments || []);
+            setExistingAssignments(assignmentsResult.assignments || []);
 
-            // Use local roster first, fall back to backend result
-            const localEmails = getLocalRosterEmails();
-            const rosterEmails = localEmails.length
-                ? localEmails
-                : (result.students || []).map(s => s.email).filter(Boolean);
-
+            // Roster strictly from StudentAccessCode via getAssignPageData
+            const rosterEmails = rosterResult.studentEmails || [];
             const rosterStudents = rosterEmails
                 .map(email => ({
                     email: String(email).toLowerCase().trim(),
