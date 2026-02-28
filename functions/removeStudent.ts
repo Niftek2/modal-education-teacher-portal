@@ -50,53 +50,42 @@ Deno.serve(async (req) => {
         if (!studentEmail) return Response.json({ error: 'studentEmail is required' }, { status: 400 });
         if (!teacherEmail) return Response.json({ error: 'teacherEmail is required' }, { status: 400 });
 
-        // Find Thinkific user
-        let found = null;
+        // Look up Thinkific user (non-fatal if not found)
+        let thinkificUser = null;
         try {
-            found = await findUserByEmail(studentEmail);
+            thinkificUser = await findUserByEmail(studentEmail);
         } catch (e) {
-            console.warn(`[removeStudent] Could not look up Thinkific user: ${e.message}`);
+            console.warn(`[removeStudent] Thinkific lookup failed: ${e.message}`);
         }
 
-        const studentThinkificUserId = found?.id ? String(found.id) : 'unknown';
-
         // Archive in DB — idempotent
-        const existing = await base44.asServiceRole.entities.ArchivedStudent.filter({
-            studentEmail,
-            teacherEmail,
-        });
-
+        const existing = await base44.asServiceRole.entities.ArchivedStudent.filter({ studentEmail, teacherEmail });
         if (existing.length === 0) {
             await base44.asServiceRole.entities.ArchivedStudent.create({
-                studentThinkificUserId,
+                studentThinkificUserId: thinkificUser?.id ? String(thinkificUser.id) : 'unknown',
                 studentEmail,
-                studentFirstName: found?.first_name || '',
-                studentLastName: found?.last_name || '',
+                studentFirstName: thinkificUser?.first_name || '',
+                studentLastName: thinkificUser?.last_name || '',
                 teacherEmail,
                 teacherThinkificUserId: 'unknown',
                 groupId: 'unknown',
                 archivedAt: new Date().toISOString(),
             });
-            console.log(`[removeStudent] Archived ${studentEmail} in DB`);
-        } else {
-            console.log(`[removeStudent] Already archived in DB, skipping create`);
+            console.log(`[removeStudent] Archived ${studentEmail}`);
         }
 
-        if (!found?.id) {
+        if (!thinkificUser?.id) {
             return Response.json({ success: true, unenrolled: 0, note: 'Archived in DB; Thinkific user not found' });
         }
 
-        // Unenroll from all courses (assignments + all levels)
-        const enrollments = await getEnrollmentsForUser(found.id);
+        // Unenroll from all 8 courses
+        const enrollments = await getEnrollmentsForUser(thinkificUser.id);
         const targetEnrollments = enrollments.filter(e => ALL_COURSE_IDS.includes(String(e.course_id)));
 
-        let unenrolled = 0;
-        for (const e of targetEnrollments) {
-            const ok = await deleteEnrollment(e.id);
-            if (ok) unenrolled++;
-        }
+        const results = await Promise.all(targetEnrollments.map(e => deleteEnrollment(e.id)));
+        const unenrolled = results.filter(Boolean).length;
 
-        console.log(`[removeStudent] Unenrolled ${unenrolled} courses for ${studentEmail}`);
+        console.log(`[removeStudent] Unenrolled ${unenrolled}/${targetEnrollments.length} courses for ${studentEmail}`);
         return Response.json({ success: true, unenrolled });
 
     } catch (error) {

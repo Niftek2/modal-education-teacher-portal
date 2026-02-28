@@ -9,6 +9,11 @@ const thinkificHeaders = {
     'Content-Type': 'application/json',
 };
 
+async function getGroupIdForTeacher(teacherEmail, base44) {
+    const records = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail });
+    return records?.[0]?.thinkificGroupId || null;
+}
+
 async function getGroupMembers(groupId) {
     const res = await fetch(
         `https://api.thinkific.com/api/public/v1/users?query[group_id]=${groupId}&limit=100`,
@@ -22,12 +27,14 @@ async function getGroupMembers(groupId) {
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const { groupId, teacherEmail: rawTeacherEmail } = await req.json();
+        const { teacherEmail: rawTeacherEmail, groupId: providedGroupId } = await req.json();
 
         const teacherEmail = rawTeacherEmail?.toLowerCase().trim();
-
-        if (!groupId) return Response.json({ error: 'groupId is required' }, { status: 400 });
         if (!teacherEmail) return Response.json({ error: 'teacherEmail is required' }, { status: 400 });
+
+        // Resolve groupId from TeacherGroup if not provided
+        const groupId = providedGroupId || await getGroupIdForTeacher(teacherEmail, base44);
+        if (!groupId) return Response.json({ error: 'No groupId found for this teacher' }, { status: 400 });
 
         const [groupUsers, archivedRecords] = await Promise.all([
             getGroupMembers(groupId),
@@ -48,10 +55,10 @@ Deno.serve(async (req) => {
                 password: 'Math1234!',
             }));
 
-        const activeStudents = students.filter(s => !archivedEmailSet.has(s.email));
-        const archivedStudents = students.filter(s => archivedEmailSet.has(s.email));
-
-        return Response.json({ activeStudents, archivedStudents });
+        return Response.json({
+            activeStudents: students.filter(s => !archivedEmailSet.has(s.email)),
+            archivedStudents: students.filter(s => archivedEmailSet.has(s.email)),
+        });
 
     } catch (error) {
         console.error('Get students error:', error);
