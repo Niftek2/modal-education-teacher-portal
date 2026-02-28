@@ -139,13 +139,7 @@ export default function StudentAssignmentsPage() {
     const [error, setError] = useState('');
     const [submitted, setSubmitted] = useState(false);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        const normalized = email.trim().toLowerCase();
-        if (!normalized || !normalized.includes('@')) {
-            setError('Please enter a valid email address.');
-            return;
-        }
+    const fetchAssignments = async (normalized) => {
         setLoading(true);
         setError('');
         setAssignments(null);
@@ -158,6 +152,34 @@ export default function StudentAssignmentsPage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    // Auto-login from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem('modal_student_email');
+        if (saved) {
+            setEmail(saved);
+            fetchAssignments(saved);
+        }
+    }, []);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const normalized = email.trim().toLowerCase();
+        if (!normalized || !normalized.includes('@')) {
+            setError('Please enter a valid email address.');
+            return;
+        }
+        localStorage.setItem('modal_student_email', normalized);
+        fetchAssignments(normalized);
+    };
+
+    const handleSignOut = () => {
+        localStorage.removeItem('modal_student_email');
+        setEmail('');
+        setAssignments(null);
+        setSubmitted(false);
+        setError('');
     };
 
     // Group by status: incomplete first, then completed
