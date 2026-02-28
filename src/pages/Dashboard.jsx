@@ -35,19 +35,6 @@ export default function Dashboard() {
         loadDashboard(sessionToken);
     }, []);
 
-    useEffect(() => {
-        if (searchTerm) {
-            const filtered = students.filter(s => 
-                s.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                s.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                s.email?.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-            setFilteredStudents(filtered);
-        } else {
-            setFilteredStudents(students);
-        }
-    }, [searchTerm, students]);
-
     const loadDashboard = async (sessionToken) => {
         try {
             setLoading(true);
