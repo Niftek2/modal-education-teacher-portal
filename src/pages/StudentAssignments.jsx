@@ -192,7 +192,19 @@ export default function StudentAssignmentsPage() {
                 {/* Header */}
                 <div className="text-center mb-8">
                     <h1 className="text-2xl font-bold text-gray-900">My Assignments</h1>
-                    <p className="text-sm text-gray-500 mt-1">Enter your email to see your assigned lessons and quizzes.</p>
+                    {submitted ? (
+                        <div className="flex items-center justify-center gap-2 mt-1">
+                            <p className="text-sm text-gray-500">{email}</p>
+                            <button
+                                onClick={handleSignOut}
+                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                                <LogOut className="w-3 h-3" /> Sign out
+                            </button>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-gray-500 mt-1">Enter your email to see your assigned lessons and quizzes.</p>
+                    )}
                 </div>
 
                 {/* Email form */}
