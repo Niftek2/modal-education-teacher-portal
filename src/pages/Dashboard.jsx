@@ -273,14 +273,7 @@ export default function Dashboard() {
                 />
             )}
 
-            {/* Archived Students Modal */}
-            {showArchived && (
-                <ArchivedStudentsModal
-                    isOpen={showArchived}
-                    onClose={() => setShowArchived(false)}
-                    sessionToken={localStorage.getItem('modal_math_session')}
-                />
-            )}
+
         </div>
     );
 }
