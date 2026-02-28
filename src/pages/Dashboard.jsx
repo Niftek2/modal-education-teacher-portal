@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Plus, Search, AlertCircle, RefreshCw, Bug, Settings, Archive } from 'lucide-react';
+import { LogOut, Plus, Search, AlertCircle, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import StudentTable from '../components/StudentTable';
 import StudentDetail from '../components/StudentDetail';
 import AddStudentModal from '../components/AddStudentModal';
 import SnapshotModal from '../components/SnapshotModal';
-import ArchivedStudentsModal from '../components/ArchivedStudentsModal';
 import { api } from '@/components/api';
-import { createPageUrl } from '@/utils';
+import { base44 } from '@/api/base44Client';
 
 export default function Dashboard() {
     const [teacher, setTeacher] = useState(null);

@@ -26,7 +26,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-export default function StudentTable({ students, groupId, onStudentRemoved, sessionToken, onStudentSelected, activities = [] }) {
+export default function StudentTable({ students, type = 'active', teacherEmail, groupId, onStudentRemoved, sessionToken, onStudentSelected, activities = [] }) {
     const [removing, setRemoving] = useState(null);
     const [showConfirm, setShowConfirm] = useState(null);
 
