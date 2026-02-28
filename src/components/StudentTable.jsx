@@ -89,8 +89,8 @@ export default function StudentTable({ students, type = 'active', teacherEmail, 
     if (students.length === 0) {
         return (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-12 text-center">
-                <p className="text-gray-600 mb-2">No students in this group yet</p>
-                <p className="text-sm text-gray-500">Click "Add Students" to get started</p>
+                <p className="text-gray-600 mb-2">{type === 'archived' ? 'No archived students' : 'No students in this group yet'}</p>
+                {type === 'active' && <p className="text-sm text-gray-500">Click "Add Students" to get started</p>}
             </div>
         );
     }
