@@ -114,10 +114,10 @@ Deno.serve(async (req) => {
     try {
         const session = await requireSession(req).catch(() => null);
         const base44 = createClientFromRequest(req);
-        const { teacherEmail: rawTeacherEmail, groupId: providedGroupId, students } = await req.json();
+        const { teacherEmail: bodyEmail, students, groupId: providedGroupId } = await req.json();
 
-        const teacherEmail = (rawTeacherEmail || session?.email)?.toLowerCase().trim();
-        if (!teacherEmail) return Response.json({ error: 'teacherEmail is required' }, { status: 400 });
+        const teacherEmail = (bodyEmail || session?.email)?.toLowerCase().trim();
+        if (!teacherEmail) return Response.json({ error: 'teacherEmail is required (Unauthorized)' }, { status: 401 });
         if (!students || !Array.isArray(students) || students.length === 0)
             return Response.json({ error: 'students array is required' }, { status: 400 });
         if (students.length > 10)
