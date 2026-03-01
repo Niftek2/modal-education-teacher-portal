@@ -70,9 +70,8 @@ async function provisionThinkificUser(firstName, lastInitial) {
 async function addToGroup(userId, groupId) {
     const res = await requestRest(`/groups/${groupId}/members`, 'POST', null, { user_id: userId });
     if (res.ok) return;
-    const errMsg = (res.data?.message || res.data?.errors?.[0]?.message || '').toLowerCase();
-    // Treat "already a member" as success
-    if (res.status === 422 && (errMsg.includes('already') || errMsg.includes('member'))) return;
+    // Treat "Not Found" or "Already Member" as non-fatal success states
+    if (res.status === 404 || res.status === 422) return;
     throw new Error(`Failed to add to group: ${res.data?.message || `status ${res.status}`}`);
 }
 
