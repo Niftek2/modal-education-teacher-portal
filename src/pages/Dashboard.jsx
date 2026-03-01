@@ -248,6 +248,7 @@ export default function Dashboard() {
             {showAddModal && (
                 <AddStudentModal
                     groupId={group.id}
+                    teacherEmail={teacher?.email}
                     onClose={() => setShowAddModal(false)}
                     onSuccess={handleStudentsAdded}
                 />

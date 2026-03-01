@@ -10,7 +10,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 
-export default function AddStudentModal({ groupId, onClose, onSuccess }) {
+export default function AddStudentModal({ groupId, teacherEmail, onClose, onSuccess }) {
     const [students, setStudents] = useState([{ firstName: '', lastInitial: '' }]);
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
@@ -43,7 +43,6 @@ export default function AddStudentModal({ groupId, onClose, onSuccess }) {
         try {
             setLoading(true);
             const sessionToken = localStorage.getItem('modal_math_session');
-            const teacherEmail = localStorage.getItem('modal_math_teacher_email') || '';
 
             const response = await api.call('addStudents', {
                 teacherEmail,
