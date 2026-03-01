@@ -294,6 +294,7 @@ export default function Assign() {
         }
         try {
             setSubmitting(true);
+            setIsAssigning(true);
             const studentEmails = selectedStudents.map(s => s.toLowerCase().trim());
             const activeToken = localStorage.getItem('modal_math_session');
             const calls = selectedAssignmentIds.map(catalogId =>
@@ -316,6 +317,7 @@ export default function Assign() {
             alert(error.message || 'Failed to create assignments');
         } finally {
             setSubmitting(false);
+            setIsAssigning(false);
         }
     };
 
@@ -357,7 +359,7 @@ export default function Assign() {
                         </div>
                         <Button
                             onClick={handleAssign}
-                            disabled={submitting || !selectedAssignmentIds.length || !selectedStudents.length}
+                            disabled={submitting || isAssigning || !selectedAssignmentIds.length || !selectedStudents.length}
                             className="bg-purple-900 hover:bg-purple-800 text-white"
                         >
                             {submitting ? 'Assigning...' : 'Assign'}
