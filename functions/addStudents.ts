@@ -147,8 +147,14 @@ Deno.serve(async (req) => {
                     console.error(`[addStudents] DB write failed for ${normalizedEmail}:`, dbErr.message);
                 }
 
-                // Add to group
-                await addToGroup(userId, groupId);
+                // Add to group (non-fatal: enrollment proceeds regardless)
+                if (groupId) {
+                    try {
+                        await addToGroup(userId, groupId);
+                    } catch (groupErr) {
+                        console.warn(`[addStudents] Group add failed for userId=${userId}, continuing:`, groupErr.message);
+                    }
+                }
 
                 // Sequential per-course enrollment with granular error reporting
                 const enrollmentResults = [];
