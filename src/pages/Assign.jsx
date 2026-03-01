@@ -211,8 +211,10 @@ export default function Assign() {
             setPageLoaded(true);
         } catch (error) {
             console.error('Load error:', error.message);
-            localStorage.removeItem('modal_math_session');
-            navigate('/Home');
+            if (error.message?.includes('401') || error.message?.toLowerCase().includes('unauthorized')) {
+                localStorage.removeItem('modal_math_session');
+                navigate('/Home');
+            }
         } finally {
             setLoading(false);
         }
