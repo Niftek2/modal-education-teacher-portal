@@ -40,7 +40,7 @@ const ALLOWED_REST_PATTERNS = [
 
 function validateRestPath(path) {
     const pathOnly = path.split('?')[0];
-    const allowed = ALLOWED_REST_PATTERNS.some(pattern => pattern.test(pathOnly));
+    const allowed = ALLOWED_REST_PATTERNS.some(pattern => pattern.test(path) || pattern.test(pathOnly));
     if (!allowed) {
         throw new Error(`Endpoint not allowlisted: ${pathOnly}`);
     }
