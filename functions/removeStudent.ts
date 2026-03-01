@@ -78,14 +78,26 @@ Deno.serve(async (req) => {
             return Response.json({ success: true, unenrolled: 0, note: 'Archived in DB; Thinkific user not found' });
         }
 
-        // Unenroll from all 8 courses
-        const enrollments = await getEnrollmentsForUser(thinkificUser.id);
-        const targetEnrollments = enrollments.filter(e => ALL_COURSE_IDS.includes(String(e.course_id)));
+        // Unenroll from all 8 courses (non-blocking — archive already complete)
+        let unenrolled = 0;
+        let targetCount = 0;
+        try {
+            const enrollments = await getEnrollmentsForUser(thinkificUser.id);
+            const targetEnrollments = enrollments.filter(e => ALL_COURSE_IDS.includes(String(e.course_id)));
+            targetCount = targetEnrollments.length;
+            for (const enrollment of targetEnrollments) {
+                try {
+                    const ok = await deleteEnrollment(enrollment.id);
+                    if (ok) unenrolled++;
+                } catch (err) {
+                    console.warn(`[removeStudent] Unenrollment failed for enrollment ${enrollment.id}:`, err.message);
+                }
+            }
+        } catch (err) {
+            console.warn(`[removeStudent] Could not fetch enrollments, skipping unenrollment:`, err.message);
+        }
 
-        const results = await Promise.all(targetEnrollments.map(e => deleteEnrollment(e.id)));
-        const unenrolled = results.filter(Boolean).length;
-
-        console.log(`[removeStudent] Unenrolled ${unenrolled}/${targetEnrollments.length} courses for ${studentEmail}`);
+        console.log(`[removeStudent] Unenrolled ${unenrolled}/${targetCount} courses for ${studentEmail}`);
         return Response.json({ success: true, unenrolled });
 
     } catch (error) {
