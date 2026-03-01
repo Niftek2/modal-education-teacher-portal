@@ -41,12 +41,16 @@ Deno.serve(async (req) => {
             base44.asServiceRole.entities.ArchivedStudent.filter({ teacherEmail }),
         ]);
 
+        // Strict roster: only students whose AccessCode record is tied to this exact group
+        const accessCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail, groupId });
+        const rosterEmailSet = new Set(accessCodes.map(r => r.studentEmail?.toLowerCase().trim()).filter(Boolean));
+
         const archivedEmailSet = new Set(
             (archivedRecords || []).map(s => s.studentEmail?.toLowerCase().trim()).filter(Boolean)
         );
 
         const students = groupUsers
-            .filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'))
+            .filter(u => u.email?.toLowerCase().endsWith('@modalmath.com') && rosterEmailSet.has(u.email?.toLowerCase().trim()))
             .map(u => ({
                 id: u.id,
                 firstName: u.first_name,

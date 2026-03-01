@@ -133,6 +133,7 @@ export default function Assign() {
     const [selectedAssignmentIds, setSelectedAssignmentIds] = useState([]);
     const [dueDate, setDueDate] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [isAssigning, setIsAssigning] = useState(false);
     const [existingAssignments, setExistingAssignments] = useState([]);
 
     const handleAssignmentResolved = (assignmentId, resolvedUrl) => {
