@@ -90,11 +90,6 @@ async function enrollInCourse(userId, courseId) {
     return false;
 }
 
-async function getGroupIdForTeacher(teacherEmail, base44) {
-    const records = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail });
-    return records?.[0]?.thinkificGroupId || null;
-}
-
 async function getActiveStudentCount(teacherEmail, base44) {
     const [studentCodes, archivedStudents] = await Promise.all([
         base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
