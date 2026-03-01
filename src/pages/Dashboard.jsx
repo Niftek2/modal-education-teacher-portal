@@ -48,6 +48,7 @@ export default function Dashboard() {
 
             if (primaryGroup && teacherResponse.teacher?.email) {
                 const teacherEmail = teacherResponse.teacher.email.toLowerCase().trim();
+                localStorage.setItem('modal_math_teacher_email', teacherEmail);
 
                 // Fetch students (active + archived) and activity in parallel
                 const [studentsResponse, activityResponse] = await Promise.all([
