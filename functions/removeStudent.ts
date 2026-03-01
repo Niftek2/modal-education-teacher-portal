@@ -74,32 +74,28 @@ Deno.serve(async (req) => {
             console.log(`[removeStudent] Archived ${studentEmail}`);
         }
 
-        if (!thinkificUser?.id) {
-            return Response.json({ success: true, unenrolled: 0, note: 'Archived in DB; Thinkific user not found' });
-        }
-
         // Unenroll from all 8 courses (non-blocking — archive already complete)
         let unenrolled = 0;
         let targetCount = 0;
-        try {
-            const enrollments = await getEnrollmentsForUser(thinkificUser.id);
-            const targetEnrollments = enrollments.filter(e => ALL_COURSE_IDS.includes(String(e.course_id)));
-            targetCount = targetEnrollments.length;
-            for (const enrollment of targetEnrollments) {
-                try {
+        if (thinkificUser?.id) {
+            try {
+                const enrollments = await getEnrollmentsForUser(thinkificUser.id);
+                const targetEnrollments = enrollments.filter(e => ALL_COURSE_IDS.includes(String(e.course_id)));
+                targetCount = targetEnrollments.length;
+                const results = await Promise.allSettled(targetEnrollments.map(async (enrollment) => {
                     const ok = await deleteEnrollment(enrollment.id);
                     if (ok) unenrolled++;
-                } catch (err) {
-                    console.warn(`[removeStudent] Unenrollment failed for enrollment ${enrollment.id}:`, err.message);
-                }
+                }));
+                results.forEach((r, i) => {
+                    if (r.status === 'rejected') console.warn(`[removeStudent] Unenrollment failed for enrollment ${targetEnrollments[i].id}:`, r.reason);
+                });
+            } catch (err) {
+                console.warn(`[removeStudent] Could not fetch enrollments, skipping unenrollment:`, err.message);
             }
-        } catch (err) {
-            console.warn(`[removeStudent] Could not fetch enrollments, skipping unenrollment:`, err.message);
+            console.log(`[removeStudent] Unenrolled ${unenrolled}/${targetCount} courses for ${studentEmail}`);
         }
 
-        console.log(`[removeStudent] Unenrolled ${unenrolled}/${targetCount} courses for ${studentEmail}`);
-
-        // Delete StudentAccessCode record — only after unenrollment loop completes
+        // Delete StudentAccessCode record — FINAL step, only after all unenrollments have settled
         const accessCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({ studentEmail, createdByTeacherEmail: teacherEmail });
         await Promise.all(accessCodes.map(r => base44.asServiceRole.entities.StudentAccessCode.delete(r.id)));
 
