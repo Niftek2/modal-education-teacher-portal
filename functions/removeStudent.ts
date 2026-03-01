@@ -98,6 +98,11 @@ Deno.serve(async (req) => {
         }
 
         console.log(`[removeStudent] Unenrolled ${unenrolled}/${targetCount} courses for ${studentEmail}`);
+
+        // Delete StudentAccessCode record — only after unenrollment loop completes
+        const accessCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({ studentEmail, createdByTeacherEmail: teacherEmail });
+        await Promise.all(accessCodes.map(r => base44.asServiceRole.entities.StudentAccessCode.delete(r.id)));
+
         return Response.json({ success: true, unenrolled });
 
     } catch (error) {
