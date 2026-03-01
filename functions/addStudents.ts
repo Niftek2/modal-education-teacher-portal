@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { requestRest } from './lib/thinkificClient.ts';
+import { requireSession } from './lib/auth.js';
 
 // Ordered list of course IDs to enroll each student in, one-by-one
 const COURSE_ENROLLMENTS = [
