@@ -34,6 +34,10 @@ export default function AddStudentModal({ groupId, teacherEmail, onClose, onSucc
     const handleSubmit = async (e) => {
         e.preventDefault();
         
+        if (!groupId) {
+            alert('Error: No active group found. Please refresh.');
+            return;
+        }
         const valid = students.filter(s => s.firstName && s.lastInitial);
         if (valid.length === 0) {
             alert('Please enter at least one student');

@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
         if (students.length > 10)
             return Response.json({ error: 'Maximum 10 students per request' }, { status: 400 });
 
-        const groupId = providedGroupId || await getGroupIdForTeacher(teacherEmail, base44);
+        const groupId = providedGroupId;
 
         const activeCount = await getActiveStudentCount(teacherEmail, base44);
         if (activeCount + students.length > 10)
