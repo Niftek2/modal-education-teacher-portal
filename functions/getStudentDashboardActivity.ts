@@ -1,30 +1,24 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { requireSession } from './lib/auth.js';
-import * as thinkific from './lib/thinkificClient.js';
 
-async function getTeacherStudentEmails(teacherId, teacherEmail) {
-    // Get all groups where teacher is a member
-    const allGroups = await thinkific.listGroups();
-    const studentEmails = new Set();
-    
-    for (const group of allGroups) {
-        const groupUsers = await thinkific.listGroupUsers(group.id);
-        const isMember = groupUsers.some(u => String(u.id) === String(teacherId));
-        
-        if (isMember) {
-            groupUsers.forEach(user => {
-                if (user.email && String(user.id) !== String(teacherId)) {
-                    studentEmails.add(user.email.toLowerCase().trim());
-                }
-            });
-        }
-    }
-    
-    return Array.from(studentEmails);
+// Canonical course-level map — covers all known course IDs
+const COURSE_LEVEL_MAP = {
+    '422595': 'PK',
+    '422618': 'K',
+    '422620': 'L1',
+    '496294': 'L2',
+    '496295': 'L3',
+    '496297': 'L4',
+    '496298': 'L5',
+};
+
+function inferLevel(courseId, existingLevel) {
+    if (existingLevel) return existingLevel; // already tagged (new webhooks)
+    if (courseId && COURSE_LEVEL_MAP[String(courseId)]) return COURSE_LEVEL_MAP[String(courseId)];
+    return null;
 }
 
 function normalizeEventType(eventType) {
-    // Support backward compatibility: treat both formats as same event
     const aliasMap = {
         'quiz.attempted': 'quiz_attempted',
         'lesson.completed': 'lesson_completed',
@@ -32,68 +26,72 @@ function normalizeEventType(eventType) {
         'user.signup': 'user_signup',
         'enrollment.created': 'enrollment_created'
     };
-    
     return aliasMap[eventType] || eventType;
 }
 
 Deno.serve(async (req) => {
     const session = await requireSession(req);
-
-    if (!session) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     try {
         const body = await req.json();
-        const { limit = 5000 } = body;
-        
-        const teacherId = session.userId;
-        const teacherEmail = session.email;
-        
-        console.log(`[DASHBOARD ACTIVITY] Teacher: ${teacherId}, ${teacherEmail}`);
-        
-        const teacherUser = await thinkific.getUser(teacherId);
-        
-        // Get student roster (emails only)
-        const studentEmails = await getTeacherStudentEmails(teacherId, teacherUser.email);
-        console.log(`[DASHBOARD ACTIVITY] Found ${studentEmails.length} students:`, studentEmails);
-        
-        // Fetch all activity events sorted by occurredAt (most recent first)
+        const { limit = 5000, studentEmails: providedEmails } = body;
+
+        const teacherEmail = session.email?.toLowerCase().trim();
+        console.log(`[DASHBOARD ACTIVITY] Teacher: ${teacherEmail}`);
+
         const base44 = createClientFromRequest(req);
+
+        // Resolve roster: use provided list OR pull from StudentAccessCode + ArchivedStudent
+        let studentEmails;
+        if (Array.isArray(providedEmails) && providedEmails.length > 0) {
+            studentEmails = providedEmails.map(e => e.toLowerCase().trim());
+        } else {
+            const [accessCodes, archivedStudents] = await Promise.all([
+                base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
+                base44.asServiceRole.entities.ArchivedStudent.filter({ teacherEmail }),
+            ]);
+            const archivedSet = new Set(
+                (archivedStudents || []).map(s => s.studentEmail?.toLowerCase().trim()).filter(Boolean)
+            );
+            studentEmails = (accessCodes || [])
+                .map(s => s.studentEmail?.toLowerCase().trim())
+                .filter(e => e && e.endsWith('@modalmath.com') && !archivedSet.has(e));
+        }
+
+        console.log(`[DASHBOARD ACTIVITY] Roster size: ${studentEmails.length}`, studentEmails);
+
+        // Fetch all activity events (most recent first) — no teacher/group filter at DB level
         const allEvents = await base44.asServiceRole.entities.ActivityEvent.list('-occurredAt', limit);
-        console.log(`[DASHBOARD ACTIVITY] Fetched ${allEvents.length} total events`);
-        
-        // Filter to only events for students in this teacher's roster
+        console.log(`[DASHBOARD ACTIVITY] Total events fetched: ${allEvents.length}`);
+
+        const studentEmailSet = new Set(studentEmails);
+
         const filtered = allEvents
             .filter(e => {
                 const eventEmail = (e.studentEmail || '').toLowerCase().trim();
-                const matches = studentEmails.includes(eventEmail);
+                const matches = studentEmailSet.has(eventEmail);
                 if (eventEmail === 'azizae414@modalmath.com') {
-                    console.log(`[DASHBOARD ACTIVITY] Found Aziza event: ${e.eventType}, matches roster: ${matches}`);
+                    console.log(`[DASHBOARD ACTIVITY] Aziza event: ${e.eventType}, courseId=${e.courseId}, level=${e.level}, matches=${matches}`);
                 }
                 return matches;
             })
             .map(e => {
-                // Normalize eventType for backward compatibility
                 const normalizedEventType = normalizeEventType(e.eventType);
-                
-                // Compute display grade for quiz attempts with robust fallbacks
+
+                // Apply COURSE_LEVEL_MAP retroactively for historical events missing a level tag
+                const resolvedLevel = inferLevel(e.courseId, e.level);
+
+                // Resolve grade with robust fallbacks
                 let displayGrade = (typeof e.grade === 'number') ? e.grade : null;
 
                 if (normalizedEventType === 'quiz_attempted' && displayGrade == null) {
-                    // 1) Prefer canonical stored field from webhook handler
                     if (typeof e.scorePercent === 'number') {
                         displayGrade = e.scorePercent;
                     }
-
-                    // 2) Fallback: older/alternate storage in metadata
                     if (displayGrade == null && e.metadata && typeof e.metadata.scorePercent === 'number') {
                         displayGrade = e.metadata.scorePercent;
                     }
-
-                    // 3) Fallback: rawPayload may be either:
-                    //    a) payload object itself (current webhook saves JSON.stringify(payload))
-                    //    b) wrapper object { payload: {...} } (older code path assumption)
                     if (displayGrade == null && e.rawPayload) {
                         try {
                             const rawData = JSON.parse(e.rawPayload);
@@ -105,23 +103,21 @@ Deno.serve(async (req) => {
                         } catch {}
                     }
                 }
-                
+
                 return {
                     ...e,
                     eventType: normalizedEventType,
-                    grade: displayGrade
+                    grade: displayGrade,
+                    level: resolvedLevel,
                 };
             })
             .slice(0, limit);
-        
+
         console.log(`[DASHBOARD ACTIVITY] Returning ${filtered.length} filtered events`);
         const azizaEvents = filtered.filter(e => (e.studentEmail || '').toLowerCase().trim() === 'azizae414@modalmath.com');
         console.log(`[DASHBOARD ACTIVITY] Aziza events in result: ${azizaEvents.length}`);
-        
-        return Response.json({
-            studentEmails,
-            events: filtered
-        }, { status: 200 });
+
+        return Response.json({ studentEmails, events: filtered }, { status: 200 });
     } catch (error) {
         console.error('[DASHBOARD ACTIVITY] Error:', error);
         return Response.json({ error: error.message }, { status: 500 });
