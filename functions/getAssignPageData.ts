@@ -1,9 +1,41 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { requireSession } from './lib/auth.js';
 
+const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
+const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
+const YOUR_CLASSROOM_COURSE_ID = 552235;
+
+const thinkificHeaders = {
+    'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
+    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+    'Content-Type': 'application/json',
+};
+
+async function isTeacherEnrolledInClassroom(teacherEmail) {
+    // Find Thinkific user by email
+    const userRes = await fetch(
+        `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(teacherEmail)}`,
+        { headers: thinkificHeaders }
+    );
+    if (!userRes.ok) return false;
+    const userData = await userRes.json();
+    const userId = userData.items?.[0]?.id;
+    if (!userId) return false;
+
+    // Check enrollments for Your Classroom course
+    const enrollRes = await fetch(
+        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[course_id]=${YOUR_CLASSROOM_COURSE_ID}&limit=1`,
+        { headers: thinkificHeaders }
+    );
+    if (!enrollRes.ok) return false;
+    const enrollData = await enrollRes.json();
+    return (enrollData.items?.length || 0) > 0;
+}
+
 /**
  * Returns the teacher's student roster from StudentAccessCode table.
  * Auth: magic-link session JWT (modal_math_session) passed as Bearer token.
+ * Teacher must be enrolled in Your Classroom course (552235).
  */
 Deno.serve(async (req) => {
     const session = await requireSession(req);
@@ -20,6 +52,13 @@ Deno.serve(async (req) => {
         const teacherEmail = session.email?.toLowerCase().trim();
 
         console.log(`[getAssignPageData] Fetching roster for teacher: ${teacherEmail}`);
+
+        // Verify teacher is enrolled in Your Classroom (552235) — sole teacher indicator
+        const isValidTeacher = await isTeacherEnrolledInClassroom(teacherEmail);
+        if (!isValidTeacher) {
+            console.warn(`[getAssignPageData] Teacher ${teacherEmail} not enrolled in Your Classroom course`);
+            return Response.json({ error: "Forbidden: Teacher not enrolled in Your Classroom." }, { status: 403 });
+        }
 
         // Get all students created by this teacher
         const studentCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({
