@@ -98,9 +98,10 @@ Deno.serve(async (req) => {
 
             // Shadow-write: create StudentAccessCode for any Thinkific group member not in DB
             // Then immediately link: log how many existing ActivityEvents already exist for that email
+            // Shadow-sync: create DB record for any Thinkific member not yet in DB (direct upsert, no pre-check)
             const newStudents = pkUsers.filter(u => !dbEmailSet.has(u.email.toLowerCase().trim()));
             if (newStudents.length > 0) {
-                await Promise.all(newStudents.map(async (u) => {
+                await Promise.allSettled(newStudents.map(async (u) => {
                     const email = u.email.toLowerCase().trim();
                     try {
                         await base44.asServiceRole.entities.StudentAccessCode.create({
@@ -109,14 +110,13 @@ Deno.serve(async (req) => {
                             createdByTeacherEmail: teacherEmail,
                             groupId,
                         });
-                        // Link check: query ActivityEvent by email only (no group/teacher filter)
-                        const existingEvents = await base44.asServiceRole.entities.ActivityEvent.filter({ studentEmail: email });
-                        console.log(`[getStudents] Shadow-linked ${email}: found ${existingEvents.length} existing ActivityEvent(s) in DB`);
+                        console.log(`[getStudents] Shadow-synced ${email} → DB`);
                     } catch (e) {
-                        console.warn(`[getStudents] Shadow create/link failed for ${email}:`, e.message);
+                        // Duplicate key = already exists, safe to ignore
+                        console.warn(`[getStudents] Shadow-sync skipped for ${email}: ${e.message}`);
                     }
                 }));
-                console.log(`[getStudents] Shadow-created ${newStudents.length} StudentAccessCode record(s)`);
+                console.log(`[getStudents] Shadow-sync attempted for ${newStudents.length} student(s)`);
             }
         }
 
