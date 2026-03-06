@@ -74,23 +74,68 @@ Deno.serve(async (req) => {
             return Response.json({ error: "Forbidden: Teacher not enrolled in Your Classroom." }, { status: 403 });
         }
 
-        // Get all students created by this teacher
-        const studentCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({
-            createdByTeacherEmail: teacherEmail
-        });
+        const base44 = createClientFromRequest(req);
 
-        // Get archived students to exclude from active roster
-        const archivedStudents = await base44.asServiceRole.entities.ArchivedStudent.filter({});
+        // Fetch DB students + archived in parallel
+        const [studentCodes, archivedStudents] = await Promise.all([
+            base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
+            base44.asServiceRole.entities.ArchivedStudent.filter({}),
+        ]);
+
         const archivedEmailSet = new Set(
             archivedStudents.map(s => s.studentEmail?.toLowerCase().trim()).filter(Boolean)
         );
 
-        // Filter: only @modalmath.com, only active (not archived)
-        const studentEmails = (studentCodes || [])
-            .map(s => s.studentEmail?.toLowerCase().trim())
-            .filter(email => email && email.endsWith('@modalmath.com') && !archivedEmailSet.has(email))
-            .sort();
+        // Start with DB students
+        const emailSet = new Set(
+            (studentCodes || [])
+                .map(s => s.studentEmail?.toLowerCase().trim())
+                .filter(e => e && e.endsWith('@modalmath.com') && !archivedEmailSet.has(e))
+        );
 
+        // Merge: also pull from teacher's Thinkific group
+        try {
+            const groupRecords = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail });
+            const groupId = groupRecords?.[0]?.thinkificGroupId;
+            if (groupId) {
+                const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
+                const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
+                const thinkificHeaders = {
+                    'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
+                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+                    'Content-Type': 'application/json',
+                };
+                const PK_COURSE_ID = '422595';
+
+                const groupRes = await fetch(
+                    `https://api.thinkific.com/api/public/v1/users?query[group_id]=${groupId}&limit=100`,
+                    { headers: thinkificHeaders }
+                );
+                if (groupRes.ok) {
+                    const groupData = await groupRes.json();
+                    const modalMathUsers = (groupData.items || []).filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
+
+                    // Check PK enrollment in parallel
+                    const pkChecks = await Promise.all(modalMathUsers.map(u =>
+                        fetch(`https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${u.id}&query[course_id]=${PK_COURSE_ID}&limit=1`, { headers: thinkificHeaders })
+                            .then(r => r.ok ? r.json() : { items: [] })
+                            .then(d => (d.items?.length || 0) > 0)
+                            .catch(() => false)
+                    ));
+
+                    for (let i = 0; i < modalMathUsers.length; i++) {
+                        if (pkChecks[i]) {
+                            const email = modalMathUsers[i].email.toLowerCase().trim();
+                            if (!archivedEmailSet.has(email)) emailSet.add(email);
+                        }
+                    }
+                }
+            }
+        } catch (mergeErr) {
+            console.warn('[getAssignPageData] Thinkific merge failed, using DB only:', mergeErr.message);
+        }
+
+        const studentEmails = Array.from(emailSet).sort();
         console.log(`[getAssignPageData] Found ${studentEmails.length} active students for ${teacherEmail}`);
 
         return Response.json({ success: true, studentEmails });
