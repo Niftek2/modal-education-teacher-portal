@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
         
         console.log(`[WEBHOOK] Received ${eventType}, ID: ${webhookId}`);
         
-        const webhookStudentEmail = (payload?.user?.email || '').toLowerCase().trim();
+        const webhookStudentEmail = (payload?.user?.email || payload?.email || '').toLowerCase().trim();
         if (webhookStudentEmail === 'azizae414@modalmath.com') {
             console.log(`[WEBHOOK DEBUG AZIZA] Received webhook for Aziza: EventType=${eventType}, WebhookId=${webhookId}, UserId=${payload?.user?.id}, QuizId=${payload?.quiz?.id}, Email=${webhookStudentEmail}`);
         }
