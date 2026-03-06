@@ -93,17 +93,26 @@ Deno.serve(async (req) => {
             }
 
             // Shadow-write: create StudentAccessCode for any Thinkific group member not in DB
-            const shadowCreates = pkUsers
-                .filter(u => !dbEmailSet.has(u.email.toLowerCase().trim()))
-                .map(u => base44.asServiceRole.entities.StudentAccessCode.create({
-                    studentEmail: u.email.toLowerCase().trim(),
-                    createdAt: new Date().toISOString(),
-                    createdByTeacherEmail: teacherEmail,
-                    groupId,
-                }).catch(e => console.warn('[getStudents] Shadow create failed:', e.message)));
-            if (shadowCreates.length > 0) {
-                await Promise.all(shadowCreates);
-                console.log(`[getStudents] Shadow-created ${shadowCreates.length} StudentAccessCode records`);
+            // Then immediately link: log how many existing ActivityEvents already exist for that email
+            const newStudents = pkUsers.filter(u => !dbEmailSet.has(u.email.toLowerCase().trim()));
+            if (newStudents.length > 0) {
+                await Promise.all(newStudents.map(async (u) => {
+                    const email = u.email.toLowerCase().trim();
+                    try {
+                        await base44.asServiceRole.entities.StudentAccessCode.create({
+                            studentEmail: email,
+                            createdAt: new Date().toISOString(),
+                            createdByTeacherEmail: teacherEmail,
+                            groupId,
+                        });
+                        // Link check: query ActivityEvent by email only (no group/teacher filter)
+                        const existingEvents = await base44.asServiceRole.entities.ActivityEvent.filter({ studentEmail: email });
+                        console.log(`[getStudents] Shadow-linked ${email}: found ${existingEvents.length} existing ActivityEvent(s) in DB`);
+                    } catch (e) {
+                        console.warn(`[getStudents] Shadow create/link failed for ${email}:`, e.message);
+                    }
+                }));
+                console.log(`[getStudents] Shadow-created ${newStudents.length} StudentAccessCode record(s)`);
             }
         }
 
