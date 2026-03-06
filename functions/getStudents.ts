@@ -48,8 +48,11 @@ Deno.serve(async (req) => {
         const groupId = providedGroupId || await getGroupIdForTeacher(teacherEmail, base44);
         if (!groupId) return Response.json({ error: 'No groupId found for this teacher' }, { status: 400 });
 
-        const [groupUsers, archivedRecords] = await Promise.all([
-            getGroupMembers(groupId),
+        const [groupUsersResult, archivedRecords] = await Promise.all([
+            getGroupMembers(groupId).catch(err => {
+                console.warn('[getStudents] Thinkific group API failed, falling back to StudentAccessCode:', err.message);
+                return null; // signal fallback
+            }),
             base44.asServiceRole.entities.ArchivedStudent.filter({ teacherEmail }),
         ]);
 
@@ -57,21 +60,36 @@ Deno.serve(async (req) => {
             (archivedRecords || []).map(s => s.studentEmail?.toLowerCase().trim()).filter(Boolean)
         );
 
-        // Roster = Thinkific group members with @modalmath.com email enrolled in PK (422595)
-        const modalMathUsers = groupUsers.filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
+        let students;
 
-        // Check PK enrollment in parallel for all candidates
-        const pkChecks = await Promise.all(modalMathUsers.map(u => isEnrolledInPK(u.id)));
-
-        const students = modalMathUsers
-            .filter((_, i) => pkChecks[i])
-            .map(u => ({
-                id: u.id,
-                firstName: u.first_name,
-                lastName: u.last_name,
-                email: u.email?.toLowerCase().trim(),
-                password: 'Math1234!',
-            }));
+        if (groupUsersResult === null) {
+            // Fallback: build roster from StudentAccessCode
+            console.log('[getStudents] Using StudentAccessCode fallback for teacher:', teacherEmail);
+            const accessCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail });
+            students = (accessCodes || [])
+                .filter(r => r.studentEmail?.toLowerCase().endsWith('@modalmath.com'))
+                .map(r => ({
+                    id: null,
+                    firstName: r.studentEmail.split('@')[0],
+                    lastName: '',
+                    email: r.studentEmail.toLowerCase().trim(),
+                    password: 'Math1234!',
+                    fromFallback: true,
+                }));
+        } else {
+            // Primary path: Thinkific group members with @modalmath.com enrolled in PK (422595)
+            const modalMathUsers = groupUsersResult.filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
+            const pkChecks = await Promise.all(modalMathUsers.map(u => isEnrolledInPK(u.id)));
+            students = modalMathUsers
+                .filter((_, i) => pkChecks[i])
+                .map(u => ({
+                    id: u.id,
+                    firstName: u.first_name,
+                    lastName: u.last_name,
+                    email: u.email?.toLowerCase().trim(),
+                    password: 'Math1234!',
+                }));
+        }
 
         return Response.json({
             activeStudents: students.filter(s => !archivedEmailSet.has(s.email)),
