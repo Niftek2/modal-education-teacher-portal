@@ -80,9 +80,13 @@ Deno.serve(async (req) => {
             const pkChecks = await Promise.all(modalMathUsers.map(u => isEnrolledInPK(u.id)));
             const pkUsers = modalMathUsers.filter((_, i) => pkChecks[i]);
 
-            // Merge Thinkific data into map (overrides DB stubs with real names)
+            // Merge Thinkific data into map — always overwrites DB stubs so id is never null for synced students
             for (const u of pkUsers) {
                 const email = u.email.toLowerCase().trim();
+                const prev = mergedMap.get(email);
+                if (prev && !prev.id) {
+                    console.log(`[getStudents] Upgrading DB stub for ${email}: id null → ${u.id}`);
+                }
                 mergedMap.set(email, {
                     id: u.id,
                     firstName: u.first_name,
