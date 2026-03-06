@@ -81,13 +81,15 @@ async function provisionThinkificUser(firstName, lastInitial) {
 }
 
 async function addToGroup(userId, groupId) {
-    const res = await fetch(`https://api.thinkific.com/api/public/v1/groups/${groupId}/members`, {
+    // Thinkific requires POST /group_memberships with {group_id, user_id}
+    const res = await fetch('https://api.thinkific.com/api/public/v1/group_memberships', {
         method: 'POST',
         headers: thinkificHeaders,
-        body: JSON.stringify({ user_id: userId }),
+        body: JSON.stringify({ group_id: parseInt(groupId, 10), user_id: parseInt(userId, 10) }),
     });
-    if (res.ok || res.status === 404 || res.status === 422) return;
-    throw new Error(`Failed to add to group: status ${res.status}`);
+    if (res.ok || res.status === 422) return; // 422 = already a member, that's fine
+    const body = await res.text();
+    throw new Error(`Failed to add to group: status ${res.status} — ${body}`);
 }
 
 async function enrollInCourse(userId, courseId) {
