@@ -48,48 +48,66 @@ Deno.serve(async (req) => {
         const groupId = providedGroupId || await getGroupIdForTeacher(teacherEmail, base44);
         if (!groupId) return Response.json({ error: 'No groupId found for this teacher' }, { status: 400 });
 
-        const [groupUsersResult, archivedRecords] = await Promise.all([
+        const [groupUsersResult, archivedRecords, accessCodes] = await Promise.all([
             getGroupMembers(groupId).catch(err => {
-                console.warn('[getStudents] Thinkific group API failed, falling back to StudentAccessCode:', err.message);
-                return null; // signal fallback
+                console.warn('[getStudents] Thinkific group API failed, will use DB only:', err.message);
+                return null;
             }),
             base44.asServiceRole.entities.ArchivedStudent.filter({ teacherEmail }),
+            base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
         ]);
 
         const archivedEmailSet = new Set(
             (archivedRecords || []).map(s => s.studentEmail?.toLowerCase().trim()).filter(Boolean)
         );
 
-        let students;
+        // Build a map of email → student from StudentAccessCode (DB source)
+        const dbEmailSet = new Set(
+            (accessCodes || [])
+                .map(r => r.studentEmail?.toLowerCase().trim())
+                .filter(e => e && e.endsWith('@modalmath.com'))
+        );
 
-        if (groupUsersResult === null) {
-            // Fallback: build roster from StudentAccessCode
-            console.log('[getStudents] Using StudentAccessCode fallback for teacher:', teacherEmail);
-            const accessCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail });
-            students = (accessCodes || [])
-                .filter(r => r.studentEmail?.toLowerCase().endsWith('@modalmath.com'))
-                .map(r => ({
-                    id: null,
-                    firstName: r.studentEmail.split('@')[0],
-                    lastName: '',
-                    email: r.studentEmail.toLowerCase().trim(),
-                    password: 'Math1234!',
-                    fromFallback: true,
-                }));
-        } else {
-            // Primary path: Thinkific group members with @modalmath.com enrolled in PK (422595)
+        // Merge: start with DB students (no Thinkific profile data available)
+        const mergedMap = new Map();
+        for (const email of dbEmailSet) {
+            mergedMap.set(email, { id: null, firstName: email.split('@')[0], lastName: '', email, password: 'Math1234!' });
+        }
+
+        if (groupUsersResult !== null) {
+            // Filter group members to @modalmath.com + PK enrolled
             const modalMathUsers = groupUsersResult.filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
             const pkChecks = await Promise.all(modalMathUsers.map(u => isEnrolledInPK(u.id)));
-            students = modalMathUsers
-                .filter((_, i) => pkChecks[i])
-                .map(u => ({
+            const pkUsers = modalMathUsers.filter((_, i) => pkChecks[i]);
+
+            // Merge Thinkific data into map (overrides DB stubs with real names)
+            for (const u of pkUsers) {
+                const email = u.email.toLowerCase().trim();
+                mergedMap.set(email, {
                     id: u.id,
                     firstName: u.first_name,
                     lastName: u.last_name,
-                    email: u.email?.toLowerCase().trim(),
+                    email,
                     password: 'Math1234!',
-                }));
+                });
+            }
+
+            // Shadow-write: create StudentAccessCode for any Thinkific group member not in DB
+            const shadowCreates = pkUsers
+                .filter(u => !dbEmailSet.has(u.email.toLowerCase().trim()))
+                .map(u => base44.asServiceRole.entities.StudentAccessCode.create({
+                    studentEmail: u.email.toLowerCase().trim(),
+                    createdAt: new Date().toISOString(),
+                    createdByTeacherEmail: teacherEmail,
+                    groupId,
+                }).catch(e => console.warn('[getStudents] Shadow create failed:', e.message)));
+            if (shadowCreates.length > 0) {
+                await Promise.all(shadowCreates);
+                console.log(`[getStudents] Shadow-created ${shadowCreates.length} StudentAccessCode records`);
+            }
         }
+
+        const students = Array.from(mergedMap.values());
 
         return Response.json({
             activeStudents: students.filter(s => !archivedEmailSet.has(s.email)),
