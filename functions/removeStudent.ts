@@ -53,41 +53,7 @@ Deno.serve(async (req) => {
             console.warn(`[removeStudent] Thinkific lookup failed: ${e.message}`);
         }
 
-        // Step 2: Fetch enrollments and unenroll from allowed courses one-by-one (with per-item try/catch)
-        let unenrolled = 0;
-        let targetCount = 0;
-        if (thinkificUser?.id) {
-            try {
-                const enrollments = await getEnrollmentsForUser(thinkificUser.id);
-                const targetEnrollments = enrollments.filter(e => UNENROLL_COURSE_IDS.has(String(e.course_id)));
-                targetCount = targetEnrollments.length;
-                console.log(`[removeStudent] Found ${targetCount} target enrollments for ${studentEmail}`);
-
-                for (const enrollment of targetEnrollments) {
-                    try {
-                        const res = await fetch(
-                            `https://api.thinkific.com/api/public/v1/enrollments/${enrollment.id}`,
-                            { method: 'DELETE', headers: thinkificHeaders }
-                        );
-                        if (res.status === 204 || res.status === 404 || res.ok) {
-                            unenrolled++;
-                            console.log(`[removeStudent] ✓ Unenrolled from course ${enrollment.course_id} (enrollment ${enrollment.id})`);
-                        } else {
-                            const body = await res.text();
-                            console.warn(`[removeStudent] DELETE enrollment ${enrollment.id} returned ${res.status}: ${body}`);
-                        }
-                    } catch (err) {
-                        // Log and continue — do not freeze on one failure
-                        console.warn(`[removeStudent] Unenrollment failed for enrollment ${enrollment.id} (course ${enrollment.course_id}): ${err.message}`);
-                    }
-                }
-            } catch (err) {
-                console.warn(`[removeStudent] Could not fetch enrollments, skipping unenrollment: ${err.message}`);
-            }
-            console.log(`[removeStudent] Unenrolled ${unenrolled}/${targetCount} for ${studentEmail}`);
-        }
-
-        // Step 3: Archive in DB — AFTER unenrollment loop finishes
+        // Step 2: State-first — archive immediately so the UI unfreezes regardless of API outcome
         const existing = await base44.asServiceRole.entities.ArchivedStudent.filter({ studentEmail, teacherEmail });
         if (existing.length === 0) {
             await base44.asServiceRole.entities.ArchivedStudent.create({
@@ -101,6 +67,43 @@ Deno.serve(async (req) => {
                 archivedAt: new Date().toISOString(),
             });
             console.log(`[removeStudent] ✓ Archived ${studentEmail}`);
+        }
+
+        // Step 3: Concurrent unenrollment via Promise.allSettled — never freezes on a slow/failed API call
+        let unenrolled = 0;
+        let targetCount = 0;
+        if (thinkificUser?.id) {
+            try {
+                const enrollments = await getEnrollmentsForUser(thinkificUser.id);
+                const targetEnrollments = enrollments.filter(e => UNENROLL_COURSE_IDS.has(String(e.course_id)));
+                targetCount = targetEnrollments.length;
+                console.log(`[removeStudent] Found ${targetCount} active target enrollments for ${studentEmail}`);
+
+                const results = await Promise.allSettled(
+                    targetEnrollments.map(enrollment =>
+                        fetch(
+                            `https://api.thinkific.com/api/public/v1/enrollments/${enrollment.id}`,
+                            { method: 'DELETE', headers: thinkificHeaders }
+                        ).then(res => {
+                            if (res.status === 204 || res.status === 404 || res.ok) {
+                                console.log(`[removeStudent] ✓ Unenrolled course ${enrollment.course_id} (enrollment ${enrollment.id})`);
+                                return true;
+                            }
+                            return res.text().then(body => {
+                                console.warn(`[removeStudent] DELETE ${enrollment.id} → ${res.status}: ${body}`);
+                                return false;
+                            });
+                        })
+                    )
+                );
+
+                unenrolled = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+                const failed = results.filter(r => r.status === 'rejected' || r.value === false).length;
+                if (failed > 0) console.warn(`[removeStudent] ${failed} unenrollment(s) failed — student archived, cleanup may be needed`);
+            } catch (err) {
+                console.warn(`[removeStudent] Could not fetch enrollments, skipping unenrollment: ${err.message}`);
+            }
+            console.log(`[removeStudent] Unenrolled ${unenrolled}/${targetCount} for ${studentEmail}`);
         }
 
         // Step 4: Delete StudentAccessCode record — final cleanup
