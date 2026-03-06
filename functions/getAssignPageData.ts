@@ -74,8 +74,6 @@ Deno.serve(async (req) => {
             return Response.json({ error: "Forbidden: Teacher not enrolled in Your Classroom." }, { status: 403 });
         }
 
-        const base44 = createClientFromRequest(req);
-
         // Fetch DB students + archived in parallel
         const [studentCodes, archivedStudents] = await Promise.all([
             base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
