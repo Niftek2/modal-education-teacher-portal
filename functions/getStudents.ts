@@ -14,6 +14,8 @@ async function getGroupIdForTeacher(teacherEmail, base44) {
     return records?.[0]?.thinkificGroupId || null;
 }
 
+const PK_COURSE_ID = '422595';
+
 async function getGroupMembers(groupId) {
     const res = await fetch(
         `https://api.thinkific.com/api/public/v1/users?query[group_id]=${groupId}&limit=100`,
@@ -22,6 +24,16 @@ async function getGroupMembers(groupId) {
     if (!res.ok) throw new Error(`Failed to fetch group members: ${res.status}`);
     const data = await res.json();
     return data.items || [];
+}
+
+async function isEnrolledInPK(userId) {
+    const res = await fetch(
+        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[course_id]=${PK_COURSE_ID}&limit=1`,
+        { headers: thinkificHeaders }
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    return (data.items?.length || 0) > 0;
 }
 
 Deno.serve(async (req) => {
@@ -41,16 +53,18 @@ Deno.serve(async (req) => {
             base44.asServiceRole.entities.ArchivedStudent.filter({ teacherEmail }),
         ]);
 
-        // Strict roster: only students whose AccessCode record is tied to this exact group
-        const accessCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail, groupId });
-        const rosterEmailSet = new Set(accessCodes.map(r => r.studentEmail?.toLowerCase().trim()).filter(Boolean));
-
         const archivedEmailSet = new Set(
             (archivedRecords || []).map(s => s.studentEmail?.toLowerCase().trim()).filter(Boolean)
         );
 
-        const students = groupUsers
-            .filter(u => u.email?.toLowerCase().endsWith('@modalmath.com') && rosterEmailSet.has(u.email?.toLowerCase().trim()))
+        // Roster = Thinkific group members with @modalmath.com email enrolled in PK (422595)
+        const modalMathUsers = groupUsers.filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
+
+        // Check PK enrollment in parallel for all candidates
+        const pkChecks = await Promise.all(modalMathUsers.map(u => isEnrolledInPK(u.id)));
+
+        const students = modalMathUsers
+            .filter((_, i) => pkChecks[i])
             .map(u => ({
                 id: u.id,
                 firstName: u.first_name,
