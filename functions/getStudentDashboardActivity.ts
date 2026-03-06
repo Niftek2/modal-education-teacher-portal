@@ -1,5 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requireSession } from './lib/auth.js';
+import * as jose from 'npm:jose@5.2.0';
+
+async function requireSession(req) {
+    const JWT_SECRET = Deno.env.get("JWT_SECRET");
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+    const token = authHeader.substring(7);
+    try {
+        const secret = new TextEncoder().encode(JWT_SECRET);
+        const { payload } = await jose.jwtVerify(token, secret);
+        return payload;
+    } catch {
+        return null;
+    }
+}
 
 // Canonical course-level map — covers all known course IDs
 const COURSE_LEVEL_MAP = {
