@@ -1,8 +1,16 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requestRest } from './lib/thinkificClient.ts';
-import { requireSession } from './lib/auth.ts';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import * as jose from 'npm:jose@5.2.0';
 
-// Ordered list of course IDs to enroll each student in, one-by-one
+const THINKIFIC_API_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
+const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
+const JWT_SECRET = Deno.env.get("JWT_SECRET");
+
+const thinkificHeaders = {
+    'Authorization': `Bearer ${THINKIFIC_API_TOKEN}`,
+    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+    'Content-Type': 'application/json',
+};
+
 const COURSE_ENROLLMENTS = [
     { id: '3359727', name: 'Assignments' },
     { id: '422595',  name: 'PK' },
@@ -14,79 +22,88 @@ const COURSE_ENROLLMENTS = [
     { id: '496298',  name: 'L5' },
 ];
 
+async function requireSession(req) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+    const token = authHeader.substring(7);
+    try {
+        const secret = new TextEncoder().encode(JWT_SECRET);
+        const { payload } = await jose.jwtVerify(token, secret);
+        return payload;
+    } catch {
+        return null;
+    }
+}
+
 function generateStudentEmail(firstName, lastInitial) {
     const randomDigits = Math.floor(1000 + Math.random() * 9000);
     const cleanFirst = firstName.toLowerCase().replace(/[^a-z]/g, '');
-    // Take only the first character of lastInitial
     const cleanLast = (lastInitial || '').charAt(0).toLowerCase().replace(/[^a-z]/, '');
     return `${cleanFirst}${cleanLast}${randomDigits}@modalmath.com`;
 }
 
-// Check if a Thinkific user already exists by email
 async function findThinkificUserByEmail(email) {
-    const res = await requestRest('/users', 'GET', { 'query[email]': email });
-    if (res.ok && res.data?.items?.length > 0) {
-        return res.data.items[0].id;
-    }
-    return null;
+    const res = await fetch(
+        `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(email)}`,
+        { headers: thinkificHeaders }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.items?.[0]?.id || null;
 }
 
-// Create a new Thinkific user, or return the existing user's ID if email is taken
 async function provisionThinkificUser(firstName, lastInitial) {
     for (let attempt = 0; attempt < 5; attempt++) {
         const email = generateStudentEmail(firstName, lastInitial);
-
-        // Check-before-create: skip POST if user already exists
         const existingId = await findThinkificUserByEmail(email);
         if (existingId) {
             console.log(`[addStudents] Found existing user for ${email} (id=${existingId})`);
             return { userId: existingId, email };
         }
-
-        const createRes = await requestRest('/users', 'POST', null, {
-            first_name: firstName,
-            last_name: lastInitial.charAt(0).toUpperCase(),
-            email,
-            password: 'Math1234!',
-            send_welcome_email: false,
+        const res = await fetch('https://api.thinkific.com/api/public/v1/users', {
+            method: 'POST',
+            headers: thinkificHeaders,
+            body: JSON.stringify({
+                first_name: firstName,
+                last_name: lastInitial.charAt(0).toUpperCase(),
+                email,
+                password: 'Math1234!',
+                send_welcome_email: false,
+            }),
         });
-
-        if (createRes.ok) {
-            return { userId: createRes.data.id, email };
-        }
-
-        const errMsg = (createRes.data?.message || createRes.data?.errors?.[0]?.message || '').toLowerCase();
-
-        if (createRes.status === 422 && (errMsg.includes('taken') || errMsg.includes('already'))) {
-            // Email collision on a generated address — retry with a new one
-            continue;
-        }
-
-        throw new Error(createRes.data?.message || createRes.data?.errors?.[0]?.message || `Failed to create user (${createRes.status})`);
+        const data = await res.json();
+        if (res.ok) return { userId: data.id, email };
+        const errMsg = (data?.message || data?.errors?.[0]?.message || '').toLowerCase();
+        if (res.status === 422 && (errMsg.includes('taken') || errMsg.includes('already'))) continue;
+        throw new Error(data?.message || data?.errors?.[0]?.message || `Failed to create user (${res.status})`);
     }
     throw new Error('Failed to generate a unique student email after 5 attempts');
 }
 
 async function addToGroup(userId, groupId) {
-    const res = await requestRest(`/groups/${groupId}/members`, 'POST', null, { user_id: userId });
-    if (res.ok) return;
-    // Treat "Not Found" or "Already Member" as non-fatal success states
-    if (res.status === 404 || res.status === 422) return;
-    throw new Error(`Failed to add to group: ${res.data?.message || `status ${res.status}`}`);
+    const res = await fetch(`https://api.thinkific.com/api/public/v1/groups/${groupId}/members`, {
+        method: 'POST',
+        headers: thinkificHeaders,
+        body: JSON.stringify({ user_id: userId }),
+    });
+    if (res.ok || res.status === 404 || res.status === 422) return;
+    throw new Error(`Failed to add to group: status ${res.status}`);
 }
 
 async function enrollInCourse(userId, courseId) {
-    const res = await requestRest('/enrollments', 'POST', null, {
-        user_id: userId,
-        course_id: parseInt(courseId, 10),
-        activated_at: new Date().toISOString(),
+    const res = await fetch('https://api.thinkific.com/api/public/v1/enrollments', {
+        method: 'POST',
+        headers: thinkificHeaders,
+        body: JSON.stringify({
+            user_id: userId,
+            course_id: parseInt(courseId, 10),
+            activated_at: new Date().toISOString(),
+        }),
     });
     if (res.ok) return true;
-    // Treat "already enrolled" as success — idempotent
-    const errMsg = (res.data?.message || res.data?.errors?.[0]?.message || '').toLowerCase();
-    if (res.status === 422 && (errMsg.includes('already enrolled') || errMsg.includes('already been taken'))) {
-        return true;
-    }
+    const data = await res.json().catch(() => ({}));
+    const errMsg = (data?.message || data?.errors?.[0]?.message || '').toLowerCase();
+    if (res.status === 422 && (errMsg.includes('already enrolled') || errMsg.includes('already been taken'))) return true;
     return false;
 }
 
@@ -106,7 +123,7 @@ async function getActiveStudentCount(teacherEmail, base44) {
 
 Deno.serve(async (req) => {
     try {
-        const session = await requireSession(req).catch(() => null);
+        const session = await requireSession(req);
         const base44 = createClientFromRequest(req);
         const { teacherEmail: bodyEmail, students, groupId: providedGroupId } = await req.json();
 
@@ -117,7 +134,7 @@ Deno.serve(async (req) => {
         if (students.length > 10)
             return Response.json({ error: 'Maximum 10 students per request' }, { status: 400 });
 
-        const groupId = providedGroupId;
+        const groupId = providedGroupId || null;
 
         const activeCount = await getActiveStudentCount(teacherEmail, base44);
         if (activeCount + students.length > 10)
@@ -130,8 +147,7 @@ Deno.serve(async (req) => {
                 const { userId, email } = await provisionThinkificUser(student.firstName, student.lastInitial);
                 const normalizedEmail = email.toLowerCase().trim();
 
-                // Always persist to StudentAccessCode so this teacher's roster is correct
-                // Non-fatal: enrollment is the priority if DB write fails
+                // Save to StudentAccessCode with groupId — this is the Assign page's source of truth
                 try {
                     await base44.asServiceRole.entities.StudentAccessCode.create({
                         studentEmail: normalizedEmail,
@@ -143,26 +159,23 @@ Deno.serve(async (req) => {
                     console.error(`[addStudents] DB write failed for ${normalizedEmail}:`, dbErr.message);
                 }
 
-                // Add to group (non-fatal: enrollment proceeds regardless)
+                // Add to teacher's Thinkific group — this is the Roster page's source of truth
                 if (groupId) {
                     try {
                         await addToGroup(userId, groupId);
                     } catch (groupErr) {
-                        console.warn(`[addStudents] Group add failed for userId=${userId}, continuing:`, groupErr.message);
+                        console.warn(`[addStudents] Group add failed for userId=${userId}:`, groupErr.message);
                     }
                 }
 
-                // Sequential per-course enrollment with granular error reporting
+                // Enroll in all courses sequentially
                 const enrollmentResults = [];
                 const failedCourses = [];
                 for (const course of COURSE_ENROLLMENTS) {
                     try {
                         const ok = await enrollInCourse(userId, course.id);
                         enrollmentResults.push({ course: course.name, success: ok });
-                        if (!ok) {
-                            console.warn(`[addStudents] Enrollment non-ok for ${course.name} (userId=${userId})`);
-                            failedCourses.push(course.name);
-                        }
+                        if (!ok) failedCourses.push(course.name);
                     } catch (err) {
                         console.error(`[addStudents] Failed to enroll in ${course.name}:`, err.message);
                         enrollmentResults.push({ course: course.name, success: false, error: err.message });
