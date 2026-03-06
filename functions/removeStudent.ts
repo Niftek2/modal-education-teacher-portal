@@ -24,7 +24,7 @@ async function findUserByEmail(email) {
 
 async function getEnrollmentsForUser(userId) {
     const res = await fetch(
-        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&limit=250`,
+        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[status]=active&limit=250`,
         { headers: thinkificHeaders }
     );
     if (!res.ok) throw new Error(`Failed to fetch enrollments: ${res.status}`);

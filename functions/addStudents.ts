@@ -74,7 +74,15 @@ async function provisionThinkificUser(firstName, lastInitial) {
         const data = await res.json();
         if (res.ok) return { userId: data.id, email };
         const errMsg = (data?.message || data?.errors?.[0]?.message || '').toLowerCase();
-        if (res.status === 422 && (errMsg.includes('taken') || errMsg.includes('already'))) continue;
+        if (res.status === 422 && (errMsg.includes('taken') || errMsg.includes('already'))) {
+            // Email collision — look up the existing user and return them instead of retrying blindly
+            const existingId = await findThinkificUserByEmail(email);
+            if (existingId) {
+                console.log(`[addStudents] 422 collision recovered: found existing userId=${existingId} for ${email}`);
+                return { userId: existingId, email };
+            }
+            continue; // still no match, try a new random email
+        }
         throw new Error(data?.message || data?.errors?.[0]?.message || `Failed to create user (${res.status})`);
     }
     throw new Error('Failed to generate a unique student email after 5 attempts');

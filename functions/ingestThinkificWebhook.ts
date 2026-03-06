@@ -258,13 +258,13 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
     const created = await base44.asServiceRole.entities.ActivityEvent.create(activity);
     console.log(`[WEBHOOK] ✓ Quiz attempted saved: ${created.id}`);
 
-    // Update StudentProfile with the resolved level so the roster reflects the student's current level
+    // Update StudentProfile level only if it has changed (avoids redundant DB writes)
     if (level) {
         try {
             const profiles = await base44.asServiceRole.entities.StudentProfile.filter({ thinkificUserId: userId });
-            if (profiles.length > 0) {
+            if (profiles.length > 0 && profiles[0].level !== level) {
                 await base44.asServiceRole.entities.StudentProfile.update(profiles[0].id, { level });
-                console.log(`[WEBHOOK] ✓ StudentProfile level updated: userId=${userId} → ${level}`);
+                console.log(`[WEBHOOK] ✓ StudentProfile level updated: userId=${userId} ${profiles[0].level || 'null'} → ${level}`);
             }
         } catch (profileErr) {
             console.warn(`[WEBHOOK] StudentProfile level update failed: ${profileErr.message}`);
