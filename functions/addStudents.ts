@@ -137,6 +137,7 @@ Deno.serve(async (req) => {
                         studentEmail: normalizedEmail,
                         createdAt: new Date().toISOString(),
                         createdByTeacherEmail: teacherEmail,
+                        groupId: groupId || null,
                     });
                 } catch (dbErr) {
                     console.error(`[addStudents] DB write failed for ${normalizedEmail}:`, dbErr.message);
