@@ -76,9 +76,12 @@ Deno.serve(async (req) => {
         
         console.log(`[WEBHOOK] Received ${eventType}, ID: ${webhookId}`);
         
+        // Email extraction: lesson.completed/quiz.attempted use payload.user.email;
+        // user.signin/user.signup use payload.email directly (no nested user object).
         const webhookStudentEmail = (payload?.user?.email || payload?.email || '').toLowerCase().trim();
+        console.log(`[WEBHOOK] Email resolved: "${webhookStudentEmail}" from payload.user.email="${payload?.user?.email}" | payload.email="${payload?.email}"`);
         if (webhookStudentEmail === 'azizae414@modalmath.com') {
-            console.log(`[WEBHOOK DEBUG AZIZA] Received webhook for Aziza: EventType=${eventType}, WebhookId=${webhookId}, UserId=${payload?.user?.id}, QuizId=${payload?.quiz?.id}, Email=${webhookStudentEmail}`);
+            console.log(`[WEBHOOK DEBUG AZIZA] EventType=${eventType}, WebhookId=${webhookId}, UserId=${payload?.user?.id}, QuizId=${payload?.quiz?.id}, CourseId=${payload?.course?.id}, Email=${webhookStudentEmail}`);
         }
 
         if (!webhookId || !resource || !action) {
