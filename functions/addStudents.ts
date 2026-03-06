@@ -81,13 +81,17 @@ async function provisionThinkificUser(firstName, lastInitial) {
 }
 
 async function addToGroup(userId, groupId) {
-    // Thinkific requires POST /group_memberships with {group_id, user_id}
+    // Thinkific requires POST /group_memberships with numeric {group_id, user_id}
     const res = await fetch('https://api.thinkific.com/api/public/v1/group_memberships', {
         method: 'POST',
         headers: thinkificHeaders,
-        body: JSON.stringify({ group_id: parseInt(groupId, 10), user_id: parseInt(userId, 10) }),
+        body: JSON.stringify({ group_id: Number(groupId), user_id: Number(userId) }),
     });
-    if (res.ok || res.status === 422) return; // 422 = already a member, that's fine
+    if (res.ok) return;
+    if (res.status === 422) {
+        console.log(`[addStudents] Already member: userId=${userId} groupId=${groupId} — treating as success`);
+        return;
+    }
     const body = await res.text();
     throw new Error(`Failed to add to group: status ${res.status} — ${body}`);
 }
