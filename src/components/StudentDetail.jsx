@@ -22,89 +22,49 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const loadData = async () => {
         setLoading(true);
         try {
-            // Use teacher-scoped activity endpoint
-            const response = await api.call('getStudentActivityForTeacher', {
-                sessionToken
-            }, sessionToken);
-            
+            const response = await api.call('getStudentActivityForTeacher', { sessionToken }, sessionToken);
             const events = response.events || [];
-            console.log(`[StudentDetail] Total events returned: ${events.length}`);
-            
-            // Filter to this specific student's events by email (primary identifier)
             const studentEmail = (student?.email || student?.studentEmail || '').toLowerCase().trim();
-            console.log(`[StudentDetail] Filtering for studentEmail: ${studentEmail}`);
-            
-            const studentEvents = events.filter(e => {
-                const eventEmail = (e.studentEmail || '').toLowerCase().trim();
-                return eventEmail === studentEmail;
-            });
-            console.log(`[StudentDetail] Filtered to ${studentEvents.length} events for ${studentEmail}`);
-            
-            // Split into quizzes and lessons
-            const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted' || e.eventType === 'quiz.attempted');
-            
-            const quizList = quizAttempts.map((e, idx) => {
-                const metadata = e.metadata || {};
-                // Grade is already normalized to percentage by webhook handler
-                const displayPercentage = typeof e.grade === 'number' ? e.grade : null;
-                const courseName = (e.courseName && typeof e.courseName === 'string' && e.courseName.trim()) ? e.courseName.trim() : 'Elementary';
-                
-                const mapped = {
-                    quizName: e.lessonName || e.contentTitle || 'Unknown Quiz',
-                    quizId: e.lessonId || e.contentId || null,
-                    courseName: courseName,
-                    level: courseName,
-                    percentage: displayPercentage,
-                    completedAt: e.occurredAt,
-                    attempts: e.attemptNumber || metadata.attemptNumber,
-                    correctCount: e.correctCount || metadata.correctCount,
-                    incorrectCount: e.incorrectCount || metadata.incorrectCount,
-                    source: e.source
-                };
-                
-                if (idx < 3) {
-                    console.log(`[StudentDetail] Quiz ${idx}:`, {
-                        rawFields: { lessonName: e.lessonName, grade: e.grade, attemptNumber: e.attemptNumber, source: e.source },
-                        mappedFields: { quizName: mapped.quizName, percentage: mapped.percentage, attempts: mapped.attempts }
-                    });
-                }
-                
-                return mapped;
-            });
-            
-            console.log(`[StudentDetail] Found ${quizList.length} quiz attempts:`, quizList.slice(0, 3));
 
-            // Group quizzes by quizId or normalized title
+            const studentEvents = events.filter(e => (e.studentEmail || '').toLowerCase().trim() === studentEmail);
+            const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted' || e.eventType === 'quiz.attempted');
+
+            const quizList = quizAttempts.map(e => ({
+                quizName: (e.lessonName || e.contentTitle || 'Unknown Quiz').trim(),
+                quizId: e.lessonId || e.contentId || null,
+                level: (e.courseName || 'Elementary').trim(),
+                percentage: typeof e.grade === 'number' ? e.grade : null,
+                completedAt: e.occurredAt,
+                attemptNumber: e.attemptNumber || e.metadata?.attemptNumber || 1,
+                correctCount: e.correctCount,
+                incorrectCount: e.incorrectCount,
+                source: e.source
+            }));
+
             const groupedQuizzes = {};
             quizList.forEach(quiz => {
-                const groupKey = quiz.quizId || quiz.quizName.toLowerCase();
-                if (!groupedQuizzes[groupKey]) {
-                    groupedQuizzes[groupKey] = [];
-                }
+                const groupKey = quiz.quizId || quiz.quizName.toLowerCase().replace(/\s+/g, '');
+                if (!groupedQuizzes[groupKey]) groupedQuizzes[groupKey] = [];
                 groupedQuizzes[groupKey].push(quiz);
             });
 
-            // Build flattened structure with group info
             const flatQuizzes = [];
             Object.values(groupedQuizzes).forEach(group => {
-                const sortedGroup = group.sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
-                const scores = sortedGroup
-                    .map(q => q.percentage)
-                    .filter(s => typeof s === 'number' && !Number.isNaN(s));
-                const bestScore = scores.length > 0 ? Math.max(...scores) : null;
-                const latestAttempt = sortedGroup[sortedGroup.length - 1];
-                const latestScore = typeof latestAttempt.percentage === 'number' && !Number.isNaN(latestAttempt.percentage) 
-                    ? latestAttempt.percentage 
-                    : null;
-                
-                sortedGroup.forEach((quiz, idx) => {
+                const sortedByTime = group.sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
+                const scores = sortedByTime.map(q => q.percentage).filter(s => s !== null);
+                const groupBest = scores.length > 0 ? Math.max(...scores) : null;
+                const groupLatest = scores[scores.length - 1] ?? null;
+                const groupEarliest = scores[0] ?? null;
+                const growth = scores.length > 1 ? (groupLatest - groupEarliest) : null;
+
+                sortedByTime.forEach((quiz, idx) => {
                     flatQuizzes.push({
                         ...quiz,
                         attemptIndex: idx + 1,
-                        groupSize: sortedGroup.length,
-                        groupBest: bestScore,
-                        groupLatestScore: latestScore,
-                        groupLatestDate: latestAttempt.completedAt,
+                        totalAttempts: sortedByTime.length,
+                        groupBest,
+                        groupLatestScore: groupLatest,
+                        groupGrowth: growth,
                         isFirstInGroup: idx === 0
                     });
                 });
