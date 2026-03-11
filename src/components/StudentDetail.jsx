@@ -72,14 +72,23 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
 
             setQuizzes(flatQuizzes);
 
+            const COURSE_LEVEL_MAP = {
+                '422595': 'PK', '422618': 'K', '422620': 'L1',
+                '496294': 'L2', '496295': 'L3', '496297': 'L4', '496298': 'L5',
+            };
+
             const lessonEvents = studentEvents
                 .filter(e => e.eventType === 'lesson_completed' || e.eventType === 'lesson.completed')
-                .map(e => ({
-                    lessonName: e.lessonName || 'Unknown Lesson',
-                    courseName: e.courseName || 'Elementary',
-                    completedAt: e.occurredAt,
-                    source: e.source
-                }))
+                .map(e => {
+                    const resolvedLevel = COURSE_LEVEL_MAP[String(e.courseId)] ||
+                        (e.courseName && e.courseName !== 'Elementary' ? e.courseName : 'PK');
+                    return {
+                        lessonName: e.lessonName || 'Unknown Lesson',
+                        courseName: resolvedLevel,
+                        completedAt: e.occurredAt,
+                        source: e.source
+                    };
+                })
                 .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
             setLessons(lessonEvents);
         } catch (error) {
