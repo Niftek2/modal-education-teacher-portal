@@ -235,7 +235,7 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
     const activity = {
         thinkificUserId: userId,
         source: 'webhook',
-        eventType: 'quiz.attempted',
+        eventType: 'quiz_attempted',
         occurredAt,
         dedupeKey,
         webhookEventId: String(webhookId),

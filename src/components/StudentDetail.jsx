@@ -41,7 +41,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             console.log(`[StudentDetail] Filtered to ${studentEvents.length} events for ${studentEmail}`);
             
             // Split into quizzes and lessons
-            const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted');
+            const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted' || e.eventType === 'quiz.attempted');
             
             const quizList = quizAttempts.map((e, idx) => {
                 const metadata = e.metadata || {};
@@ -113,7 +113,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             setQuizzes(flatQuizzes);
 
             const lessonEvents = studentEvents
-                .filter(e => e.eventType === 'lesson_completed')
+                .filter(e => e.eventType === 'lesson_completed' || e.eventType === 'lesson.completed')
                 .map(e => ({
                     lessonName: e.lessonName || 'Unknown Lesson',
                     courseName: e.courseName || 'Elementary',
