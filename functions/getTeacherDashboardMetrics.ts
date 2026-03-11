@@ -162,34 +162,30 @@ Deno.serve(async (req) => {
             });
         }
 
-        const allEvents = await base44.asServiceRole.entities.ActivityEvent.filter({});
-        const rosterEvents = allEvents.filter(e => 
-            rosterEmails.includes(e.studentEmail?.toLowerCase().trim())
-        );
+        // Targeted DB-level filter — only fetch events for this teacher's students
+        const rosterEvents = await base44.asServiceRole.entities.ActivityEvent.filter({
+            studentEmail: { _in: rosterEmails }
+        });
 
-        const quizEvents = rosterEvents.filter(e => 
-            e.eventType === 'quiz_attempted' || e.eventType === 'quiz.attempted'
+        const quizEvents = rosterEvents.filter(e =>
+            e.eventType === 'quiz.attempted' || e.eventType === 'quiz_attempted'
         );
-        const totalQuizAttemptsAllTime = quizEvents.length;
 
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const sevenDaysAgoISO = sevenDaysAgo.toISOString();
-        const nowISO = new Date().toISOString();
-        
-        const signinEvents = rosterEvents.filter(e => {
+
+        const recentSignins = rosterEvents.filter(e => {
             const isSignin = e.eventType === 'user_signin' || e.eventType === 'user.signin';
-            const inTimeWindow = e.occurredAt >= sevenDaysAgoISO && e.occurredAt <= nowISO;
-            return isSignin && inTimeWindow;
+            return isSignin && e.occurredAt >= sevenDaysAgoISO;
         });
 
-        const uniqueStudentsThisWeek = new Set(
-            signinEvents.map(e => e.studentEmail?.toLowerCase().trim())
-        );
-        const activeStudentsThisWeek = uniqueStudentsThisWeek.size;
+        const activeStudentsThisWeek = new Set(
+            recentSignins.map(e => e.studentEmail?.toLowerCase().trim())
+        ).size;
 
         return Response.json({
-            totalQuizAttemptsAllTime,
+            totalQuizAttemptsAllTime: quizEvents.length,
             activeStudentsThisWeek
         });
 
