@@ -1,5 +1,20 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requireSession } from './lib/auth.js';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import * as jose from 'npm:jose@5.2.0';
+
+const JWT_SECRET = Deno.env.get("JWT_SECRET");
+
+async function requireSession(req) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+    const token = authHeader.substring(7);
+    try {
+        const secret = new TextEncoder().encode(JWT_SECRET);
+        const { payload } = await jose.jwtVerify(token, secret);
+        return payload;
+    } catch {
+        return null;
+    }
+}
 
 const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
