@@ -75,10 +75,8 @@ Deno.serve(async (req) => {
         }
 
         if (groupUsersResult !== null) {
-            // Filter group members to @modalmath.com + PK enrolled
-            const modalMathUsers = groupUsersResult.filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
-            const pkChecks = await Promise.all(modalMathUsers.map(u => isEnrolledInPK(u.id)));
-            const pkUsers = modalMathUsers.filter((_, i) => pkChecks[i]);
+            // Filter group members to @modalmath.com only — they are students by definition
+            const pkUsers = groupUsersResult.filter(u => u.email?.toLowerCase().endsWith('@modalmath.com'));
 
             // Merge Thinkific data into map — always overwrites DB stubs so id is never null for synced students
             for (const u of pkUsers) {
