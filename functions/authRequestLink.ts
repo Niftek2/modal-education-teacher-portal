@@ -98,7 +98,11 @@ Deno.serve(async (req) => {
         
         const encoder = new TextEncoder();
         const data = encoder.encode(emailContent);
-        const base64 = btoa(String.fromCharCode(...data))
+        let base64 = '';
+        for (let i = 0; i < data.length; i += 8192) {
+            base64 += String.fromCharCode(...data.subarray(i, i + 8192));
+        }
+        base64 = btoa(base64)
             .replace(/\+/g, '-')
             .replace(/\//g, '_')
             .replace(/=+$/, '');
