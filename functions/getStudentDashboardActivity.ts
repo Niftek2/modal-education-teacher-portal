@@ -127,8 +127,6 @@ Deno.serve(async (req) => {
             .slice(0, limit);
 
         console.log(`[DASHBOARD ACTIVITY] Returning ${filtered.length} filtered events`);
-        const azizaEvents = filtered.filter(e => (e.studentEmail || '').toLowerCase().trim() === 'azizae414@modalmath.com');
-        console.log(`[DASHBOARD ACTIVITY] Aziza events in result: ${azizaEvents.length}`);
 
         return Response.json({ studentEmails, events: filtered }, { status: 200 });
     } catch (error) {
