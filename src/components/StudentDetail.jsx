@@ -204,8 +204,8 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
                                     <div className="space-y-3">
                                        {getSortedQuizzes().reduce((groups, quiz, idx) => {
                                            const lastGroup = groups[groups.length - 1];
-                                           const groupKey = quiz.quizId || quiz.quizName.toLowerCase();
-                                           const lastGroupKey = lastGroup ? (lastGroup.attempts[0].quizId || lastGroup.attempts[0].quizName.toLowerCase()) : null;
+                                           const groupKey = quiz.quizId || quiz.quizName.toLowerCase().replace(/\s+/g, '');
+                                           const lastGroupKey = lastGroup ? (lastGroup.attempts[0].quizId || lastGroup.attempts[0].quizName.toLowerCase().replace(/\s+/g, '')) : null;
 
                                            if (!lastGroup || groupKey !== lastGroupKey) {
                                                groups.push({ attempts: [quiz] });
