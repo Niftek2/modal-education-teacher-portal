@@ -88,7 +88,6 @@ Deno.serve(async (req) => {
         console.log(`[DASHBOARD ACTIVITY] Total events fetched: ${allEvents.length}`);
 
         const filtered = allEvents
-            .map(e => e)
             .map(e => {
                 const normalizedEventType = normalizeEventType(e.eventType);
 
