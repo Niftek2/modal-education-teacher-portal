@@ -1,36 +1,40 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import * as jose from 'npm:jose@5.2.0';
 
-import * as thinkific from './lib/thinkificClient.js';
-
 const CLASSROOM_PRODUCT_ID = Deno.env.get("CLASSROOM_PRODUCT_ID");
 const MAGIC_LINK_SECRET = Deno.env.get("MAGIC_LINK_SECRET");
+const THINKIFIC_API_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
+const REST_BASE = "https://api.thinkific.com/api/public/v1";
+
+async function thinkificGet(path, query = {}) {
+    const url = new URL(REST_BASE + path);
+    Object.entries(query).forEach(([k, v]) => url.searchParams.append(k, v));
+    const res = await fetch(url.toString(), {
+        headers: { 'Authorization': `Bearer ${THINKIFIC_API_TOKEN}`, 'Content-Type': 'application/json' }
+    });
+    return res.json();
+}
 
 async function findThinkificUser(email) {
     console.log('Looking up user:', email);
-    return await thinkific.findUserByEmail(email);
+    const data = await thinkificGet('/users', { 'query[email]': email });
+    const users = data.items || [];
+    return users.length > 0 ? users[0] : null;
 }
 
 function isPortalAdmin(email) {
-    // Allowlist of emails that can access the portal without classroom enrollment
     const allowlistedEmails = ['modalmath@gmail.com'];
     return allowlistedEmails.includes(email.toLowerCase());
 }
 
 async function verifyClassroomEnrollment(userId) {
-    // Check if teacher is enrolled in the "your classroom" course using SDK
-    const enrollments = await thinkific.listEnrollments({
+    const data = await thinkificGet('/enrollments', {
         'query[user_id]': userId,
         'query[course_id]': CLASSROOM_PRODUCT_ID
     });
-    
+    const enrollments = data.items || [];
     console.log('Enrollments found for course:', enrollments.length);
-    
-    // Check if user has an active enrollment
-    const hasActive = enrollments.some(enrollment => {
-        return enrollment.activated_at && !enrollment.expired;
-    });
-    
+    const hasActive = enrollments.some(e => e.activated_at && !e.expired);
     console.log('Has active enrollment:', hasActive);
     return hasActive;
 }
