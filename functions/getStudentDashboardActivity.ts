@@ -75,21 +75,20 @@ Deno.serve(async (req) => {
 
         console.log(`[DASHBOARD ACTIVITY] Roster size: ${studentEmails.length}`, studentEmails);
 
-        // Fetch all activity events (most recent first) — no teacher/group filter at DB level
-        const allEvents = await base44.asServiceRole.entities.ActivityEvent.list('-occurredAt', limit);
+        if (studentEmails.length === 0) {
+            return Response.json({ studentEmails, events: [] }, { status: 200 });
+        }
+
+        // Targeted DB filter — only fetch events for this teacher's students
+        const allEvents = await base44.asServiceRole.entities.ActivityEvent.filter(
+            { studentEmail: { _in: studentEmails } },
+            '-occurredAt',
+            limit
+        );
         console.log(`[DASHBOARD ACTIVITY] Total events fetched: ${allEvents.length}`);
 
-        const studentEmailSet = new Set(studentEmails);
-
         const filtered = allEvents
-            .filter(e => {
-                const eventEmail = (e.studentEmail || '').toLowerCase().trim();
-                const matches = studentEmailSet.has(eventEmail);
-                if (eventEmail === 'azizae414@modalmath.com') {
-                    console.log(`[DASHBOARD ACTIVITY] Aziza event: ${e.eventType}, courseId=${e.courseId}, level=${e.level}, matches=${matches}`);
-                }
-                return matches;
-            })
+            .map(e => e)
             .map(e => {
                 const normalizedEventType = normalizeEventType(e.eventType);
 
