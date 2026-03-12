@@ -35,7 +35,8 @@ const ALLOWED_REST_PATTERNS = [
     /^\/chapters(\?|$)/,              // /chapters?query[course_id]=...
     /^\/contents(\?|$)/,              // /contents?query[chapter_id]=...
     /^\/groups\/\d+\/members(\?|$)/,  // /groups/{id}/members (add user to group)
-    /^\/users$/                        // POST /users (create user)
+    /^\/users$/,                       // POST /users (create user)
+    /^\/group_users\/\d+(\?|$)/,      // /group_users/{id} (DELETE membership)
 ];
 
 function validateRestPath(path) {
@@ -167,6 +168,30 @@ export async function getCourse(courseId) {
     const result = await requestRest(`/courses/${courseId}`);
     if (!result.ok) throw new Error(`Course not found: ${courseId}`);
     return result.data;
+}
+
+/**
+ * Get a group membership record for a specific user in a group
+ * Returns the membership object (with .id) or null if not found
+ */
+export async function getGroupMembership(groupId, userId) {
+    const result = await requestRest('/group_users', 'GET', {
+        'query[group_id]': String(groupId),
+        'query[user_id]': String(userId)
+    });
+    const items = result.data?.items || [];
+    return items.length > 0 ? items[0] : null;
+}
+
+/**
+ * Delete a group membership by membership ID
+ */
+export async function deleteGroupMembership(membershipId) {
+    const result = await requestRest(`/group_users/${membershipId}`, 'DELETE');
+    if (!result.ok && result.status !== 404) {
+        throw new Error(`Failed to delete group membership ${membershipId} (status ${result.status})`);
+    }
+    return true;
 }
 
 /**
