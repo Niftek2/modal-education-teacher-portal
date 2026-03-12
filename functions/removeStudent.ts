@@ -1,6 +1,18 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import * as jose from 'npm:jose@5.2.0';
 
+const JWT_SECRET = Deno.env.get("JWT_SECRET");
 const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
+
+async function verifySessionToken(token) {
+    try {
+        const secret = new TextEncoder().encode(JWT_SECRET);
+        const { payload } = await jose.jwtVerify(token, secret);
+        return payload;
+    } catch {
+        return null;
+    }
+}
 
 // Only unenroll from academic courses + Your Classroom; NOT from the Assignments course (3359727)
 const UNENROLL_COURSE_IDS = new Set(['422595', '422618', '422620', '496294', '496295', '496297', '496298', '552235']);
@@ -52,10 +64,19 @@ async function deleteGroupMembership(membershipId) {
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const { studentEmail: rawStudentEmail, teacherEmail: rawTeacherEmail, groupId, teacherThinkificUserId } = await req.json();
+        const body = await req.json();
+        const { studentEmail: rawStudentEmail, groupId, teacherThinkificUserId, sessionToken } = body;
+
+        // Derive teacherEmail from JWT session token (preferred) or fall back to body field
+        let teacherEmail = body.teacherEmail?.toLowerCase().trim();
+        if (sessionToken) {
+            const session = await verifySessionToken(sessionToken);
+            if (session?.email) {
+                teacherEmail = session.email.toLowerCase().trim();
+            }
+        }
 
         const studentEmail = rawStudentEmail?.toLowerCase().trim();
-        const teacherEmail = rawTeacherEmail?.toLowerCase().trim();
 
         if (!studentEmail) return Response.json({ error: 'studentEmail is required' }, { status: 400 });
         if (!teacherEmail) return Response.json({ error: 'teacherEmail is required' }, { status: 400 });

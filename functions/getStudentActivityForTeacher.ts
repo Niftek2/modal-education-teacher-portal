@@ -49,16 +49,18 @@ Deno.serve(async (req) => {
 
     try {
         const body = await req.json();
-        const { limit = 5000, studentEmails: providedEmails } = body;
+        const { limit = 5000, studentEmails: providedEmails, email: singleEmail } = body;
 
         const teacherEmail = session.email?.toLowerCase().trim();
         console.log(`[DASHBOARD ACTIVITY] Teacher: ${teacherEmail}`);
 
         const base44 = createClientFromRequest(req);
 
-        // Resolve roster: use provided list OR pull from StudentAccessCode + ArchivedStudent
+        // Resolve roster: single email shortcut → provided list → full roster lookup
         let studentEmails;
-        if (Array.isArray(providedEmails) && providedEmails.length > 0) {
+        if (singleEmail) {
+            studentEmails = [singleEmail.toLowerCase().trim()];
+        } else if (Array.isArray(providedEmails) && providedEmails.length > 0) {
             studentEmails = providedEmails.map(e => e.toLowerCase().trim());
         } else {
             const [accessCodes, archivedStudents] = await Promise.all([
