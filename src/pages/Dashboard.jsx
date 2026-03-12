@@ -24,6 +24,7 @@ export default function Dashboard() {
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [showStudentDetail, setShowStudentDetail] = useState(false);
     const [showSnapshot, setShowSnapshot] = useState(false);
+    const [showHistoricalModal, setShowHistoricalModal] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
