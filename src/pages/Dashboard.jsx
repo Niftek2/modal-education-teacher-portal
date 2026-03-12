@@ -62,7 +62,7 @@ export default function Dashboard() {
                 setStudentActivities(activityResponse.events || []);
 
                 // Persist roster for Assign page
-                const rosterEmails = activityResponse.studentEmails || [];
+                const rosterEmails = active.map(s => s.email);
                 if (rosterEmails.length > 0) {
                     localStorage.setItem('mm_teacher_roster_emails', JSON.stringify(rosterEmails));
                     localStorage.setItem('mm_teacher_roster_saved_at', new Date().toISOString());
