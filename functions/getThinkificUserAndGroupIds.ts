@@ -47,10 +47,14 @@ Deno.serve(async (req) => {
         }
 
         // If multiple groups with same name, try to find the one with the student
+        const targetEmailLower = studentEmail.toLowerCase();
         let targetGroup = null;
         for (const group of matchingGroups) {
             const groupUsers = await listGroupUsers(group.id);
-            const studentInGroup = groupUsers.find(u => (u.user?.email || u.email) === studentEmail);
+            const studentInGroup = groupUsers.find(u =>
+                (u.user?.email?.toLowerCase() === targetEmailLower) ||
+                (u.email?.toLowerCase() === targetEmailLower)
+            );
             if (studentInGroup) {
                 targetGroup = group;
                 console.log(`[LOOKUP] Found student in group ID ${group.id}`);
