@@ -105,12 +105,11 @@ async function getActiveStudentCount(teacherEmail, base44) {
 
 Deno.serve(async (req) => {
     try {
-        const session = await requireSession(req);
         const base44 = createClientFromRequest(req);
         const { teacherEmail: bodyEmail, students, groupId: providedGroupId } = await req.json();
 
-        const teacherEmail = (bodyEmail || session?.email)?.toLowerCase().trim();
-        if (!teacherEmail) return Response.json({ error: 'teacherEmail is required (Unauthorized)' }, { status: 401 });
+        const teacherEmail = bodyEmail?.toLowerCase().trim();
+        if (!teacherEmail) return Response.json({ error: 'teacherEmail is required' }, { status: 400 });
         if (!students || !Array.isArray(students) || students.length === 0)
             return Response.json({ error: 'students array is required' }, { status: 400 });
         if (students.length > 10)
