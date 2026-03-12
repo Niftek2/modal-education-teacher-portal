@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Plus, Search, AlertCircle, Settings } from 'lucide-react';
+import { LogOut, Plus, Search, AlertCircle, Settings, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -276,6 +276,14 @@ export default function Dashboard() {
             />
 
 
+
+            {/* Historical Data Modal */}
+            {showHistoricalModal && (
+                <AddHistoricalDataModal
+                    teacherEmail={teacher?.email}
+                    onClose={() => setShowHistoricalModal(false)}
+                />
+            )}
 
             {/* Snapshot Modal */}
             {showSnapshot && (
