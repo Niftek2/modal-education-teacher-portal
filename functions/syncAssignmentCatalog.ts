@@ -1,6 +1,36 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requireSession } from './lib/auth.js';
-import { requestRest } from './lib/thinkificClient.js';
+import * as jose from 'npm:jose@5.2.0';
+
+async function requireSession(req) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+    const token = authHeader.substring(7);
+    try {
+        const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
+        const { payload } = await jose.jwtVerify(token, secret);
+        return payload;
+    } catch { return null; }
+}
+
+const THINKIFIC_SUBDOMAIN = Deno.env.get('THINKIFIC_SUBDOMAIN');
+const THINKIFIC_TOKEN = Deno.env.get('THINKIFIC_API_ACCESS_TOKEN');
+
+async function requestRest(path, method = 'GET', query = {}) {
+    let url = `https://api.thinkific.com/api/public/v1${path}`;
+    if (method === 'GET' && Object.keys(query).length > 0) {
+        url += '?' + new URLSearchParams(query).toString();
+    }
+    const res = await fetch(url, {
+        method,
+        headers: {
+            'Authorization': `Bearer ${THINKIFIC_TOKEN}`,
+            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Content-Type': 'application/json',
+        },
+    });
+    const data = await res.json();
+    return { ok: res.ok, data };
+}
 
 const COURSE_IDS = [
     Deno.env.get("PK_COURSE_ID"),
