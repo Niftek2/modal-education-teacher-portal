@@ -229,7 +229,7 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
     // Normalize grade to percentage
     let gradePercent = null;
     if (typeof grade === 'number') {
-        gradePercent = grade <= 1 ? grade * 100 : grade;
+        gradePercent = (grade > 0 && grade < 1) ? grade * 100 : grade;
     }
 
     const activity = {
