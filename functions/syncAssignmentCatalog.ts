@@ -102,11 +102,6 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const isTeacher = session.isTeacher === true || session.role === 'teacher';
-    if (!isTeacher) {
-        return Response.json({ error: 'Forbidden: teacher role required' }, { status: 403 });
-    }
-
     try {
         const base44 = createClientFromRequest(req);
 
