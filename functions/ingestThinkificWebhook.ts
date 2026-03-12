@@ -354,7 +354,7 @@ async function createThinkificClassroomGroup(userId, firstName, lastName, email)
 
     if (!groupId) {
         console.error(`[WEBHOOK] Failed to get/create group for "${groupName}"`);
-        return;
+        return null;
     }
 
     // Add user to group
@@ -368,9 +368,10 @@ async function createThinkificClassroomGroup(userId, firstName, lastName, email)
         console.log(`[WEBHOOK] ✓ Added user ${userId} to group ${groupId}`);
     } else {
         const errBody = await addRes.text();
-        // Ignore "already a member" type errors
         console.log(`[WEBHOOK] Add user to group response (${addRes.status}): ${errBody}`);
     }
+
+    return { groupId, groupName };
 }
 
 async function handleEnrollmentCreated(base44, payload, webhookId, dedupeKey, occurredAt, rawBody) {

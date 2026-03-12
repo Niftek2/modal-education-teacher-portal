@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
 
     // Get groups from DB first (fast)
     const dbGroups = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail: session.email });
-    let groups = dbGroups.map(g => ({ id: g.thinkificGroupId, name: g.groupName }));
+    let groups = dbGroups.map(g => ({ id: g.thinkificGroupId, name: g.thinkificGroupName }));
 
     // If no DB groups, try Thinkific
     if (groups.length === 0 && session.userId) {
