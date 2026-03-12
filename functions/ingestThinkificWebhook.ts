@@ -126,6 +126,9 @@ Deno.serve(async (req) => {
             await handleEnrollmentCreated(base44, payload, webhookId, dedupeKey, occurredAt, body);
         } else if (eventType === 'user.signup' || eventType === 'user.sign_up') {
             await handleUserSignup(base44, payload, webhookId, dedupeKey, occurredAt, body);
+        } else if (eventType === 'quiz_attempt.created') {
+            // Alternate event type for quiz attempts — route to same handler
+            await handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurredAt, body);
         } else {
             console.log(`[WEBHOOK] Unknown event type: ${eventType}, stored raw but skipped activity`);
         }

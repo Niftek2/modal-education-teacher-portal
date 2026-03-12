@@ -171,6 +171,17 @@ export async function getCourse(courseId) {
 }
 
 /**
+ * List users in a group via /users?query[group_id] (cleaner roster endpoint)
+ */
+export async function getGroupMembers(groupId) {
+    const result = await requestRest('/users', 'GET', {
+        'query[group_id]': String(groupId),
+        'limit': '100'
+    });
+    return result.data?.items || [];
+}
+
+/**
  * Get a group membership record for a specific user in a group
  * Returns the membership object (with .id) or null if not found
  */
