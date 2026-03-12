@@ -53,16 +53,9 @@ Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         const body = await req.json();
-        const { studentEmail: rawStudentEmail, groupId, teacherThinkificUserId, sessionToken } = body;
+        const { studentEmail: rawStudentEmail, groupId, teacherThinkificUserId } = body;
 
-        // Derive teacherEmail from JWT session token (preferred) or fall back to body field
-        let teacherEmail = body.teacherEmail?.toLowerCase().trim();
-        if (sessionToken) {
-            const session = await verifySessionToken(sessionToken);
-            if (session?.email) {
-                teacherEmail = session.email.toLowerCase().trim();
-            }
-        }
+        const teacherEmail = body.teacherEmail?.toLowerCase().trim();
 
         const studentEmail = rawStudentEmail?.toLowerCase().trim();
 
