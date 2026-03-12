@@ -1,39 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
-import * as jose from 'npm:jose@5.2.0';
 
 const THINKIFIC_API_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
-
-const thinkificHeaders = {
-    'Authorization': `Bearer ${THINKIFIC_API_TOKEN}`,
-    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-    'Content-Type': 'application/json',
-};
-
-const COURSE_ENROLLMENTS = [
-    { id: '3359727', name: 'Assignments' },
-    { id: '422595',  name: 'PK' },
-    { id: '422618',  name: 'K' },
-    { id: '422620',  name: 'L1' },
-    { id: '496294',  name: 'L2' },
-    { id: '496295',  name: 'L3' },
-    { id: '496297',  name: 'L4' },
-    { id: '496298',  name: 'L5' },
-];
-
-async function requireSession(req) {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
-    const token = authHeader.substring(7);
-    try {
-        const secret = new TextEncoder().encode(JWT_SECRET);
-        const { payload } = await jose.jwtVerify(token, secret);
-        return payload;
-    } catch {
-        return null;
-    }
-}
 
 function generateStudentEmail(firstName, lastInitial) {
     const randomDigits = Math.floor(1000 + Math.random() * 9000);
