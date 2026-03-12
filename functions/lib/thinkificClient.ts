@@ -49,7 +49,7 @@ function validateRestPath(path) {
 export async function requestRest(path, method = 'GET', query = null, body = null) {
     validateRestPath(path);
     
-    const url = new URL(path, REST_BASE);
+    const url = new URL(`${REST_BASE}${path}`);
     
     if (query) {
         Object.entries(query).forEach(([k, v]) => {
