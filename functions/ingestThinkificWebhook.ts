@@ -413,7 +413,20 @@ async function handleEnrollmentCreated(base44, payload, webhookId, dedupeKey, oc
             return;
         }
         console.log(`[WEBHOOK] Your Classroom enrollment detected for ${email}, creating group...`);
-        await createThinkificClassroomGroup(userId, firstName, lastName, email);
+        const groupResult = await createThinkificClassroomGroup(userId, firstName, lastName, email);
+        if (groupResult?.groupId) {
+            const normalizedEmail = email.toLowerCase().trim();
+            const existing = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail: normalizedEmail });
+            if (existing.length === 0) {
+                await base44.asServiceRole.entities.TeacherGroup.create({
+                    teacherEmail: normalizedEmail,
+                    teacherThinkificUserId: String(userId),
+                    thinkificGroupId: String(groupResult.groupId),
+                    thinkificGroupName: groupResult.groupName
+                });
+                console.log(`[WEBHOOK] ✓ TeacherGroup saved: ${normalizedEmail} → groupId=${groupResult.groupId}`);
+            }
+        }
     }
 }
 

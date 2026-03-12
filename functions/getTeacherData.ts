@@ -62,8 +62,9 @@ Deno.serve(async (req) => {
                 // Save to DB for future fast lookup
                 await base44.asServiceRole.entities.TeacherGroup.create({
                   teacherEmail: session.email,
+                  teacherThinkificUserId: String(session.userId),
                   thinkificGroupId: String(group.id),
-                  groupName: group.name
+                  thinkificGroupName: group.name
                 }).catch(() => {});
               }
             }
