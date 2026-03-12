@@ -88,20 +88,7 @@ Deno.serve(async (req) => {
             console.log(`[removeStudent] ✓ Archived ${studentEmail}`);
         }
 
-        // Step 3: Remove from Thinkific group via membership ID
-        if (thinkificUser?.id && groupId) {
-            try {
-                const membership = await getGroupMembership(groupId, thinkificUser.id);
-                if (membership?.id) {
-                    const removed = await deleteGroupMembership(membership.id);
-                    console.log(`[removeStudent] Group membership delete: ${removed ? '✓' : '✗'} (membership ${membership.id})`);
-                } else {
-                    console.log(`[removeStudent] No group membership found for user ${thinkificUser.id} in group ${groupId}`);
-                }
-            } catch (e) {
-                console.warn(`[removeStudent] Group membership removal failed: ${e.message}`);
-            }
-        }
+        // Step 3 (skipped): Group membership is intentionally preserved on archive
 
         // Step 4: Concurrent unenrollment via Promise.allSettled
         let unenrolled = 0;
