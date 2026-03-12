@@ -229,10 +229,17 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
         return;
     }
 
-    // Normalize grade to percentage
+    // Normalize grade to percentage — handle number or string, fallback to correct/total
     let gradePercent = null;
-    if (typeof grade === 'number') {
-        gradePercent = (grade > 0 && grade < 1) ? grade * 100 : grade;
+    if (grade != null) {
+        const numGrade = typeof grade === 'string' ? parseFloat(grade) : grade;
+        if (!isNaN(numGrade)) {
+            gradePercent = (numGrade > 0 && numGrade <= 1) ? Math.round(numGrade * 100) : numGrade;
+        }
+    }
+    if (gradePercent == null && typeof correctCount === 'number' && typeof incorrectCount === 'number') {
+        const total = correctCount + incorrectCount;
+        if (total > 0) gradePercent = Math.round((correctCount / total) * 100);
     }
 
     const activity = {
