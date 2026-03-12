@@ -33,11 +33,6 @@ Deno.serve(async (req) => {
         };
         t1 = Date.now();
 
-        const isTeacher = session.isTeacher === true || session.role === 'teacher';
-        if (!isTeacher) {
-            return Response.json({ error: "Forbidden: Not authorized as a teacher." }, { status: 403 });
-        }
-
         const [studentCodes, archivedStudents, assignments, catalogItems] = await Promise.all([
             base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
             base44.asServiceRole.entities.ArchivedStudent.filter({ teacherEmail }),
