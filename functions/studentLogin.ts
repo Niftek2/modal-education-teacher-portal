@@ -9,8 +9,7 @@ async function getThinkificUserByEmail(email) {
     const url = `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(email)}`;
     const res = await fetch(url, {
         headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+            'Authorization': `Bearer ${Deno.env.get('THINKIFIC_API_ACCESS_TOKEN')}`,
             'Content-Type': 'application/json'
         }
     });
