@@ -1,36 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-
-const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
+import * as thinkific from './lib/thinkificClient.js';
 
 // Only unenroll from academic courses + Your Classroom; NOT from the Assignments course (3359727)
 const UNENROLL_COURSE_IDS = new Set(['422595', '422618', '422620', '496294', '496295', '496297', '496298', '552235']);
-
-const thinkificHeaders = {
-    'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
-    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-    'Content-Type': 'application/json',
-};
-
-async function findUserByEmail(email) {
-    const res = await fetch(
-        `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(email)}`,
-        { headers: thinkificHeaders }
-    );
-    if (!res.ok) throw new Error(`Failed to find user: ${res.status}`);
-    const data = await res.json();
-    return data.items?.[0] || null;
-}
-
-async function getEnrollmentsForUser(userId) {
-    const res = await fetch(
-        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[status]=active&limit=250`,
-        { headers: thinkificHeaders }
-    );
-    if (!res.ok) throw new Error(`Failed to fetch enrollments: ${res.status}`);
-    const data = await res.json();
-    return data.items || [];
-}
 
 Deno.serve(async (req) => {
     try {
