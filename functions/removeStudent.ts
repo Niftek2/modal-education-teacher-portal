@@ -1,18 +1,6 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as jose from 'npm:jose@5.2.0';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
-const JWT_SECRET = Deno.env.get("JWT_SECRET");
 const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
-
-async function verifySessionToken(token) {
-    try {
-        const secret = new TextEncoder().encode(JWT_SECRET);
-        const { payload } = await jose.jwtVerify(token, secret);
-        return payload;
-    } catch {
-        return null;
-    }
-}
 
 // Only unenroll from academic courses + Your Classroom; NOT from the Assignments course (3359727)
 const UNENROLL_COURSE_IDS = new Set(['422595', '422618', '422620', '496294', '496295', '496297', '496298', '552235']);
