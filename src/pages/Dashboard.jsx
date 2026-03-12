@@ -8,6 +8,7 @@ import StudentTable from '../components/StudentTable';
 import StudentDetail from '../components/StudentDetail';
 import AddStudentModal from '../components/AddStudentModal';
 import SnapshotModal from '../components/SnapshotModal';
+import AddHistoricalDataModal from '../components/AddHistoricalDataModal';
 import { api } from '@/components/api';
 import { base44 } from '@/api/base44Client';
 
