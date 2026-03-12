@@ -188,6 +188,14 @@ export default function Dashboard() {
                             <Plus className="w-4 h-4 mr-2" />
                             Add Students ({activeStudents.length}/10)
                         </Button>
+                        <Button
+                            onClick={() => setShowHistoricalModal(true)}
+                            variant="outline"
+                            className="border-gray-400 text-gray-600 hover:bg-gray-50"
+                        >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Historical Data
+                        </Button>
                     </div>
                 </div>
 
