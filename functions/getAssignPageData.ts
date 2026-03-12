@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
         // Fetch DB students + archived in parallel
         const [studentCodes, archivedStudents] = await Promise.all([
             base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
-            base44.asServiceRole.entities.ArchivedStudent.filter({}),
+            base44.asServiceRole.entities.ArchivedStudent.filter({ teacherEmail }),
         ]);
 
         const archivedEmailSet = new Set(

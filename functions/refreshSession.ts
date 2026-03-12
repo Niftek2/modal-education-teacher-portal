@@ -42,7 +42,9 @@ Deno.serve(async (req) => {
         const newToken = await new jose.SignJWT({
             email: payload.email,
             userId: payload.userId,
-            type: 'session'
+            type: 'session',
+            isTeacher: payload.isTeacher ?? false,
+            role: payload.role ?? 'student'
         })
             .setProtectedHeader({ alg: 'HS256' })
             .setExpirationTime('45m')

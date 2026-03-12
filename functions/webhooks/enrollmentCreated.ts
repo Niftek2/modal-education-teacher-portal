@@ -1,6 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 const CLASSROOM_PRODUCT_ID = Deno.env.get("CLASSROOM_PRODUCT_ID");
 
@@ -10,7 +9,7 @@ async function createThinkificGroup(teacherName, teacherEmail) {
     const response = await fetch('https://api.thinkific.com/api/public/v1/groups', {
         method: 'POST',
         headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'Authorization': `Bearer ${Deno.env.get("THINKIFIC_API_ACCESS_TOKEN")}`,
             'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
             'Content-Type': 'application/json'
         },
@@ -31,7 +30,7 @@ async function addTeacherToGroup(userId, groupId) {
     const response = await fetch('https://api.thinkific.com/api/public/v1/group_memberships', {
         method: 'POST',
         headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
+            'Authorization': `Bearer ${Deno.env.get("THINKIFIC_API_ACCESS_TOKEN")}`,
             'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
             'Content-Type': 'application/json'
         },

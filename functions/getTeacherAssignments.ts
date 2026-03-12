@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
 
         const [studentCodes, archivedStudents, assignments, catalogItems] = await Promise.all([
             base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
-            base44.asServiceRole.entities.ArchivedStudent.filter({}),
+            base44.asServiceRole.entities.ArchivedStudent.filter({ teacherEmail }),
             base44.asServiceRole.entities.StudentAssignment.filter({ teacherEmail }),
             base44.asServiceRole.entities.AssignmentCatalog.list('title', 2000)
         ]);
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
         const studentEmailList = roster.map(r => r.email);
         let quizEvents = [];
         try {
-            quizEvents = await base44.asServiceRole.entities.ActivityEvent.filter({ eventType: 'quiz.attempted' });
+            quizEvents = await base44.asServiceRole.entities.ActivityEvent.filter({ eventType: 'quiz_attempted' });
         } catch (_e) {
             quizEvents = [];
         }

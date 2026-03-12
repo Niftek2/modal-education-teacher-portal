@@ -2,8 +2,6 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { SignJWT } from 'npm:jose@5.9.6';
 
 const JWT_SECRET = Deno.env.get('JWT_SECRET');
-const THINKIFIC_API_KEY = Deno.env.get('THINKIFIC_API_KEY');
-const THINKIFIC_SUBDOMAIN = Deno.env.get('THINKIFIC_SUBDOMAIN');
 
 async function getThinkificUserByEmail(email) {
     const url = `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(email)}`;

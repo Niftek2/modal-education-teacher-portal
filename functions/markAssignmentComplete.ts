@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
         let incomingScore = null;
         if (typeof event.grade === 'number') {
             const raw = event.grade;
-            incomingScore = Math.min(100, Math.max(0, Math.round(raw <= 1 ? raw * 100 : raw)));
+            incomingScore = Math.min(100, Math.max(0, Math.round((raw > 0 && raw < 1) ? raw * 100 : raw)));
         }
 
         const cc = typeof event.correctCount === 'number' ? event.correctCount : null;

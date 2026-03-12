@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
         const CLASSROOM_PRODUCT_ID = Deno.env.get("CLASSROOM_PRODUCT_ID");
         let isTeacher = false;
         try {
-            const enrollUrl = `https://${Deno.env.get("THINKIFIC_SUBDOMAIN")}.thinkific.com/api/public/v1/enrollments?query[user_id]=${payload.userId}&query[course_id]=${CLASSROOM_PRODUCT_ID}`;
+            const enrollUrl = `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${payload.userId}&query[course_id]=${CLASSROOM_PRODUCT_ID}`;
             const enrollRes = await fetch(enrollUrl, {
                 headers: {
                     'Authorization': `Bearer ${Deno.env.get("THINKIFIC_API_ACCESS_TOKEN")}`,
