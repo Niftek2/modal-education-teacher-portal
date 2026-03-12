@@ -314,7 +314,7 @@ async function handleUserSignin(base44, payload, webhookId, dedupeKey, occurredA
     console.log(`[WEBHOOK] ✓ User signin logged`);
 }
 
-const YOUR_CLASSROOM_COURSE_ID = 552235;
+const YOUR_CLASSROOM_COURSE_ID = Number(Deno.env.get('CLASSROOM_COURSE_ID'));
 
 async function createThinkificClassroomGroup(userId, firstName, lastName, email) {
     const subdomain = Deno.env.get('THINKIFIC_SUBDOMAIN');
