@@ -12,8 +12,9 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
 
         // Fetch archived students for this teacher
+        const teacherEmail = session.email?.toLowerCase().trim();
         const archived = await base44.asServiceRole.entities.ArchivedStudent.filter({
-            teacherThinkificUserId: String(session.userId)
+            teacherEmail
         });
 
         // Sort by archived date, most recent first

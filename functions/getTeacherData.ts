@@ -11,7 +11,7 @@ async function getTeacherGroups(userId) {
         for (const group of allGroups) {
             try {
                 const groupUsers = await thinkific.listGroupUsers(group.id);
-                const isMember = groupUsers.some(u => String(u.id) === String(userId));
+                const isMember = groupUsers.some(u => String(u.user_id) === String(userId));
                 
                 if (isMember) {
                     teacherGroups.push(group);
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
                 lastName: user.last_name,
                 email: user.email
             },
-            groups: groups.map(g => ({
+            groups: (groups || []).map(g => ({
                 id: g.id,
                 name: g.name
             }))
