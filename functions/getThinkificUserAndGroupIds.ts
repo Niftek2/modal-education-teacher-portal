@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
         let targetGroup = null;
         for (const group of matchingGroups) {
             const groupUsers = await listGroupUsers(group.id);
-            const studentInGroup = groupUsers.find(u => u.email === studentEmail);
+            const studentInGroup = groupUsers.find(u => (u.user?.email || u.email) === studentEmail);
             if (studentInGroup) {
                 targetGroup = group;
                 console.log(`[LOOKUP] Found student in group ID ${group.id}`);

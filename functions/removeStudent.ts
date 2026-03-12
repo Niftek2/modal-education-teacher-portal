@@ -1,13 +1,58 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import * as thinkific from './lib/thinkificClient.js';
+
+const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 
 // Only unenroll from academic courses + Your Classroom; NOT from the Assignments course (3359727)
 const UNENROLL_COURSE_IDS = new Set(['422595', '422618', '422620', '496294', '496295', '496297', '496298', '552235']);
 
+const thinkificHeaders = {
+    'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
+    'Content-Type': 'application/json',
+};
+
+async function findUserByEmail(email) {
+    const res = await fetch(
+        `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(email)}`,
+        { headers: thinkificHeaders }
+    );
+    if (!res.ok) throw new Error(`Failed to find user: ${res.status}`);
+    const data = await res.json();
+    return data.items?.[0] || null;
+}
+
+async function getEnrollmentsForUser(userId) {
+    const res = await fetch(
+        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[status]=active&limit=250`,
+        { headers: thinkificHeaders }
+    );
+    if (!res.ok) throw new Error(`Failed to fetch enrollments: ${res.status}`);
+    const data = await res.json();
+    return data.items || [];
+}
+
+async function getGroupMembership(groupId, userId) {
+    const res = await fetch(
+        `https://api.thinkific.com/api/public/v1/group_users?query[group_id]=${groupId}&query[user_id]=${userId}`,
+        { headers: thinkificHeaders }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const items = data.items || [];
+    return items.length > 0 ? items[0] : null;
+}
+
+async function deleteGroupMembership(membershipId) {
+    const res = await fetch(
+        `https://api.thinkific.com/api/public/v1/group_users/${membershipId}`,
+        { method: 'DELETE', headers: thinkificHeaders }
+    );
+    return res.ok || res.status === 404;
+}
+
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const { studentEmail: rawStudentEmail, teacherEmail: rawTeacherEmail } = await req.json();
+        const { studentEmail: rawStudentEmail, teacherEmail: rawTeacherEmail, groupId, teacherThinkificUserId } = await req.json();
 
         const studentEmail = rawStudentEmail?.toLowerCase().trim();
         const teacherEmail = rawTeacherEmail?.toLowerCase().trim();
@@ -34,14 +79,29 @@ Deno.serve(async (req) => {
                 studentFirstName: thinkificUser?.first_name || '',
                 studentLastName: thinkificUser?.last_name || '',
                 teacherEmail,
-                teacherThinkificUserId: 'unknown',
-                groupId: 'unknown',
+                teacherThinkificUserId: teacherThinkificUserId ? String(teacherThinkificUserId) : 'unknown',
+                groupId: groupId ? String(groupId) : 'unknown',
                 archivedAt: new Date().toISOString(),
             });
             console.log(`[removeStudent] ✓ Archived ${studentEmail}`);
         }
 
-        // Step 3: Concurrent unenrollment via Promise.allSettled — never freezes on a slow/failed API call
+        // Step 3: Remove from Thinkific group via membership ID
+        if (thinkificUser?.id && groupId) {
+            try {
+                const membership = await getGroupMembership(groupId, thinkificUser.id);
+                if (membership?.id) {
+                    const removed = await deleteGroupMembership(membership.id);
+                    console.log(`[removeStudent] Group membership delete: ${removed ? '✓' : '✗'} (membership ${membership.id})`);
+                } else {
+                    console.log(`[removeStudent] No group membership found for user ${thinkificUser.id} in group ${groupId}`);
+                }
+            } catch (e) {
+                console.warn(`[removeStudent] Group membership removal failed: ${e.message}`);
+            }
+        }
+
+        // Step 4: Concurrent unenrollment via Promise.allSettled
         let unenrolled = 0;
         let targetCount = 0;
         if (thinkificUser?.id) {
@@ -71,14 +131,14 @@ Deno.serve(async (req) => {
 
                 unenrolled = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
                 const failed = results.filter(r => r.status === 'rejected' || r.value === false).length;
-                if (failed > 0) console.warn(`[removeStudent] ${failed} unenrollment(s) failed — student archived, cleanup may be needed`);
+                if (failed > 0) console.warn(`[removeStudent] ${failed} unenrollment(s) failed`);
             } catch (err) {
-                console.warn(`[removeStudent] Could not fetch enrollments, skipping unenrollment: ${err.message}`);
+                console.warn(`[removeStudent] Could not fetch enrollments: ${err.message}`);
             }
             console.log(`[removeStudent] Unenrolled ${unenrolled}/${targetCount} for ${studentEmail}`);
         }
 
-        // Step 4: Delete StudentAccessCode record — final cleanup
+        // Step 5: Delete StudentAccessCode record
         const accessCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({ studentEmail, createdByTeacherEmail: teacherEmail });
         await Promise.all(accessCodes.map(r => base44.asServiceRole.entities.StudentAccessCode.delete(r.id)));
         console.log(`[removeStudent] ✓ Deleted ${accessCodes.length} StudentAccessCode record(s) for ${studentEmail}`);
