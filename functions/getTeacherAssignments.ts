@@ -75,7 +75,12 @@ Deno.serve(async (req) => {
         const studentEmailList = roster.map(r => r.email);
         let quizEvents = [];
         try {
-            quizEvents = await base44.asServiceRole.entities.ActivityEvent.filter({ eventType: 'quiz_attempted' });
+            if (studentEmailList.length > 0) {
+                quizEvents = await base44.asServiceRole.entities.ActivityEvent.filter({
+                    eventType: 'quiz_attempted',
+                    studentEmail: { _in: studentEmailList }
+                });
+            }
         } catch (_e) {
             quizEvents = [];
         }

@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 Deno.serve(async (req) => {
     if (req.method !== 'POST') {
@@ -59,11 +59,12 @@ Deno.serve(async (req) => {
             for (const assignment of matchingAssignments) {
                 await base44.asServiceRole.entities.StudentAssignment.update(assignment.id, {
                     status: 'completed',
+                    score: percentage,
                     title: quiz_name,
                     topic: chapter_name,
                     completedAt: completed_at || new Date().toISOString(),
                     completedByEventId: quizCompletion.id,
-                    metadata: { ...(assignment.metadata || {}), grade: percentage, quizName: quiz_name, chapterName: chapter_name }
+                    metadata: { ...(assignment.metadata || {}), grade: percentage, correctCount: score, totalQuestions: max_score, quizName: quiz_name, chapterName: chapter_name }
                 });
             }
 
