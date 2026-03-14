@@ -226,6 +226,8 @@ export default function DistrictPricing() {
                 <span style={{ fontSize: 16, fontWeight: 800, color: '#1e003a' }}>{sliderSeats} seats</span>
               </label>
               <input type="range" min="1" max="50" value={sliderSeats} onChange={e => setSliderSeats(Number(e.target.value))}
+                aria-label={`Teacher seats: ${sliderSeats}`}
+                aria-valuemin={1} aria-valuemax={50} aria-valuenow={sliderSeats}
                 style={{ width: '100%', accentColor: '#520096', height: 6 }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#595959', marginTop: 4 }} aria-hidden="true">
                 <span>1</span><span>50</span>
