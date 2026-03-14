@@ -273,7 +273,7 @@ export default function DistrictPricing() {
       {/* Footer Note */}
       <div style={{ padding: '32px 24px', textAlign: 'center', background: '#f7f2fd', fontSize: 13, color: '#4b2865' }}>
         <p>Questions about district pricing or licensing? Email us at <a href="mailto:contact@modalmath.com" style={{ color: '#520096', fontWeight: 600 }}>contact@modalmath.com</a></p>
-        <p style={{ marginTop: 8, opacity: 0.7 }}>⚠️ Purchase orders are not currently accepted for the time being.</p>
+        <p style={{ marginTop: 8, color: '#6b3a8a' }}>⚠️ Purchase orders are not currently accepted for the time being.</p>
       </div>
     </div>
   );
