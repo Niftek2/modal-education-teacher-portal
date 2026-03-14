@@ -116,11 +116,36 @@ export default function DistrictPricing() {
         <p style={{ fontSize: 'clamp(1rem, 2.5vw, 1.2rem)', color: '#e8d9ff', maxWidth: 620, margin: '0 auto 32px' }}>
           Modal Math delivers PreK–Grade 5 math practice across multiple learning modalities — sign language, voice, visuals, and text — so more students can engage and practice at their level.
         </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 36 }}>
           {['🤟 Sign Language', '🗣️ Voice', '👁️ Visuals', '📝 Text', '✅ Common Core Aligned'].map(m => (
             <span key={m} style={{ background: 'rgba(255,255,255,0.18)', borderRadius: 999, padding: '6px 16px', fontSize: 14, fontWeight: 500 }}>{m}</span>
           ))}
         </div>
+        <a
+          href="https://www.modalmath.com/growth"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 10,
+            background: 'rgba(255,255,255,0.12)',
+            border: '1.5px solid rgba(255,255,255,0.35)',
+            borderRadius: 12,
+            padding: '14px 28px',
+            color: 'white',
+            fontWeight: 700,
+            fontSize: 16,
+            textDecoration: 'none',
+            backdropFilter: 'blur(4px)',
+            transition: 'background 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.22)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+        >
+          <span style={{ fontSize: 20 }}>📈</span>
+          See the Student Growth Data
+          <span style={{ opacity: 0.75, fontSize: 14 }}>→</span>
+        </a>
+        <p style={{ marginTop: 10, fontSize: 13, color: 'rgba(255,255,255,0.55)', fontStyle: 'italic' }}>Real outcomes from real classrooms</p>
       </section>
 
       {/* Purchase Order Notice */}
