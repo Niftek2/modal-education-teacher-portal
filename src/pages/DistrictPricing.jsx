@@ -227,7 +227,7 @@ export default function DistrictPricing() {
               </label>
               <input type="range" min="1" max="50" value={sliderSeats} onChange={e => setSliderSeats(Number(e.target.value))}
                 style={{ width: '100%', accentColor: '#520096', height: 6 }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#888', marginTop: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#595959', marginTop: 4 }} aria-hidden="true">
                 <span>1</span><span>50</span>
               </div>
             </div>
