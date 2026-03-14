@@ -11,7 +11,7 @@ const TIERS = [
     savings: null,
     badge: null, featured: false,
     features: [
-      'Unlimited student accounts per seat',
+      'Up to 10 student accounts per teacher seat',
       'PK–Grade 5 full content library',
       '4 learning modalities',
       'Teacher dashboard & progress reports',
@@ -158,7 +158,7 @@ export default function DistrictPricing() {
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#8c3dd4', marginBottom: 8 }}>District Pricing</div>
           <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(1.8rem, 4vw, 2.8rem)', fontWeight: 400, marginBottom: 12 }}>Per-Teacher Seat Licensing</h2>
-          <p style={{ color: '#4b2865', fontSize: 16, maxWidth: 560, margin: '0 auto 28px' }}>All plans include unlimited student access per teacher seat. Volume discounts apply automatically.</p>
+          <p style={{ color: '#4b2865', fontSize: 16, maxWidth: 560, margin: '0 auto 28px' }}>All plans include up to 10 student accounts per teacher seat. Volume discounts apply automatically.</p>
 
           {/* Billing Toggle */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, background: 'white', borderRadius: 999, padding: '8px 20px', boxShadow: '0 2px 8px rgba(82,0,150,0.12)' }} role="group" aria-label="Billing frequency">
