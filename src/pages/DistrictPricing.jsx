@@ -43,10 +43,7 @@ const TIERS = [
     features: [
       'Everything in Program Pack',
       'Dedicated success manager',
-      'Virtual PD & training session',
       'SSO / LMS integration support',
-      'Progress snapshots for IEP documentation',
-      'Annual usage report',
     ],
   },
   {
@@ -59,9 +56,7 @@ const TIERS = [
       'Everything in Campus Reach',
       'Unlimited seats — one flat rate',
       'Multi-school admin console',
-      'On-site or live virtual PD workshops',
       'Custom contract support',
-      'Phone + dedicated Slack channel',
     ],
   },
 ];
