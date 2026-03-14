@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
         const magicLink = `${req.headers.get('origin')}/Verify?verify=${token}`;
 
         // Send email via Gmail
-        const accessToken = await base44.asServiceRole.connectors.getAccessToken('gmail');
+        const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
         
         const emailContent = [
             `To: ${email}`,
@@ -133,9 +133,6 @@ Deno.serve(async (req) => {
     } catch (error) {
         console.error('Auth request error:', error);
         console.error('Error stack:', error.stack);
-        return Response.json({ 
-            error: error.message,
-            details: error.stack 
-        }, { status: 500 });
+        return Response.json({ error: error.message }, { status: 500 });
     }
 });
