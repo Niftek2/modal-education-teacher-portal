@@ -1,5 +1,16 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { requireSession } from './lib/auth.js';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import * as jose from 'npm:jose@5.9.6';
+
+async function requireSession(req) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+    const token = authHeader.substring(7);
+    try {
+        const secret = new TextEncoder().encode(Deno.env.get("JWT_SECRET"));
+        const { payload } = await jose.jwtVerify(token, secret);
+        return payload;
+    } catch { return null; }
+}
 
 Deno.serve(async (req) => {
     const session = await requireSession(req);
