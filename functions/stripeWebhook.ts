@@ -61,6 +61,39 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[stripeWebhook] ✓ License created/updated for ${adminEmail}, ${meta.seats} seats`);
+
+    // Send admin notification email
+    try {
+      const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
+      const totalCost = Number(meta.seats) * Number(meta.pricePerSeat);
+      const notifyBody = [
+        `To: contact@modalmath.com`,
+        `From: Modal Education <contact@modalmath.com>`,
+        `Subject: 💰 New District Purchase — ${meta.districtName || adminEmail}`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset=utf-8`,
+        ``,
+        `<h2>New District Purchase</h2>`,
+        `<table style="border-collapse:collapse;font-family:Arial,sans-serif;">`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Name:</td><td style="padding:6px 12px;">${meta.adminName || '—'}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Email:</td><td style="padding:6px 12px;">${adminEmail}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">District:</td><td style="padding:6px 12px;">${meta.districtName || '—'}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Seats:</td><td style="padding:6px 12px;">${meta.seats}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Billing:</td><td style="padding:6px 12px;">${meta.billing}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Price/Seat:</td><td style="padding:6px 12px;">$${meta.pricePerSeat}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Total:</td><td style="padding:6px 12px;font-size:1.1em;color:#15803d;"><strong>$${totalCost.toLocaleString()}</strong></td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Stripe Session:</td><td style="padding:6px 12px;">${session.id}</td></tr>`,
+        `</table>`,
+      ].join('\r\n');
+      const encoded = btoa(unescape(encodeURIComponent(notifyBody))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw: encoded }),
+      });
+    } catch (notifyErr) {
+      console.warn('[stripeWebhook] Admin notification failed:', notifyErr.message);
+    }
   }
 
   return Response.json({ received: true });
