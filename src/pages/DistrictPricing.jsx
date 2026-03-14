@@ -239,14 +239,24 @@ export default function DistrictPricing() {
               {[
                 ['Seats', sliderSeats],
                 ['Per-seat rate', `$${calcRate}/${billing === 'annual' ? 'yr' : 'mo'}`],
-                ['Total', `$${calcTotal.toLocaleString()}/${billing === 'annual' ? 'yr' : 'mo'}`],
-                calcSavings > 0 ? ['You save', `$${calcSavings.toLocaleString()}/yr`] : null,
-              ].filter(Boolean).map(([label, val]) => (
+              ].map(([label, val]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5d6f8', fontSize: 15 }}>
                   <span style={{ color: '#4b2865' }}>{label}</span>
-                  <span style={{ fontWeight: 700, color: label === 'You save' ? '#520096' : '#1e003a' }}>{val}</span>
+                  <span style={{ fontWeight: 700, color: '#1e003a' }}>{val}</span>
                 </div>
               ))}
+              {/* Total — prominent */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: calcSavings > 0 ? '1px solid #e5d6f8' : 'none', marginTop: 4 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#1e003a' }}>Total</span>
+                <span style={{ fontSize: 22, fontWeight: 800, color: '#1e003a' }}>${calcTotal.toLocaleString()}<span style={{ fontSize: 13, fontWeight: 500, color: '#595959' }}>/{billing === 'annual' ? 'yr' : 'mo'}</span></span>
+              </div>
+              {/* You save — secondary */}
+              {calcSavings > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
+                  <span style={{ fontSize: 13, color: '#520096', fontWeight: 600 }}>You save vs. standard rate</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#520096', background: '#ede0fb', borderRadius: 999, padding: '2px 10px' }}>${calcSavings.toLocaleString()}/yr</span>
+                </div>
+              )}
               {sliderSeats >= 5 && (
                 <div style={{ marginTop: 16, background: '#ede0fb', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#520096', fontWeight: 600 }}>
                   🎉 Your district qualifies for a <strong>14-day free trial</strong> — no commitment required!
