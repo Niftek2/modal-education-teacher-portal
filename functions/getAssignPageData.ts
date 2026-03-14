@@ -17,11 +17,10 @@ async function requireSession(req) {
 
 const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-const YOUR_CLASSROOM_COURSE_ID = 552235;
+const YOUR_CLASSROOM_COURSE_ID = Number(Deno.env.get('CLASSROOM_PRODUCT_ID'));
 
 const thinkificHeaders = {
     'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
-    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
     'Content-Type': 'application/json',
 };
 
@@ -96,14 +95,7 @@ Deno.serve(async (req) => {
             const groupRecords = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail });
             const groupId = groupRecords?.[0]?.thinkificGroupId;
             if (groupId) {
-                const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
-                const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
-                const thinkificHeaders = {
-                    'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
-                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
-                    'Content-Type': 'application/json',
-                };
-                const PK_COURSE_ID = '422595';
+                const PK_COURSE_ID = Deno.env.get("PK_COURSE_ID");
 
                 const groupRes = await fetch(
                     `https://api.thinkific.com/api/public/v1/users?query[group_id]=${groupId}&limit=100`,

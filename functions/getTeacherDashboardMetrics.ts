@@ -69,10 +69,18 @@ async function getTeacherGroupsIndex() {
 
             const membersData = await membersResponse.json();
             for (const member of membersData.items) {
-                const email = member.user?.email?.toLowerCase().trim();
-                const userId = String(member.user?.id);
+                const userId = String(member.user_id || member.user?.id || '');
+                if (!userId || userId === 'undefined') continue;
 
-                if (!email || !userId) continue;
+                // Fetch user email from Thinkific
+                const userRes = await fetch(
+                    `https://api.thinkific.com/api/public/v1/users/${userId}`,
+                    { headers: { 'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`, 'Content-Type': 'application/json' } }
+                );
+                if (!userRes.ok) continue;
+                const userData = await userRes.json();
+                const email = userData.email?.toLowerCase().trim();
+                if (!email) continue;
 
                 if (!email.endsWith('@modalmath.com')) {
                     const enrollmentsResponse = await fetch(
@@ -126,7 +134,15 @@ async function getTeacherGroupsIndex() {
 
                 const membersData = await membersResponse.json();
                 for (const member of membersData.items) {
-                    const email = member.user?.email?.toLowerCase().trim();
+                    const uid = String(member.user_id || member.user?.id || '');
+                    if (!uid || uid === 'undefined') continue;
+                    const uRes = await fetch(
+                        `https://api.thinkific.com/api/public/v1/users/${uid}`,
+                        { headers: { 'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`, 'Content-Type': 'application/json' } }
+                    );
+                    if (!uRes.ok) continue;
+                    const uData = await uRes.json();
+                    const email = uData.email?.toLowerCase().trim();
                     if (email && email.endsWith('@modalmath.com')) {
                         studentEmails.add(email);
                     }
