@@ -1,111 +1,95 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
+const THINKIFIC_API_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
+
+const thinkificHeaders = {
+    'Authorization': `Bearer ${THINKIFIC_API_TOKEN}`,
+    'Content-Type': 'application/json',
+};
 
 const COURSE_IDS = {
-    PK: Deno.env.get("COURSE_ID_PK"),
-    K: Deno.env.get("COURSE_ID_K"),
-    L1: Deno.env.get("COURSE_ID_L1"),
-    L2: Deno.env.get("COURSE_ID_L2"),
-    L3: Deno.env.get("COURSE_ID_L3"),
-    L4: Deno.env.get("COURSE_ID_L4"),
-    L5: Deno.env.get("COURSE_ID_L5")
+    PK: Deno.env.get("PK_COURSE_ID"),
+    K: Deno.env.get("K_COURSE_ID"),
+    L1: Deno.env.get("L1_COURSE_ID"),
+    L2: Deno.env.get("L2_COURSE_ID"),
+    L3: Deno.env.get("L3_COURSE_ID"),
+    L4: Deno.env.get("L4_COURSE_ID"),
+    L5: Deno.env.get("L5_COURSE_ID"),
 };
 
 async function getGroupMembers(groupId) {
-    const response = await fetch(`https://api.thinkific.com/api/public/v1/group_memberships?group_id=${groupId}`, {
-        headers: {
-            'X-Auth-API-Key': THINKIFIC_API_KEY,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-        }
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch group members: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const res = await fetch(
+        `https://api.thinkific.com/api/public/v1/group_users?query[group_id]=${groupId}&limit=100`,
+        { headers: thinkificHeaders }
+    );
+    if (!res.ok) throw new Error(`Failed to fetch group members: ${res.status}`);
+    const data = await res.json();
+    // group_users returns items with { user_id } — we need full user objects
     return data.items || [];
 }
 
 async function unenrollFromCourses(userId) {
     const results = [];
-    
+
     for (const [level, courseId] of Object.entries(COURSE_IDS)) {
         if (!courseId) continue;
-        
-        try {
-            const response = await fetch(`https://api.thinkific.com/api/public/v1/enrollments?user_id=${userId}&course_id=${courseId}`, {
-                headers: {
-                    'X-Auth-API-Key': THINKIFIC_API_KEY,
-                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-                }
-            });
 
-            if (response.ok) {
-                const data = await response.json();
-                const enrollments = data.items || [];
-                
-                for (const enrollment of enrollments) {
-                    const deleteResponse = await fetch(`https://api.thinkific.com/api/public/v1/enrollments/${enrollment.id}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-Auth-API-Key': THINKIFIC_API_KEY,
-                            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
-                        }
-                    });
-                    
-                    if (deleteResponse.ok) {
-                        results.push({ level, success: true });
-                    }
-                }
+        try {
+            // Find enrollment
+            const enrollRes = await fetch(
+                `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[course_id]=${courseId}`,
+                { headers: thinkificHeaders }
+            );
+
+            if (!enrollRes.ok) continue;
+            const enrollData = await enrollRes.json();
+
+            for (const enrollment of (enrollData.items || [])) {
+                const delRes = await fetch(
+                    `https://api.thinkific.com/api/public/v1/enrollments/${enrollment.id}`,
+                    { method: 'DELETE', headers: thinkificHeaders }
+                );
+                results.push({ level, enrollmentId: enrollment.id, success: delRes.ok });
             }
         } catch (error) {
             console.error(`Failed to unenroll from ${level}:`, error);
             results.push({ level, success: false, error: error.message });
         }
     }
-    
+
     return results;
 }
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        
-        const now = new Date().toISOString();
-        const jobs = await base44.asServiceRole.entities.ScheduledUnenrollment.filter({
-            status: 'scheduled'
-        });
 
+        const jobs = await base44.asServiceRole.entities.ScheduledUnenrollment.filter({ status: 'scheduled' });
         const dueJobs = jobs.filter(job => new Date(job.runAt) <= new Date());
 
         if (dueJobs.length === 0) {
-            return Response.json({ 
-                message: 'No jobs due to run',
-                checked: jobs.length,
-                executed: 0
-            });
+            return Response.json({ message: 'No jobs due to run', checked: jobs.length, executed: 0 });
         }
 
         const results = [];
 
         for (const job of dueJobs) {
             try {
+                // Get group members (returns items with user_id)
                 const members = await getGroupMembers(job.groupId);
-                const students = members.filter(m => m.user.email && !m.user.email.endsWith('@modalmath.com'));
 
                 let studentsProcessed = 0;
                 let studentsUnenrolled = 0;
 
-                for (const student of students) {
+                for (const member of members) {
+                    const userId = member.user_id;
+                    if (!userId) continue;
                     studentsProcessed++;
                     try {
-                        await unenrollFromCourses(student.user.id);
+                        await unenrollFromCourses(userId);
                         studentsUnenrolled++;
                     } catch (error) {
-                        console.error(`Failed to unenroll student ${student.user.email}:`, error);
+                        console.error(`Failed to unenroll userId=${userId}:`, error);
                     }
                 }
 
@@ -113,48 +97,27 @@ Deno.serve(async (req) => {
                     status: 'completed',
                     completedAt: new Date().toISOString(),
                     studentsProcessed,
-                    studentsUnenrolled
+                    studentsUnenrolled,
                 });
 
-                const teacherAccess = await base44.asServiceRole.entities.TeacherAccess.filter({
-                    teacherEmail: job.teacherEmail
-                });
-
+                const teacherAccess = await base44.asServiceRole.entities.TeacherAccess.filter({ teacherEmail: job.teacherEmail });
                 if (teacherAccess.length > 0) {
-                    await base44.asServiceRole.entities.TeacherAccess.update(teacherAccess[0].id, {
-                        status: 'ended'
-                    });
+                    await base44.asServiceRole.entities.TeacherAccess.update(teacherAccess[0].id, { status: 'ended' });
                 }
 
-                results.push({
-                    jobId: job.id,
-                    teacherEmail: job.teacherEmail,
-                    success: true,
-                    studentsProcessed,
-                    studentsUnenrolled
-                });
+                results.push({ jobId: job.id, teacherEmail: job.teacherEmail, success: true, studentsProcessed, studentsUnenrolled });
 
             } catch (error) {
                 await base44.asServiceRole.entities.ScheduledUnenrollment.update(job.id, {
                     status: 'failed',
                     errorMessage: error.message,
-                    completedAt: new Date().toISOString()
+                    completedAt: new Date().toISOString(),
                 });
-
-                results.push({
-                    jobId: job.id,
-                    teacherEmail: job.teacherEmail,
-                    success: false,
-                    error: error.message
-                });
+                results.push({ jobId: job.id, teacherEmail: job.teacherEmail, success: false, error: error.message });
             }
         }
 
-        return Response.json({
-            message: 'Jobs processed',
-            totalJobs: dueJobs.length,
-            results
-        });
+        return Response.json({ message: 'Jobs processed', totalJobs: dueJobs.length, results });
 
     } catch (error) {
         console.error('Run scheduled unenrollments error:', error);
