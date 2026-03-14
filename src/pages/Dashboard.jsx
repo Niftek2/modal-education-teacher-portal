@@ -10,7 +10,6 @@ import AddStudentModal from '../components/AddStudentModal';
 import SnapshotModal from '../components/SnapshotModal';
 import AddHistoricalDataModal from '../components/AddHistoricalDataModal';
 import { api } from '@/components/api';
-import { base44 } from '@/api/base44Client';
 
 export default function Dashboard() {
     const [teacher, setTeacher] = useState(null);
@@ -54,11 +53,11 @@ export default function Dashboard() {
 
                 // Fetch students (active + archived) and activity in parallel
                 const [studentsResponse, activityResponse] = await Promise.all([
-                    base44.functions.invoke('getStudents', { teacherEmail, groupId: primaryGroup.id }),
+                    api.call('getStudents', { teacherEmail, groupId: primaryGroup.id }),
                     api.call('getStudentActivityForTeacher', { sessionToken }, sessionToken).catch(() => ({ studentEmails: [], events: [] })),
                 ]);
 
-                const { activeStudents: active = [], archivedStudents: archived = [] } = studentsResponse.data || {};
+                const { activeStudents: active = [], archivedStudents: archived = [] } = studentsResponse || {};
                 setActiveStudents(active);
                 setArchivedStudents(archived);
                 setStudentActivities(activityResponse.events || []);
