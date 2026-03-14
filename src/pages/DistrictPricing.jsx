@@ -1,0 +1,277 @@
+import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import { base44 } from '@/api/base44Client';
+
+const TIERS = [
+  {
+    key: 'starter', label: 'Starter', name: 'Building Block', range: '1–4 teacher seats',
+    minSeats: 1, maxSeats: 4,
+    annualRate: 179, monthlyRate: 19,
+    savings: null,
+    badge: null, featured: false,
+    features: [
+      'Unlimited student accounts per seat',
+      'PK–Grade 5 full content library',
+      '4 learning modalities',
+      'Teacher dashboard & progress reports',
+      'iOS, Android & web access',
+      'Email support',
+    ],
+  },
+  {
+    key: 'growth', label: 'Growth', name: 'Program Pack', range: '5–14 teacher seats',
+    minSeats: 5, maxSeats: 14,
+    annualRate: 159, monthlyRate: 17,
+    savings: 'Save 11% vs. standard rate',
+    badge: '⭐ Most Popular', featured: true,
+    features: [
+      'Everything in Building Block',
+      'District admin dashboard',
+      'Roster import (CSV / SIS)',
+      'Aggregate reporting across classrooms',
+      'Priority email & chat support',
+      'Onboarding call with Modal Ed team',
+    ],
+  },
+  {
+    key: 'campus', label: 'Campus', name: 'Campus Reach', range: '15–29 teacher seats',
+    minSeats: 15, maxSeats: 29,
+    annualRate: 139, monthlyRate: 15,
+    savings: 'Save 22% vs. standard rate',
+    badge: null, featured: false,
+    features: [
+      'Everything in Program Pack',
+      'Dedicated success manager',
+      'Virtual PD & training session',
+      'SSO / LMS integration support',
+      'Progress snapshots for IEP documentation',
+      'Annual usage report',
+    ],
+  },
+  {
+    key: 'enterprise', label: 'Enterprise', name: 'District-Wide', range: '30+ teacher seats',
+    minSeats: 30, maxSeats: Infinity,
+    annualRate: 119, monthlyRate: 13,
+    savings: 'Save 34% vs. standard rate',
+    badge: 'Best Value', featured: false, enterprise: true,
+    features: [
+      'Everything in Campus Reach',
+      'Unlimited seats — one flat rate',
+      'Multi-school admin console',
+      'On-site or live virtual PD workshops',
+      'Custom contract support',
+      'Phone + dedicated Slack channel',
+    ],
+  },
+];
+
+function getTierForSeats(seats) {
+  return TIERS.find(t => seats >= t.minSeats && seats <= t.maxSeats) || TIERS[TIERS.length - 1];
+}
+
+export default function DistrictPricing() {
+  const [billing, setBilling] = useState('annual');
+  const [sliderSeats, setSliderSeats] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+
+  const calcTier = useMemo(() => getTierForSeats(sliderSeats), [sliderSeats]);
+  const calcRate = billing === 'annual' ? calcTier.annualRate : calcTier.monthlyRate;
+  const calcTotal = calcRate * sliderSeats;
+  const standardTotal = (billing === 'annual' ? 179 : 19) * sliderSeats;
+  const calcSavings = standardTotal - calcTotal;
+
+  const handlePurchase = async (tier) => {
+    setCheckoutError('');
+    setLoading(true);
+    try {
+      const seats = Math.max(tier.minSeats, sliderSeats <= tier.maxSeats && sliderSeats >= tier.minSeats ? sliderSeats : tier.minSeats);
+      const res = await base44.functions.invoke('createStripeCheckout', {
+        seats,
+        billing,
+        adminEmail: '',
+        successUrl: `${window.location.origin}${createPageUrl('DistrictAdminDashboard')}?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${window.location.origin}${createPageUrl('DistrictPricing')}`,
+      });
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      } else {
+        setCheckoutError('Failed to start checkout. Please try again.');
+      }
+    } catch (err) {
+      setCheckoutError(err.message || 'Checkout error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ fontFamily: "'DM Sans', sans-serif", background: '#f7f2fd', minHeight: '100vh', color: '#1e003a' }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+
+      {/* Hero */}
+      <section style={{ background: 'linear-gradient(135deg, #1e003a 0%, #520096 60%, #8c3dd4 100%)', color: 'white', padding: '72px 24px 60px', textAlign: 'center' }}>
+        <div style={{ display: 'inline-block', background: 'rgba(255,255,255,0.15)', borderRadius: 999, padding: '6px 18px', fontSize: 14, fontWeight: 600, marginBottom: 20, letterSpacing: '0.04em' }}>
+          🏫 School & District Purchasing
+        </div>
+        <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 400, marginBottom: 16, lineHeight: 1.15 }}>
+          Math Practice That Works<br /><em>for More Students</em>
+        </h1>
+        <p style={{ fontSize: 'clamp(1rem, 2.5vw, 1.2rem)', opacity: 0.9, maxWidth: 620, margin: '0 auto 32px' }}>
+          Modal Math delivers PreK–Grade 5 math practice across multiple learning modalities — sign language, voice, visuals, and text — so more students can engage and practice at their level.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+          {['🤟 Sign Language', '🗣️ Voice', '👁️ Visuals', '📝 Text', '✅ Common Core Aligned'].map(m => (
+            <span key={m} style={{ background: 'rgba(255,255,255,0.18)', borderRadius: 999, padding: '6px 16px', fontSize: 14, fontWeight: 500 }}>{m}</span>
+          ))}
+        </div>
+      </section>
+
+      {/* Purchase Order Notice */}
+      <div style={{ background: '#fff8e6', borderTop: '3px solid #c98a00', padding: '14px 24px', textAlign: 'center', fontSize: 14, color: '#7a5100', fontWeight: 500 }}>
+        ⚠️ Purchase orders are not currently accepted. All purchases are processed by credit/debit card. Questions? Email <a href="mailto:contact@modalmath.com" style={{ color: '#520096', textDecoration: 'underline' }}>contact@modalmath.com</a>
+      </div>
+
+      {/* Pricing Section */}
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '60px 24px 0' }}>
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#8c3dd4', marginBottom: 8 }}>District Pricing</div>
+          <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(1.8rem, 4vw, 2.8rem)', fontWeight: 400, marginBottom: 12 }}>Per-Teacher Seat Licensing</h2>
+          <p style={{ color: '#4b2865', fontSize: 16, maxWidth: 560, margin: '0 auto 28px' }}>All plans include unlimited student access per teacher seat. Volume discounts apply automatically.</p>
+
+          {/* Billing Toggle */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, background: 'white', borderRadius: 999, padding: '8px 20px', boxShadow: '0 2px 8px rgba(82,0,150,0.12)' }}>
+            <span style={{ fontWeight: 600, color: billing === 'annual' ? '#520096' : '#888', cursor: 'pointer' }} onClick={() => setBilling('annual')}>Annual</span>
+            <div onClick={() => setBilling(b => b === 'annual' ? 'monthly' : 'annual')}
+              style={{ width: 44, height: 24, borderRadius: 999, background: billing === 'monthly' ? '#520096' : '#d4aff5', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+              <div style={{ width: 18, height: 18, background: 'white', borderRadius: '50%', position: 'absolute', top: 3, left: billing === 'monthly' ? 23 : 3, transition: 'left 0.2s' }} />
+            </div>
+            <span style={{ fontWeight: 600, color: billing === 'monthly' ? '#520096' : '#888', cursor: 'pointer' }} onClick={() => setBilling('monthly')}>Monthly</span>
+            <span style={{ background: '#ede0fb', color: '#520096', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>Save up to 17% annually</span>
+          </div>
+        </div>
+
+        {/* Pricing Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 20, marginBottom: 60 }}>
+          {TIERS.map(tier => {
+            const rate = billing === 'annual' ? tier.annualRate : tier.monthlyRate;
+            const isEnterprise = tier.key === 'enterprise';
+            return (
+              <div key={tier.key} style={{
+                background: 'white',
+                borderRadius: 20,
+                padding: '28px 24px',
+                border: tier.featured ? '2.5px solid #520096' : '1.5px solid #e5d6f8',
+                boxShadow: tier.featured ? '0 8px 32px rgba(82,0,150,0.15)' : '0 2px 8px rgba(82,0,150,0.06)',
+                position: 'relative',
+                display: 'flex', flexDirection: 'column',
+              }}>
+                {tier.badge && (
+                  <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', background: tier.featured ? '#520096' : '#c98a00', color: 'white', fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+                    {tier.badge}
+                  </div>
+                )}
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8c3dd4', marginBottom: 4 }}>{tier.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#1e003a', marginBottom: 4 }}>{tier.name}</div>
+                <div style={{ fontSize: 13, color: '#6b0fbb', marginBottom: 16, fontWeight: 500 }}>{tier.range}</div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, marginBottom: 4 }}>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: '#520096', lineHeight: 1.4 }}>$</span>
+                  <span style={{ fontSize: 42, fontWeight: 800, color: '#1e003a', lineHeight: 1 }}>{rate}</span>
+                  <span style={{ fontSize: 13, color: '#888', lineHeight: 1.3 }}>/teacher<br />{billing === 'annual' ? 'per year' : 'per month'}</span>
+                </div>
+                {tier.savings && <div style={{ fontSize: 12, color: '#520096', fontWeight: 600, marginBottom: 4 }}>{tier.savings}</div>}
+                <hr style={{ border: 'none', borderTop: '1px solid #ede0fb', margin: '16px 0' }} />
+                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', flex: 1 }}>
+                  {tier.features.map(f => (
+                    <li key={f} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: 14, color: '#3b006e' }}>
+                      <span style={{ color: '#520096', fontWeight: 700, flexShrink: 0 }}>✓</span>{f}
+                    </li>
+                  ))}
+                </ul>
+                {isEnterprise ? (
+                  <a href="mailto:contact@modalmath.com" style={{ display: 'block', textAlign: 'center', background: '#1e003a', color: 'white', borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>
+                    Contact for Pricing
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => handlePurchase(tier)}
+                    disabled={loading}
+                    style={{ background: tier.featured ? '#520096' : 'white', color: tier.featured ? 'white' : '#520096', border: '2px solid #520096', borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer', width: '100%' }}
+                  >
+                    {loading ? 'Loading...' : 'Get Started'}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {checkoutError && <p style={{ color: 'red', textAlign: 'center', marginBottom: 24 }}>{checkoutError}</p>}
+      </div>
+
+      {/* Calculator */}
+      <div style={{ background: 'white', padding: '60px 24px' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#8c3dd4', marginBottom: 8 }}>Savings Calculator</div>
+            <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(1.5rem, 3vw, 2.2rem)', fontWeight: 400 }}>See What Your District Saves</h2>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, alignItems: 'center' }}>
+            <div>
+              <h3 style={{ fontSize: 20, fontWeight: 700, color: '#1e003a', marginBottom: 10 }}>How many teacher seats does your program need?</h3>
+              <p style={{ color: '#4b2865', fontSize: 15, marginBottom: 24 }}>Adjust the slider to see your tier, annual total, and savings.</p>
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#520096', display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span>Teacher Seats</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#1e003a' }}>{sliderSeats} seats</span>
+              </label>
+              <input type="range" min="1" max="50" value={sliderSeats} onChange={e => setSliderSeats(Number(e.target.value))}
+                style={{ width: '100%', accentColor: '#520096', height: 6 }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#888', marginTop: 4 }}>
+                <span>1</span><span>50</span>
+              </div>
+            </div>
+            <div style={{ background: '#f7f2fd', borderRadius: 16, padding: 28, border: '1.5px solid #e5d6f8' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#8c3dd4', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Your Estimated Plan</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#1e003a', marginBottom: 16 }}>{calcTier.name}</div>
+              {[
+                ['Seats', sliderSeats],
+                ['Per-seat rate', `$${calcRate}/${billing === 'annual' ? 'yr' : 'mo'}`],
+                ['Total', `$${calcTotal.toLocaleString()}/${billing === 'annual' ? 'yr' : 'mo'}`],
+                calcSavings > 0 ? ['You save', `$${calcSavings.toLocaleString()}/yr`] : null,
+              ].filter(Boolean).map(([label, val]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5d6f8', fontSize: 15 }}>
+                  <span style={{ color: '#4b2865' }}>{label}</span>
+                  <span style={{ fontWeight: 700, color: label === 'You save' ? '#520096' : '#1e003a' }}>{val}</span>
+                </div>
+              ))}
+              {sliderSeats >= 5 && (
+                <div style={{ marginTop: 16, background: '#ede0fb', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#520096', fontWeight: 600 }}>
+                  🎉 Your district qualifies for a <strong>14-day free trial</strong> — no commitment required!
+                  <div style={{ marginTop: 8 }}>
+                    <Link to={createPageUrl('DistrictTrial')} style={{ color: '#520096', textDecoration: 'underline', fontWeight: 700 }}>Start Free Trial →</Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Free Trial CTA Banner */}
+      <div style={{ background: 'linear-gradient(135deg, #520096, #8c3dd4)', padding: '48px 24px', textAlign: 'center', color: 'white' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.8, marginBottom: 10 }}>Districts with 5+ Teachers</div>
+        <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(1.6rem, 3.5vw, 2.4rem)', fontWeight: 400, marginBottom: 14 }}>Try Modal Math Free for 14 Days</h2>
+        <p style={{ opacity: 0.9, fontSize: 16, maxWidth: 520, margin: '0 auto 28px' }}>No commitment, no credit card required. Experience the full platform with your team before purchasing.</p>
+        <Link to={createPageUrl('DistrictTrial')} style={{ display: 'inline-block', background: 'white', color: '#520096', borderRadius: 10, padding: '14px 36px', fontWeight: 700, fontSize: 16, textDecoration: 'none' }}>
+          Start 14-Day Free Trial
+        </Link>
+      </div>
+
+      {/* Footer Note */}
+      <div style={{ padding: '32px 24px', textAlign: 'center', background: '#f7f2fd', fontSize: 13, color: '#4b2865' }}>
+        <p>Questions about district pricing or licensing? Email us at <a href="mailto:contact@modalmath.com" style={{ color: '#520096', fontWeight: 600 }}>contact@modalmath.com</a></p>
+        <p style={{ marginTop: 8, opacity: 0.7 }}>⚠️ Purchase orders are not currently accepted for the time being.</p>
+      </div>
+    </div>
+  );
+}

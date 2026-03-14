@@ -57,6 +57,9 @@ import StudentAssignments from './pages/StudentAssignments';
 import StudentAssignmentsLogin from './pages/StudentAssignmentsLogin';
 import Verify from './pages/Verify';
 import WebhookDebug from './pages/WebhookDebug';
+import DistrictPricing from './pages/DistrictPricing';
+import DistrictTrial from './pages/DistrictTrial';
+import DistrictAdminDashboard from './pages/DistrictAdminDashboard';
 import __Layout from './Layout.jsx';
 
 
@@ -71,6 +74,9 @@ export const PAGES = {
     "StudentAssignmentsLogin": StudentAssignmentsLogin,
     "Verify": Verify,
     "WebhookDebug": WebhookDebug,
+    "DistrictPricing": DistrictPricing,
+    "DistrictTrial": DistrictTrial,
+    "DistrictAdminDashboard": DistrictAdminDashboard,
 }
 
 export const pagesConfig = {
