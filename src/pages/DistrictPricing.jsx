@@ -262,8 +262,8 @@ export default function DistrictPricing() {
 
       {/* Free Trial CTA Banner */}
       <div style={{ background: 'linear-gradient(135deg, #520096, #8c3dd4)', padding: '48px 24px', textAlign: 'center', color: 'white' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.8, marginBottom: 10 }}>Districts with 5+ Teachers</div>
-        <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(1.6rem, 3.5vw, 2.4rem)', fontWeight: 400, marginBottom: 14 }}>Try Modal Math Free for 14 Days</h2>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#d4b8f5', marginBottom: 10 }}>Districts with 5+ Teachers</div>
+        <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(1.6rem, 3.5vw, 2.4rem)', fontWeight: 400, marginBottom: 14, color: 'white' }}>Try Modal Math Free for 14 Days</h2>
         <p style={{ fontSize: 16, maxWidth: 520, margin: '0 auto 28px', color: '#f0e6ff' }}>No commitment, no credit card required. Experience the full platform with your team before purchasing.</p>
         <Link to={createPageUrl('DistrictTrial')} style={{ display: 'inline-block', background: 'white', color: '#520096', borderRadius: 10, padding: '14px 36px', fontWeight: 700, fontSize: 16, textDecoration: 'none' }}>
           Start 14-Day Free Trial
