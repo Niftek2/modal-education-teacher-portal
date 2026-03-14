@@ -4,65 +4,65 @@ import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 
 const TIERS = [
-{
-  key: 'starter', label: 'Starter', name: 'Building Block', range: '1–4 teacher seats',
-  minSeats: 1, maxSeats: 4,
-  annualRate: 179, monthlyRate: 19,
-  savings: null,
-  badge: null, featured: false,
-  features: [
-  'Unlimited student accounts per seat',
-  'PK–Grade 5 full content library',
-  '4 learning modalities',
-  'Teacher dashboard & progress reports',
-  'iOS, Android & web access',
-  'Email support']
-
-},
-{
-  key: 'growth', label: 'Growth', name: 'Program Pack', range: '5–14 teacher seats',
-  minSeats: 5, maxSeats: 14,
-  annualRate: 159, monthlyRate: 17,
-  savings: 'Save 11% vs. standard rate',
-  badge: '⭐ Most Popular', featured: true,
-  features: [
-  'Everything in Building Block',
-  'District admin dashboard',
-  'Roster import (CSV / SIS)',
-  'Aggregate reporting across classrooms',
-  'Priority email & chat support',
-  'Onboarding call with Modal Ed team']
-
-},
-{
-  key: 'campus', label: 'Campus', name: 'Campus Reach', range: '15–29 teacher seats',
-  minSeats: 15, maxSeats: 29,
-  annualRate: 139, monthlyRate: 15,
-  savings: 'Save 22% vs. standard rate',
-  badge: null, featured: false,
-  features: [
-  'Everything in Program Pack',
-  'Dedicated success manager',
-  'SSO / LMS integration support']
-
-},
-{
-  key: 'enterprise', label: 'Enterprise', name: 'District-Wide', range: '30+ teacher seats',
-  minSeats: 30, maxSeats: Infinity,
-  annualRate: 119, monthlyRate: 13,
-  savings: 'Save 34% vs. standard rate',
-  badge: 'Best Value', featured: false, enterprise: true,
-  features: [
-  'Everything in Campus Reach',
-  'Unlimited seats — one flat rate',
-  'Multi-school admin console',
-  'Custom contract support']
-
-}];
-
+  {
+    key: 'starter', label: 'Starter', name: 'Building Block', range: '1–4 teacher seats',
+    minSeats: 1, maxSeats: 4,
+    annualRate: 179, monthlyRate: 19,
+    savings: null,
+    badge: null, featured: false,
+    features: [
+      'Unlimited student accounts per seat',
+      'PK–Grade 5 full content library',
+      '4 learning modalities',
+      'Teacher dashboard & progress reports',
+      'iOS, Android & web access',
+      'Email support',
+    ],
+  },
+  {
+    key: 'growth', label: 'Growth', name: 'Program Pack', range: '5–14 teacher seats',
+    minSeats: 5, maxSeats: 14,
+    annualRate: 159, monthlyRate: 17,
+    savings: 'Save 11% vs. standard rate',
+    badge: '⭐ Most Popular', featured: true,
+    features: [
+      'Everything in Building Block',
+      'District admin dashboard',
+      'Roster import (CSV / SIS)',
+      'Aggregate reporting across classrooms',
+      'Priority email & chat support',
+      'Onboarding call with Modal Ed team',
+    ],
+  },
+  {
+    key: 'campus', label: 'Campus', name: 'Campus Reach', range: '15–29 teacher seats',
+    minSeats: 15, maxSeats: 29,
+    annualRate: 139, monthlyRate: 15,
+    savings: 'Save 22% vs. standard rate',
+    badge: null, featured: false,
+    features: [
+      'Everything in Program Pack',
+      'Dedicated success manager',
+      'SSO / LMS integration support',
+    ],
+  },
+  {
+    key: 'enterprise', label: 'Enterprise', name: 'District-Wide', range: '30+ teacher seats',
+    minSeats: 30, maxSeats: Infinity,
+    annualRate: 119, monthlyRate: 13,
+    savings: 'Save 34% vs. standard rate',
+    badge: 'Best Value', featured: false, enterprise: true,
+    features: [
+      'Everything in Campus Reach',
+      'Unlimited seats — one flat rate',
+      'Multi-school admin console',
+      'Custom contract support',
+    ],
+  },
+];
 
 function getTierForSeats(seats) {
-  return TIERS.find((t) => seats >= t.minSeats && seats <= t.maxSeats) || TIERS[TIERS.length - 1];
+  return TIERS.find(t => seats >= t.minSeats && seats <= t.maxSeats) || TIERS[TIERS.length - 1];
 }
 
 export default function DistrictPricing() {
@@ -87,7 +87,7 @@ export default function DistrictPricing() {
         billing,
         adminEmail: '',
         successUrl: `${window.location.origin}${createPageUrl('DistrictAdminDashboard')}?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${window.location.origin}${createPageUrl('DistrictPricing')}`
+        cancelUrl: `${window.location.origin}${createPageUrl('DistrictPricing')}`,
       });
       if (res.data?.url) {
         window.location.href = res.data.url;
@@ -117,16 +117,16 @@ export default function DistrictPricing() {
           Modal Math delivers PreK–Grade 5 math practice across multiple learning modalities — sign language, voice, visuals, and text — so more students can engage and practice at their level.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-          {['🤟 Sign Language', '🗣️ Voice', '👁️ Visuals', '📝 Text', '✅ Common Core Aligned'].map((m) =>
-          <span key={m} style={{ background: 'rgba(255,255,255,0.18)', borderRadius: 999, padding: '6px 16px', fontSize: 14, fontWeight: 500 }}>{m}</span>
-          )}
+          {['🤟 Sign Language', '🗣️ Voice', '👁️ Visuals', '📝 Text', '✅ Common Core Aligned'].map(m => (
+            <span key={m} style={{ background: 'rgba(255,255,255,0.18)', borderRadius: 999, padding: '6px 16px', fontSize: 14, fontWeight: 500 }}>{m}</span>
+          ))}
         </div>
       </section>
 
       {/* Purchase Order Notice */}
-      
-
-
+      <div style={{ background: '#fff8e6', borderTop: '3px solid #c98a00', padding: '14px 24px', textAlign: 'center', fontSize: 14, color: '#7a5100', fontWeight: 500 }}>
+        ⚠️ Purchase orders are not currently accepted. All purchases are processed by credit/debit card. Questions? Email <a href="mailto:contact@modalmath.com" style={{ color: '#520096', textDecoration: 'underline' }}>contact@modalmath.com</a>
+      </div>
 
       {/* Pricing Section */}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '60px 24px 0' }}>
@@ -138,9 +138,9 @@ export default function DistrictPricing() {
           {/* Billing Toggle */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, background: 'white', borderRadius: 999, padding: '8px 20px', boxShadow: '0 2px 8px rgba(82,0,150,0.12)' }} role="group" aria-label="Billing frequency">
             <button onClick={() => setBilling('annual')} aria-pressed={billing === 'annual'}
-            style={{ fontWeight: 600, color: billing === 'annual' ? '#520096' : '#595959', cursor: 'pointer', background: 'none', border: 'none', fontSize: 16, padding: 0 }}>Annual</button>
+              style={{ fontWeight: 600, color: billing === 'annual' ? '#520096' : '#595959', cursor: 'pointer', background: 'none', border: 'none', fontSize: 16, padding: 0 }}>Annual</button>
             <button
-              onClick={() => setBilling((b) => b === 'annual' ? 'monthly' : 'annual')}
+              onClick={() => setBilling(b => b === 'annual' ? 'monthly' : 'annual')}
               role="switch"
               aria-checked={billing === 'monthly'}
               aria-label="Toggle billing frequency"
@@ -148,14 +148,14 @@ export default function DistrictPricing() {
               <span style={{ width: 18, height: 18, background: 'white', borderRadius: '50%', position: 'absolute', top: 3, left: billing === 'monthly' ? 23 : 3, transition: 'left 0.2s', display: 'block' }} />
             </button>
             <button onClick={() => setBilling('monthly')} aria-pressed={billing === 'monthly'}
-            style={{ fontWeight: 600, color: billing === 'monthly' ? '#520096' : '#595959', cursor: 'pointer', background: 'none', border: 'none', fontSize: 16, padding: 0 }}>Monthly</button>
+              style={{ fontWeight: 600, color: billing === 'monthly' ? '#520096' : '#595959', cursor: 'pointer', background: 'none', border: 'none', fontSize: 16, padding: 0 }}>Monthly</button>
             <span style={{ background: '#ede0fb', color: '#3d006e', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>Save up to 17% annually</span>
           </div>
         </div>
 
         {/* Pricing Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 20, marginBottom: 60 }}>
-          {TIERS.map((tier) => {
+          {TIERS.map(tier => {
             const rate = billing === 'annual' ? tier.annualRate : tier.monthlyRate;
             const isEnterprise = tier.key === 'enterprise';
             return (
@@ -166,13 +166,13 @@ export default function DistrictPricing() {
                 border: tier.featured ? '2.5px solid #520096' : '1.5px solid #e5d6f8',
                 boxShadow: tier.featured ? '0 8px 32px rgba(82,0,150,0.15)' : '0 2px 8px rgba(82,0,150,0.06)',
                 position: 'relative',
-                display: 'flex', flexDirection: 'column'
+                display: 'flex', flexDirection: 'column',
               }}>
-                {tier.badge &&
-                <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', background: tier.featured ? '#520096' : '#c98a00', color: 'white', fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+                {tier.badge && (
+                  <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', background: tier.featured ? '#520096' : '#c98a00', color: 'white', fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 999, whiteSpace: 'nowrap' }}>
                     {tier.badge}
                   </div>
-                }
+                )}
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8c3dd4', marginBottom: 4 }}>{tier.label}</div>
                 <div style={{ fontSize: 20, fontWeight: 700, color: '#1e003a', marginBottom: 4 }}>{tier.name}</div>
                 <div style={{ fontSize: 13, color: '#6b0fbb', marginBottom: 16, fontWeight: 500 }}>{tier.range}</div>
@@ -184,27 +184,27 @@ export default function DistrictPricing() {
                 {tier.savings && <div style={{ fontSize: 12, color: '#520096', fontWeight: 600, marginBottom: 4 }}>{tier.savings}</div>}
                 <hr style={{ border: 'none', borderTop: '1px solid #ede0fb', margin: '16px 0' }} />
                 <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', flex: 1 }}>
-                  {tier.features.map((f) =>
-                  <li key={f} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: 14, color: '#3b006e' }}>
+                  {tier.features.map(f => (
+                    <li key={f} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: 14, color: '#3b006e' }}>
                       <span style={{ color: '#520096', fontWeight: 700, flexShrink: 0 }}>✓</span>{f}
                     </li>
-                  )}
+                  ))}
                 </ul>
-                {isEnterprise ?
-                <a href="mailto:contact@modalmath.com" style={{ display: 'block', textAlign: 'center', background: '#1e003a', color: 'white', borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>
+                {isEnterprise ? (
+                  <a href="mailto:contact@modalmath.com" style={{ display: 'block', textAlign: 'center', background: '#1e003a', color: 'white', borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>
                     Contact for Pricing
-                  </a> :
-
-                <button
-                  onClick={() => handlePurchase(tier)}
-                  disabled={loading}
-                  style={{ background: tier.featured ? '#520096' : 'white', color: tier.featured ? 'white' : '#520096', border: '2px solid #520096', borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer', width: '100%' }}>
-
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => handlePurchase(tier)}
+                    disabled={loading}
+                    style={{ background: tier.featured ? '#520096' : 'white', color: tier.featured ? 'white' : '#520096', border: '2px solid #520096', borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer', width: '100%' }}
+                  >
                     {loading ? 'Loading...' : 'Get Started'}
                   </button>
-                }
-              </div>);
-
+                )}
+              </div>
+            );
           })}
         </div>
         {checkoutError && <p style={{ color: 'red', textAlign: 'center', marginBottom: 24 }}>{checkoutError}</p>}
@@ -225,10 +225,10 @@ export default function DistrictPricing() {
                 <span>Teacher Seats</span>
                 <span style={{ fontSize: 16, fontWeight: 800, color: '#1e003a' }}>{sliderSeats} seats</span>
               </label>
-              <input type="range" min="1" max="50" value={sliderSeats} onChange={(e) => setSliderSeats(Number(e.target.value))}
-              aria-label={`Teacher seats: ${sliderSeats}`}
-              aria-valuemin={1} aria-valuemax={50} aria-valuenow={sliderSeats}
-              style={{ width: '100%', accentColor: '#520096', height: 6 }} />
+              <input type="range" min="1" max="50" value={sliderSeats} onChange={e => setSliderSeats(Number(e.target.value))}
+                aria-label={`Teacher seats: ${sliderSeats}`}
+                aria-valuemin={1} aria-valuemax={50} aria-valuenow={sliderSeats}
+                style={{ width: '100%', accentColor: '#520096', height: 6 }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#595959', marginTop: 4 }} aria-hidden="true">
                 <span>1</span><span>50</span>
               </div>
@@ -237,34 +237,34 @@ export default function DistrictPricing() {
               <div style={{ fontSize: 12, fontWeight: 700, color: '#8c3dd4', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Your Estimated Plan</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: '#1e003a', marginBottom: 16 }}>{calcTier.name}</div>
               {[
-              ['Seats', sliderSeats],
-              ['Per-seat rate', `$${calcRate}/${billing === 'annual' ? 'yr' : 'mo'}`]].
-              map(([label, val]) =>
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5d6f8', fontSize: 15 }}>
+                ['Seats', sliderSeats],
+                ['Per-seat rate', `$${calcRate}/${billing === 'annual' ? 'yr' : 'mo'}`],
+              ].map(([label, val]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5d6f8', fontSize: 15 }}>
                   <span style={{ color: '#4b2865' }}>{label}</span>
                   <span style={{ fontWeight: 700, color: '#1e003a' }}>{val}</span>
                 </div>
-              )}
+              ))}
               {/* Total — prominent */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: calcSavings > 0 ? '1px solid #e5d6f8' : 'none', marginTop: 4 }}>
                 <span style={{ fontSize: 16, fontWeight: 700, color: '#1e003a' }}>Total</span>
                 <span style={{ fontSize: 22, fontWeight: 800, color: '#1e003a' }}>${calcTotal.toLocaleString()}<span style={{ fontSize: 13, fontWeight: 500, color: '#595959' }}>/{billing === 'annual' ? 'yr' : 'mo'}</span></span>
               </div>
               {/* You save — secondary */}
-              {calcSavings > 0 &&
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
+              {calcSavings > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
                   <span style={{ fontSize: 13, color: '#520096', fontWeight: 600 }}>You save vs. standard rate</span>
                   <span style={{ fontSize: 14, fontWeight: 700, color: '#520096', background: '#ede0fb', borderRadius: 999, padding: '2px 10px' }}>${calcSavings.toLocaleString()}/yr</span>
                 </div>
-              }
-              {sliderSeats >= 5 &&
-              <div style={{ marginTop: 16, background: '#ede0fb', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#520096', fontWeight: 600 }}>
+              )}
+              {sliderSeats >= 5 && (
+                <div style={{ marginTop: 16, background: '#ede0fb', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#520096', fontWeight: 600 }}>
                   🎉 Your district qualifies for a <strong>14-day free trial</strong> — no commitment required!
                   <div style={{ marginTop: 8 }}>
                     <Link to={createPageUrl('DistrictTrial')} style={{ color: '#520096', textDecoration: 'underline', fontWeight: 700 }}>Start Free Trial →</Link>
                   </div>
                 </div>
-              }
+              )}
             </div>
           </div>
         </div>
@@ -285,6 +285,6 @@ export default function DistrictPricing() {
         <p>Questions about district pricing or licensing? Email us at <a href="mailto:contact@modalmath.com" style={{ color: '#520096', fontWeight: 600 }}>contact@modalmath.com</a></p>
         <p style={{ marginTop: 8, color: '#6b3a8a' }}>⚠️ Purchase orders are not currently accepted for the time being.</p>
       </div>
-    </div>);
-
+    </div>
+  );
 }
