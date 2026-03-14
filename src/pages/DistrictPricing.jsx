@@ -179,7 +179,7 @@ export default function DistrictPricing() {
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, marginBottom: 4 }}>
                   <span style={{ fontSize: 18, fontWeight: 700, color: '#520096', lineHeight: 1.4 }}>$</span>
                   <span style={{ fontSize: 42, fontWeight: 800, color: '#1e003a', lineHeight: 1 }}>{rate}</span>
-                  <span style={{ fontSize: 13, color: '#888', lineHeight: 1.3 }}>/teacher<br />{billing === 'annual' ? 'per year' : 'per month'}</span>
+                  <span style={{ fontSize: 13, color: '#595959', lineHeight: 1.3 }}>/teacher<br />{billing === 'annual' ? 'per year' : 'per month'}</span>
                 </div>
                 {tier.savings && <div style={{ fontSize: 12, color: '#520096', fontWeight: 600, marginBottom: 4 }}>{tier.savings}</div>}
                 <hr style={{ border: 'none', borderTop: '1px solid #ede0fb', margin: '16px 0' }} />
