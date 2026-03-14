@@ -3,7 +3,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const { adminEmail, adminName, districtName, seats } = await req.json();
+    const { adminEmail, adminName, adminTitle, districtName, seats } = await req.json();
 
     if (!adminEmail || !adminName || !districtName || !seats) {
       return Response.json({ error: 'adminEmail, adminName, districtName, and seats are required' }, { status: 400 });
@@ -26,6 +26,7 @@ Deno.serve(async (req) => {
     const license = await base44.asServiceRole.entities.DistrictLicense.create({
       adminEmail: normalizedEmail,
       adminName,
+      adminTitle: adminTitle || '',
       districtName,
       totalLicenses: Number(seats),
       licensesUsed: 0,
