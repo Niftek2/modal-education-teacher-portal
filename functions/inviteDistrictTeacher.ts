@@ -17,8 +17,7 @@ const COURSE_IDS = [
 const COURSE_NAMES = ['Your Classroom', 'PK', 'K', 'L1', 'L2', 'L3', 'L4', 'L5'];
 
 const thinkificHeaders = {
-  'X-Auth-API-Key': THINKIFIC_API_TOKEN,
-  'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
+  'Authorization': `Bearer ${THINKIFIC_API_TOKEN}`,
   'Content-Type': 'application/json',
 };
 
