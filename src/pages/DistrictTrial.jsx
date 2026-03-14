@@ -5,7 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function DistrictTrial() {
-  const [form, setForm] = useState({ adminEmail: '', adminName: '', districtName: '', seats: 5 });
+  const [form, setForm] = useState({ adminEmail: '', adminName: '', adminTitle: '', districtName: '', seats: 5 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -23,6 +23,7 @@ export default function DistrictTrial() {
       const res = await base44.functions.invoke('startDistrictTrial', {
         adminEmail: form.adminEmail,
         adminName: form.adminName,
+        adminTitle: form.adminTitle,
         districtName: form.districtName,
         seats: form.seats,
       });
@@ -87,6 +88,7 @@ export default function DistrictTrial() {
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {[
               { key: 'adminName', label: 'Your Full Name', type: 'text', placeholder: 'Jane Smith', required: true },
+              { key: 'adminTitle', label: 'Your Title', type: 'text', placeholder: 'Curriculum Director', required: true },
               { key: 'adminEmail', label: 'Your Email Address', type: 'email', placeholder: 'jane@district.edu', required: true },
               { key: 'districtName', label: 'School / District Name', type: 'text', placeholder: 'Springfield USD', required: true },
             ].map(({ key, label, type, placeholder, required }) => (
