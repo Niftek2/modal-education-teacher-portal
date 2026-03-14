@@ -3,11 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { api } from '@/components/api';
 
 export default function StudentAssignmentsLogin() {
     const [studentEmail, setStudentEmail] = useState('');
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
@@ -56,7 +54,6 @@ export default function StudentAssignmentsLogin() {
                                         value={studentEmail}
                                         onChange={(e) => setStudentEmail(e.target.value)}
                                         className="pl-10"
-                                        disabled={loading}
                                         autoFocus
                                     />
                                 </div>
@@ -70,11 +67,10 @@ export default function StudentAssignmentsLogin() {
 
                             <Button
                                 type="submit"
-                                disabled={loading}
                                 className="w-full bg-purple-900 hover:bg-purple-800 text-white"
                             >
                                 <LogIn className="w-4 h-4 mr-2" />
-                                {loading ? 'Signing in...' : 'Sign In'}
+                                Sign In
                             </Button>
                         </form>
 
