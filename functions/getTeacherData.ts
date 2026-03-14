@@ -23,7 +23,9 @@ async function thinkificGet(path) {
 Deno.serve(async (req) => {
   try {
     const body = await req.json();
-    const session = await requireSession(body.sessionToken);
+    // Support token from Authorization header (preferred) or body fallback
+    const headerToken = req.headers.get('Authorization')?.replace('Bearer ', '');
+    const session = await requireSession(headerToken || body.sessionToken);
     if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const base44 = createClientFromRequest(req);

@@ -20,22 +20,10 @@ export default function StudentAssignmentsLogin() {
             return;
         }
 
-        try {
-            setLoading(true);
-
-            const result = await api.call('studentLogin', { studentEmail });
-
-            localStorage.setItem('student_session', result.token);
-            localStorage.setItem('student_email', result.studentEmail);
-            localStorage.setItem('modal_student_email', result.studentEmail);
-
-            navigate('/StudentAssignments');
-        } catch (err) {
-            console.error('Login error:', err);
-            setError(err.message || 'Student not found. Please check your email.');
-        } finally {
-            setLoading(false);
-        }
+        const normalized = studentEmail.trim().toLowerCase();
+        localStorage.setItem('student_email', normalized);
+        localStorage.setItem('modal_student_email', normalized);
+        navigate('/StudentAssignments');
     };
 
     return (
