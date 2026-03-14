@@ -12,11 +12,11 @@ export default function Layout({ children, currentPageName }) {
             className="h-8 w-8 object-contain flex-shrink-0"
           />
           <h1 className="text-lg tracking-tight" style={{ fontFamily: 'Arial' }}>Modal Education</h1>
-        </div>
-        <nav className="ml-auto pr-2">
-          <a href="/DistrictPricing" className="text-sm text-purple-800 hover:text-purple-600 font-medium underline-offset-2 hover:underline">
-            District Pricing
-          </a>
+          <nav className="ml-auto">
+            <a href="/DistrictPricing" className="text-sm text-purple-800 hover:text-purple-600 font-medium hover:underline">
+              District Pricing
+            </a>
+          </nav>
         </div>
       </header>
 
