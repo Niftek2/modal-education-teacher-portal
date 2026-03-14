@@ -136,14 +136,20 @@ export default function DistrictPricing() {
           <p style={{ color: '#4b2865', fontSize: 16, maxWidth: 560, margin: '0 auto 28px' }}>All plans include unlimited student access per teacher seat. Volume discounts apply automatically.</p>
 
           {/* Billing Toggle */}
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, background: 'white', borderRadius: 999, padding: '8px 20px', boxShadow: '0 2px 8px rgba(82,0,150,0.12)' }}>
-            <span style={{ fontWeight: 600, color: billing === 'annual' ? '#520096' : '#888', cursor: 'pointer' }} onClick={() => setBilling('annual')}>Annual</span>
-            <div onClick={() => setBilling(b => b === 'annual' ? 'monthly' : 'annual')}
-              style={{ width: 44, height: 24, borderRadius: 999, background: billing === 'monthly' ? '#520096' : '#d4aff5', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-              <div style={{ width: 18, height: 18, background: 'white', borderRadius: '50%', position: 'absolute', top: 3, left: billing === 'monthly' ? 23 : 3, transition: 'left 0.2s' }} />
-            </div>
-            <span style={{ fontWeight: 600, color: billing === 'monthly' ? '#520096' : '#888', cursor: 'pointer' }} onClick={() => setBilling('monthly')}>Monthly</span>
-            <span style={{ background: '#ede0fb', color: '#520096', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>Save up to 17% annually</span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, background: 'white', borderRadius: 999, padding: '8px 20px', boxShadow: '0 2px 8px rgba(82,0,150,0.12)' }} role="group" aria-label="Billing frequency">
+            <button onClick={() => setBilling('annual')} aria-pressed={billing === 'annual'}
+              style={{ fontWeight: 600, color: billing === 'annual' ? '#520096' : '#595959', cursor: 'pointer', background: 'none', border: 'none', fontSize: 16, padding: 0 }}>Annual</button>
+            <button
+              onClick={() => setBilling(b => b === 'annual' ? 'monthly' : 'annual')}
+              role="switch"
+              aria-checked={billing === 'monthly'}
+              aria-label="Toggle billing frequency"
+              style={{ width: 44, height: 24, borderRadius: 999, background: billing === 'monthly' ? '#520096' : '#6b3a8a', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', border: 'none', padding: 0 }}>
+              <span style={{ width: 18, height: 18, background: 'white', borderRadius: '50%', position: 'absolute', top: 3, left: billing === 'monthly' ? 23 : 3, transition: 'left 0.2s', display: 'block' }} />
+            </button>
+            <button onClick={() => setBilling('monthly')} aria-pressed={billing === 'monthly'}
+              style={{ fontWeight: 600, color: billing === 'monthly' ? '#520096' : '#595959', cursor: 'pointer', background: 'none', border: 'none', fontSize: 16, padding: 0 }}>Monthly</button>
+            <span style={{ background: '#ede0fb', color: '#3d006e', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>Save up to 17% annually</span>
           </div>
         </div>
 
