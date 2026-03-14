@@ -16,8 +16,7 @@ async function requireSession(req) {
     }
 }
 
-const THINKIFIC_API_KEY = Deno.env.get("THINKIFIC_API_KEY");
-const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
+const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 
 async function getTeacherGroupsIndex() {
     const allGroups = [];
@@ -29,8 +28,8 @@ async function getTeacherGroupsIndex() {
             `https://api.thinkific.com/api/public/v1/groups?page=${page}&limit=25`,
             {
                 headers: {
-                    'X-Auth-API-Key': THINKIFIC_API_KEY,
-                    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                    'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json'
                 }
             }
         );
@@ -47,18 +46,18 @@ async function getTeacherGroupsIndex() {
     }
 
     const validTeachersByEmail = new Map();
-    const CLASSROOM_COURSE_ID = '552235';
+    const CLASSROOM_COURSE_ID = Deno.env.get("CLASSROOM_PRODUCT_ID");
 
     for (const group of allGroups) {
         let membersPage = 1;
         let hasMoreMembers = true;
         while (hasMoreMembers) {
             const membersResponse = await fetch(
-                `https://api.thinkific.com/api/public/v1/group_memberships?group_id=${group.id}&page=${membersPage}&limit=25`,
+                `https://api.thinkific.com/api/public/v1/group_users?query[group_id]=${group.id}&page=${membersPage}&limit=25`,
                 {
                     headers: {
-                        'X-Auth-API-Key': THINKIFIC_API_KEY,
-                        'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                        'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json'
                     }
                 }
             );
@@ -77,11 +76,11 @@ async function getTeacherGroupsIndex() {
 
                 if (!email.endsWith('@modalmath.com')) {
                     const enrollmentsResponse = await fetch(
-                        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}`,
+                        `https://api.thinkific.com/api/public/v1/enrollments?query[user_id]=${userId}&query[course_id]=${CLASSROOM_COURSE_ID}&limit=1`,
                         {
                             headers: {
-                                'X-Auth-API-Key': THINKIFIC_API_KEY,
-                                'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                                'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
+                                'Content-Type': 'application/json'
                             }
                         }
                     );
@@ -111,11 +110,11 @@ async function getTeacherGroupsIndex() {
             let hasMoreMembers = true;
             while (hasMoreMembers) {
                 const membersResponse = await fetch(
-                    `https://api.thinkific.com/api/public/v1/group_memberships?group_id=${teacherGroup.groupId}&page=${membersPage}&limit=25`,
+                    `https://api.thinkific.com/api/public/v1/group_users?query[group_id]=${teacherGroup.groupId}&page=${membersPage}&limit=25`,
                     {
                         headers: {
-                            'X-Auth-API-Key': THINKIFIC_API_KEY,
-                            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN
+                            'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
+                            'Content-Type': 'application/json'
                         }
                     }
                 );
