@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import * as jose from 'npm:jose@5.2.0';
 
 const MAGIC_LINK_SECRET = Deno.env.get("MAGIC_LINK_SECRET");
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
             role: isTeacher ? 'teacher' : 'student'
         })
             .setProtectedHeader({ alg: 'HS256' })
-            .setExpirationTime('365d')
+            .setExpirationTime('45m')
             .setIssuedAt()
             .sign(sessionSecret);
 
