@@ -20,6 +20,7 @@ export default function Layout({ children, currentPageName }) {
         </div>
       </header>
 
+
       {/* Page Content */}
       <main className="flex-grow">
         {children}
