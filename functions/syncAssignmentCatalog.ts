@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import * as jose from 'npm:jose@5.2.0';
 
 async function requireSession(req) {
@@ -24,7 +24,6 @@ async function requestRest(path, method = 'GET', query = {}) {
         method,
         headers: {
             'Authorization': `Bearer ${THINKIFIC_TOKEN}`,
-            'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
             'Content-Type': 'application/json',
         },
     });

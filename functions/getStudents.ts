@@ -1,11 +1,10 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 const THINKIFIC_API_ACCESS_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 
 const thinkificHeaders = {
     'Authorization': `Bearer ${THINKIFIC_API_ACCESS_TOKEN}`,
-    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
     'Content-Type': 'application/json',
 };
 
@@ -14,7 +13,7 @@ async function getGroupIdForTeacher(teacherEmail, base44) {
     return records?.[0]?.thinkificGroupId || null;
 }
 
-const PK_COURSE_ID = '422595';
+const PK_COURSE_ID = Deno.env.get('PK_COURSE_ID');
 
 async function getGroupMembers(groupId) {
     const res = await fetch(

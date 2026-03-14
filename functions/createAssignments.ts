@@ -9,12 +9,7 @@ async function decodeSession(token) {
         const { payload } = await jose.jwtVerify(token, secret);
         return payload;
     } catch {
-        // Try decoding without verification as fallback (expired tokens)
-        try {
-            return jose.decodeJwt(token);
-        } catch {
-            return null;
-        }
+        return null;
     }
 }
 
