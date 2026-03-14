@@ -113,7 +113,7 @@ export default function DistrictPricing() {
         <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 400, marginBottom: 16, lineHeight: 1.15 }}>
           Math Practice That Works<br /><em>for More Students</em>
         </h1>
-        <p style={{ fontSize: 'clamp(1rem, 2.5vw, 1.2rem)', opacity: 0.9, maxWidth: 620, margin: '0 auto 32px' }}>
+        <p style={{ fontSize: 'clamp(1rem, 2.5vw, 1.2rem)', color: '#e8d9ff', maxWidth: 620, margin: '0 auto 32px' }}>
           Modal Math delivers PreK–Grade 5 math practice across multiple learning modalities — sign language, voice, visuals, and text — so more students can engage and practice at their level.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
