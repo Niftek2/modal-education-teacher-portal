@@ -6,6 +6,7 @@ import { CheckCircle2 } from 'lucide-react';
 
 export default function DistrictTrial() {
   const [form, setForm] = useState({ adminEmail: '', adminName: '', adminTitle: '', districtName: '', seats: 5 });
+  const TRIAL_SEATS = 5;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -14,10 +15,6 @@ export default function DistrictTrial() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (form.seats < 5) {
-      setError('The free trial is only available for districts with 5 or more teacher seats.');
-      return;
-    }
     setLoading(true);
     try {
       const res = await base44.functions.invoke('startDistrictTrial', {
@@ -25,7 +22,7 @@ export default function DistrictTrial() {
         adminName: form.adminName,
         adminTitle: form.adminTitle,
         districtName: form.districtName,
-        seats: form.seats,
+        seats: TRIAL_SEATS,
       });
       if (res.data?.success) {
         setSuccess(true);
@@ -61,10 +58,10 @@ export default function DistrictTrial() {
       {/* Header */}
       <div style={{ background: 'linear-gradient(135deg, #1e003a 0%, #520096 100%)', padding: '48px 24px 40px', textAlign: 'center', color: 'white' }}>
         <div style={{ display: 'inline-block', background: 'rgba(255,255,255,0.15)', borderRadius: 999, padding: '5px 16px', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>
-          🎉 For Districts with 5+ Teachers
+          🎉 Includes 5 Teacher Seats
         </div>
         <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontWeight: 400, marginBottom: 12 }}>Start Your 14-Day Free Trial</h1>
-        <p style={{ opacity: 0.9, fontSize: 16, maxWidth: 500, margin: '0 auto' }}>No credit card required. No commitment. Full access for your entire teaching team.</p>
+        <p style={{ opacity: 0.9, fontSize: 16, maxWidth: 500, margin: '0 auto' }}>No credit card required. No commitment. Try Modal Math with 5 teachers for 14 days.</p>
       </div>
 
       {/* What's included */}
@@ -75,7 +72,7 @@ export default function DistrictTrial() {
             '✓ All 4 learning modalities',
             '✓ Teacher dashboard & reports',
             '✓ District admin dashboard',
-            '✓ Unlimited student accounts',
+            '✓ Up to 10 students per teacher seat',
             '✓ No credit card required',
           ].map(f => (
             <div key={f} style={{ fontSize: 14, color: '#3b006e', fontWeight: 500 }}>{f}</div>
@@ -105,17 +102,8 @@ export default function DistrictTrial() {
               </div>
             ))}
 
-            <div>
-              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, color: '#520096', marginBottom: 6 }}>
-                <span>Number of Teacher Seats</span>
-                <span style={{ fontSize: 16, fontWeight: 800, color: '#1e003a' }}>{form.seats}</span>
-              </label>
-              <input type="range" min="5" max="50" value={form.seats} onChange={e => setForm(f => ({ ...f, seats: Number(e.target.value) }))}
-                style={{ width: '100%', accentColor: '#520096', height: 6 }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#888', marginTop: 4 }}>
-                <span>5 (minimum)</span><span>50</span>
-              </div>
-              <p style={{ fontSize: 12, color: '#8c3dd4', marginTop: 6 }}>Free trial available for 5+ teacher seats only.</p>
+            <div style={{ background: '#f7f2fd', border: '1.5px solid #d4aff5', borderRadius: 10, padding: '12px 16px', fontSize: 14, color: '#3b006e', fontWeight: 500 }}>
+              🎓 Free trial includes <strong>5 teacher seats</strong>. Need more? <Link to={createPageUrl('DistrictPricing')} style={{ color: '#520096' }}>View paid plans →</Link>
             </div>
 
             {error && (

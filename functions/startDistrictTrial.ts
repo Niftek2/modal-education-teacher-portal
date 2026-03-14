@@ -8,8 +8,8 @@ Deno.serve(async (req) => {
     if (!adminEmail || !adminName || !districtName || !seats) {
       return Response.json({ error: 'adminEmail, adminName, districtName, and seats are required' }, { status: 400 });
     }
-    if (seats < 5) {
-      return Response.json({ error: 'Free trial is only available for 5 or more teacher seats' }, { status: 400 });
+    if (Number(seats) !== 5) {
+      return Response.json({ error: 'Free trial is limited to 5 teacher seats.' }, { status: 400 });
     }
 
     const normalizedEmail = adminEmail.toLowerCase().trim();
