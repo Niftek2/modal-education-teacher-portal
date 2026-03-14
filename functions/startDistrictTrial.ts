@@ -35,6 +35,36 @@ Deno.serve(async (req) => {
       invitedTeachers: [],
     });
 
+    // Send admin notification email
+    try {
+      const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
+      const adminNotifyBody = [
+        `To: contact@modalmath.com`,
+        `From: Modal Education <contact@modalmath.com>`,
+        `Subject: 🆕 New District Trial Started — ${districtName}`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset=utf-8`,
+        ``,
+        `<h2>New District Free Trial</h2>`,
+        `<table style="border-collapse:collapse;font-family:Arial,sans-serif;">`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Name:</td><td style="padding:6px 12px;">${adminName}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Title:</td><td style="padding:6px 12px;">${adminTitle || '—'}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Email:</td><td style="padding:6px 12px;">${normalizedEmail}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">District:</td><td style="padding:6px 12px;">${districtName}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Seats:</td><td style="padding:6px 12px;">${seats}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Trial Ends:</td><td style="padding:6px 12px;">${trialEndDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>`,
+        `</table>`,
+      ].join('\r\n');
+      const encodedNotify = btoa(unescape(encodeURIComponent(adminNotifyBody))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw: encodedNotify }),
+      });
+    } catch (notifyErr) {
+      console.warn('[startDistrictTrial] Admin notification failed:', notifyErr.message);
+    }
+
     // Send confirmation email via Gmail
     try {
       const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
