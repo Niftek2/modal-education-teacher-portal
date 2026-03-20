@@ -71,6 +71,10 @@ export default function Dashboard() {
             }
         } catch (error) {
             console.error('[Dashboard] load error:', error.message);
+            if (error.message?.includes('Unauthorized') || error.message?.includes('401')) {
+                localStorage.removeItem('modal_math_session');
+                navigate('/Home');
+            }
         } finally {
             setLoading(false);
         }
