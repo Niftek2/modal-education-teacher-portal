@@ -93,35 +93,23 @@ Deno.serve(async (req) => {
         await Promise.all(accessCodes.map(r => base44.asServiceRole.entities.StudentAccessCode.delete(r.id)));
         console.log(`[removeStudent] ✓ Deleted ${accessCodes.length} StudentAccessCode record(s) for ${studentEmail}`);
 
-        // Step 4: Return success immediately — Thinkific unenrollment runs in background (fire and forget)
-        const responsePromise = Response.json({ success: true });
-
-        if (thinkificUser?.id) {
-            (async () => {
-                try {
-                    const enrollments = await getEnrollmentsForUser(thinkificUser.id);
-                    const targetEnrollments = enrollments.filter(e => UNENROLL_COURSE_IDS.has(String(e.course_id)));
-                    console.log(`[removeStudent] [bg] Found ${targetEnrollments.length} enrollments to remove for ${studentEmail}`);
-                    const results = await Promise.allSettled(
-                        targetEnrollments.map(enrollment =>
-                            fetch(
-                                `https://api.thinkific.com/api/public/v1/enrollments/${enrollment.id}`,
-                                { method: 'DELETE', headers: thinkificHeaders }
-                            ).then(res => {
-                                if (res.status === 204 || res.status === 404 || res.ok) return true;
-                                return res.text().then(b => { console.warn(`[removeStudent] [bg] DELETE ${enrollment.id} → ${res.status}: ${b}`); return false; });
-                            })
-                        )
-                    );
-                    const unenrolled = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-                    console.log(`[removeStudent] [bg] Unenrolled ${unenrolled}/${targetEnrollments.length} for ${studentEmail}`);
-                } catch (err) {
-                    console.warn(`[removeStudent] [bg] Unenrollment error: ${err.message}`);
-                }
-            })();
+        // Step 4: Queue Thinkific unenrollment as a scheduled job (runs within ~15 min)
+        const dedupeKey = `unenroll_student:${studentEmail}`;
+        const existingJob = await base44.asServiceRole.entities.ScheduledUnenrollment.filter({ dedupeKey });
+        if (existingJob.length === 0) {
+            await base44.asServiceRole.entities.ScheduledUnenrollment.create({
+                dedupeKey,
+                jobType: 'student',
+                teacherEmail,
+                studentEmail,
+                studentThinkificUserId: thinkificUser?.id ? String(thinkificUser.id) : null,
+                runAt: new Date().toISOString(),
+                status: 'scheduled',
+            });
+            console.log(`[removeStudent] ✓ Queued unenrollment job for ${studentEmail}`);
         }
 
-        return responsePromise;
+        return Response.json({ success: true });
 
     } catch (error) {
         console.error('Remove student error:', error?.stack || error);
