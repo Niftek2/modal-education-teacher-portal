@@ -71,23 +71,43 @@ export default function DistrictPricing() {
   const [loading, setLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
 
+  // Pre-checkout modal state
+  const [showModal, setShowModal] = useState(false);
+  const [pendingTier, setPendingTier] = useState(null);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminName, setAdminName] = useState('');
+  const [districtName, setDistrictName] = useState('');
+
   const calcTier = useMemo(() => getTierForSeats(sliderSeats), [sliderSeats]);
   const calcRate = billing === 'annual' ? calcTier.annualRate : calcTier.monthlyRate;
   const calcTotal = calcRate * sliderSeats;
   const standardTotal = (billing === 'annual' ? 179 : 19) * sliderSeats;
   const calcSavings = standardTotal - calcTotal;
 
-  const handlePurchase = async (tier) => {
+  const openCheckoutModal = (tier) => {
+    setPendingTier(tier);
     setCheckoutError('');
+    setShowModal(true);
+  };
+
+  const handleCheckout = async (e) => {
+    e.preventDefault();
+    if (!adminEmail || !pendingTier) return;
     setLoading(true);
+    setCheckoutError('');
     try {
-      const seats = Math.max(tier.minSeats, sliderSeats <= tier.maxSeats && sliderSeats >= tier.minSeats ? sliderSeats : tier.minSeats);
+      const seats = Math.max(
+        pendingTier.minSeats,
+        sliderSeats >= pendingTier.minSeats && sliderSeats <= pendingTier.maxSeats ? sliderSeats : pendingTier.minSeats
+      );
       const res = await base44.functions.invoke('createStripeCheckout', {
         seats,
         billing,
-        adminEmail: '',
-        successUrl: `${window.location.origin}${createPageUrl('DistrictAdminDashboard')}?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${window.location.origin}${createPageUrl('DistrictPricing')}`,
+        adminEmail: adminEmail.toLowerCase().trim(),
+        adminName: adminName.trim(),
+        districtName: districtName.trim(),
+        successUrl: `${window.location.origin}/DistrictAdminDashboard?session_id={CHECKOUT_SESSION_ID}&email=${encodeURIComponent(adminEmail.toLowerCase().trim())}`,
+        cancelUrl: `${window.location.origin}/DistrictPricing`,
       });
       if (res.data?.url) {
         window.location.href = res.data.url;
@@ -104,6 +124,44 @@ export default function DistrictPricing() {
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: '#f7f2fd', minHeight: '100vh', color: '#1e003a' }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+
+      {/* Pre-checkout Modal */}
+      {showModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'white', borderRadius: 20, padding: '36px', maxWidth: 480, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1e003a', marginBottom: 6 }}>Almost there!</h2>
+            <p style={{ color: '#4b2865', fontSize: 14, marginBottom: 24 }}>We'll use this to create your admin account and send your purchase confirmation.</p>
+            <form onSubmit={handleCheckout} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#520096', display: 'block', marginBottom: 6 }}>Work Email *</label>
+                <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="admin@district.edu" required
+                  style={{ width: '100%', border: '1.5px solid #d4aff5', borderRadius: 10, padding: '10px 14px', fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#520096', display: 'block', marginBottom: 6 }}>Your Name</label>
+                <input type="text" value={adminName} onChange={e => setAdminName(e.target.value)} placeholder="Jane Smith"
+                  style={{ width: '100%', border: '1.5px solid #d4aff5', borderRadius: 10, padding: '10px 14px', fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#520096', display: 'block', marginBottom: 6 }}>School / District Name</label>
+                <input type="text" value={districtName} onChange={e => setDistrictName(e.target.value)} placeholder="Springfield Unified School District"
+                  style={{ width: '100%', border: '1.5px solid #d4aff5', borderRadius: 10, padding: '10px 14px', fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              {checkoutError && <p style={{ color: '#dc2626', fontSize: 13 }}>{checkoutError}</p>}
+              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                <button type="button" onClick={() => setShowModal(false)}
+                  style={{ flex: 1, background: 'white', color: '#520096', border: '2px solid #520096', borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={loading}
+                  style={{ flex: 2, background: '#520096', color: 'white', border: 'none', borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+                  {loading ? 'Redirecting...' : 'Continue to Payment →'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Hero */}
       <section style={{ background: 'linear-gradient(135deg, #1e003a 0%, #520096 60%, #8c3dd4 100%)', color: 'white', padding: '72px 24px 60px', textAlign: 'center' }}>
@@ -221,18 +279,17 @@ export default function DistrictPricing() {
                   </a>
                 ) : (
                   <button
-                    onClick={() => handlePurchase(tier)}
+                    onClick={() => openCheckoutModal(tier)}
                     disabled={loading}
                     style={{ background: tier.featured ? '#520096' : 'white', color: tier.featured ? 'white' : '#520096', border: '2px solid #520096', borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer', width: '100%' }}
                   >
-                    {loading ? 'Loading...' : 'Get Started'}
+                    Get Started
                   </button>
                 )}
               </div>
             );
           })}
         </div>
-        {checkoutError && <p style={{ color: 'red', textAlign: 'center', marginBottom: 24 }}>{checkoutError}</p>}
       </div>
 
       {/* Calculator */}
@@ -270,12 +327,10 @@ export default function DistrictPricing() {
                   <span style={{ fontWeight: 700, color: '#1e003a' }}>{val}</span>
                 </div>
               ))}
-              {/* Total — prominent */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: calcSavings > 0 ? '1px solid #e5d6f8' : 'none', marginTop: 4 }}>
                 <span style={{ fontSize: 16, fontWeight: 700, color: '#1e003a' }}>Total</span>
                 <span style={{ fontSize: 22, fontWeight: 800, color: '#1e003a' }}>${calcTotal.toLocaleString()}<span style={{ fontSize: 13, fontWeight: 500, color: '#595959' }}>/{billing === 'annual' ? 'yr' : 'mo'}</span></span>
               </div>
-              {/* You save — secondary */}
               {calcSavings > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
                   <span style={{ fontSize: 13, color: '#520096', fontWeight: 600 }}>You save vs. standard rate</span>
