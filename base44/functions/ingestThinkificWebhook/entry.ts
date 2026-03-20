@@ -210,7 +210,20 @@ async function handleQuizAttempted(base44, payload, webhookId, dedupeKey, occurr
     const attemptNumber = payload.attempts;
     const correctCount = payload.correct_count;
     const incorrectCount = payload.incorrect_count;
-    const courseId = course?.id || payload.course_id || null;
+    let courseId = course?.id || payload.course_id || null;
+
+    // quiz.attempted has no course object — look up LessonCourseMap by lesson.id
+    if (!courseId && lesson?.id) {
+        try {
+            const lessonMaps = await base44.asServiceRole.entities.LessonCourseMap.filter({ lessonId: String(lesson.id) });
+            if (lessonMaps.length > 0) {
+                courseId = lessonMaps[0].courseId;
+                console.log(`[WEBHOOK] Resolved courseId=${courseId} from LessonCourseMap for lessonId=${lesson.id}`);
+            }
+        } catch (e) {
+            console.warn(`[WEBHOOK] LessonCourseMap lookup failed: ${e.message}`);
+        }
+    }
 
     // Map courseId → level label (absolute source of truth)
     const level = inferLevel(courseId, quizName);

@@ -32,7 +32,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
             const quizList = quizAttempts.map(e => ({
                 quizName: (e.lessonName || e.contentTitle || 'Unknown Quiz').trim(),
                 quizId: e.lessonId || e.contentId || null,
-                level: (e.level || e.courseName || 'Elementary').trim(),
+                level: e.level || null,
                 percentage: typeof e.grade === 'number' ? e.grade : null,
                 completedAt: e.occurredAt,
                 attemptNumber: e.attemptNumber || e.metadata?.attemptNumber || 1,
