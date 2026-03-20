@@ -88,51 +88,40 @@ Deno.serve(async (req) => {
             console.log(`[removeStudent] ✓ Archived ${studentEmail}`);
         }
 
-        // Step 3 (skipped): Group membership is intentionally preserved on archive
-
-        // Step 4: Concurrent unenrollment via Promise.allSettled
-        let unenrolled = 0;
-        let targetCount = 0;
-        if (thinkificUser?.id) {
-            try {
-                const enrollments = await getEnrollmentsForUser(thinkificUser.id);
-                const targetEnrollments = enrollments.filter(e => UNENROLL_COURSE_IDS.has(String(e.course_id)));
-                targetCount = targetEnrollments.length;
-                console.log(`[removeStudent] Found ${targetCount} active target enrollments for ${studentEmail}`);
-
-                const results = await Promise.allSettled(
-                    targetEnrollments.map(enrollment =>
-                        fetch(
-                            `https://api.thinkific.com/api/public/v1/enrollments/${enrollment.id}`,
-                            { method: 'DELETE', headers: thinkificHeaders }
-                        ).then(res => {
-                            if (res.status === 204 || res.status === 404 || res.ok) {
-                                console.log(`[removeStudent] ✓ Unenrolled course ${enrollment.course_id} (enrollment ${enrollment.id})`);
-                                return true;
-                            }
-                            return res.text().then(body => {
-                                console.warn(`[removeStudent] DELETE ${enrollment.id} → ${res.status}: ${body}`);
-                                return false;
-                            });
-                        })
-                    )
-                );
-
-                unenrolled = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-                const failed = results.filter(r => r.status === 'rejected' || r.value === false).length;
-                if (failed > 0) console.warn(`[removeStudent] ${failed} unenrollment(s) failed`);
-            } catch (err) {
-                console.warn(`[removeStudent] Could not fetch enrollments: ${err.message}`);
-            }
-            console.log(`[removeStudent] Unenrolled ${unenrolled}/${targetCount} for ${studentEmail}`);
-        }
-
-        // Step 5: Delete StudentAccessCode record
+        // Step 3: Delete StudentAccessCode record (do this before returning so UI updates immediately)
         const accessCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({ studentEmail, createdByTeacherEmail: teacherEmail });
         await Promise.all(accessCodes.map(r => base44.asServiceRole.entities.StudentAccessCode.delete(r.id)));
         console.log(`[removeStudent] ✓ Deleted ${accessCodes.length} StudentAccessCode record(s) for ${studentEmail}`);
 
-        return Response.json({ success: true, unenrolled, targetCount });
+        // Step 4: Return success immediately — Thinkific unenrollment runs in background (fire and forget)
+        const responsePromise = Response.json({ success: true });
+
+        if (thinkificUser?.id) {
+            (async () => {
+                try {
+                    const enrollments = await getEnrollmentsForUser(thinkificUser.id);
+                    const targetEnrollments = enrollments.filter(e => UNENROLL_COURSE_IDS.has(String(e.course_id)));
+                    console.log(`[removeStudent] [bg] Found ${targetEnrollments.length} enrollments to remove for ${studentEmail}`);
+                    const results = await Promise.allSettled(
+                        targetEnrollments.map(enrollment =>
+                            fetch(
+                                `https://api.thinkific.com/api/public/v1/enrollments/${enrollment.id}`,
+                                { method: 'DELETE', headers: thinkificHeaders }
+                            ).then(res => {
+                                if (res.status === 204 || res.status === 404 || res.ok) return true;
+                                return res.text().then(b => { console.warn(`[removeStudent] [bg] DELETE ${enrollment.id} → ${res.status}: ${b}`); return false; });
+                            })
+                        )
+                    );
+                    const unenrolled = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+                    console.log(`[removeStudent] [bg] Unenrolled ${unenrolled}/${targetEnrollments.length} for ${studentEmail}`);
+                } catch (err) {
+                    console.warn(`[removeStudent] [bg] Unenrollment error: ${err.message}`);
+                }
+            })();
+        }
+
+        return responsePromise;
 
     } catch (error) {
         console.error('Remove student error:', error?.stack || error);
