@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
   try {
     const { seats, billing, adminEmail, adminName, districtName, successUrl, cancelUrl } = await req.json();
 
-    if (!seats || !billing || !adminEmail) {
-      return Response.json({ error: 'seats, billing, and adminEmail are required' }, { status: 400 });
+    if (!seats || !billing) {
+      return Response.json({ error: 'seats and billing are required' }, { status: 400 });
     }
 
     const pricePerSeat = getPriceForSeats(seats, billing);
