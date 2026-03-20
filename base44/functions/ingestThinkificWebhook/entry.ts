@@ -182,6 +182,25 @@ async function handleLessonCompleted(base44, payload, webhookId, dedupeKey, occu
 
     const created = await base44.asServiceRole.entities.ActivityEvent.create(activity);
     console.log(`[WEBHOOK] ✓ Lesson completed saved: ${created.id}`);
+
+    // Upsert LessonCourseMap so quiz.attempted can resolve courseId by lessonId later
+    if (lesson?.id && course?.id) {
+        try {
+            const existingMap = await base44.asServiceRole.entities.LessonCourseMap.filter({ lessonId: String(lesson.id) });
+            if (existingMap.length === 0) {
+                await base44.asServiceRole.entities.LessonCourseMap.create({
+                    lessonId: String(lesson.id),
+                    courseId: String(course.id),
+                    courseName: course.name || null,
+                    lastSeenAt: occurredAt
+                });
+            } else {
+                await base44.asServiceRole.entities.LessonCourseMap.update(existingMap[0].id, { lastSeenAt: occurredAt });
+            }
+        } catch (e) {
+            console.warn(`[WEBHOOK] LessonCourseMap upsert failed: ${e.message}`);
+        }
+    }
     
     // Trigger assignment completion check
     await base44.functions.invoke('markAssignmentComplete', { activityEventId: created.id });
