@@ -22,9 +22,9 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
     const loadData = async () => {
         setLoading(true);
         try {
-            const response = await api.call('getStudentActivityForTeacher', { sessionToken }, sessionToken);
-            const events = response.events || [];
             const studentEmail = (student?.email || student?.studentEmail || '').toLowerCase().trim();
+            const response = await api.call('getStudentActivityForTeacher', { email: studentEmail }, sessionToken);
+            const events = response.events || [];
 
             const studentEvents = events.filter(e => (e.studentEmail || '').toLowerCase().trim() === studentEmail);
             const quizAttempts = studentEvents.filter(e => e.eventType === 'quiz_attempted' || e.eventType === 'quiz.attempted');

@@ -81,12 +81,18 @@ Deno.serve(async (req) => {
             return Response.json({ studentEmails, events: [] }, { status: 200 });
         }
 
-        // Targeted DB filter — only fetch events for this teacher's students
-        const allEvents = await base44.asServiceRole.entities.ActivityEvent.filter(
-            { studentEmail: { _in: studentEmails } },
-            '-occurredAt',
-            limit
+        // Fetch events per student in parallel (SDK does not support _in operator)
+        const perStudentLimit = Math.max(200, Math.ceil(limit / studentEmails.length));
+        const eventArrays = await Promise.all(
+            studentEmails.map(email =>
+                base44.asServiceRole.entities.ActivityEvent.filter(
+                    { studentEmail: email },
+                    '-occurredAt',
+                    perStudentLimit
+                ).catch(() => [])
+            )
         );
+        const allEvents = eventArrays.flat().sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
         console.log(`[DASHBOARD ACTIVITY] Total events fetched: ${allEvents.length}`);
 
         const filtered = allEvents
