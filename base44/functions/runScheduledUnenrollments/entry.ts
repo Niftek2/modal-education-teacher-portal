@@ -75,21 +75,52 @@ Deno.serve(async (req) => {
 
         for (const job of dueJobs) {
             try {
-                // Get group members (returns items with user_id)
-                const members = await getGroupMembers(job.groupId);
-
                 let studentsProcessed = 0;
                 let studentsUnenrolled = 0;
 
-                for (const member of members) {
-                    const userId = member.user_id;
-                    if (!userId) continue;
-                    studentsProcessed++;
-                    try {
-                        await unenrollFromCourses(userId);
-                        studentsUnenrolled++;
-                    } catch (error) {
-                        console.error(`Failed to unenroll userId=${userId}:`, error);
+                if (job.jobType === 'student') {
+                    // Per-student unenrollment
+                    studentsProcessed = 1;
+                    let userId = job.studentThinkificUserId;
+
+                    // Look up by email if we don't have the ID
+                    if (!userId && job.studentEmail) {
+                        const res = await fetch(
+                            `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(job.studentEmail)}`,
+                            { headers: thinkificHeaders }
+                        );
+                        if (res.ok) {
+                            const data = await res.json();
+                            userId = data.items?.[0]?.id ? String(data.items[0].id) : null;
+                        }
+                    }
+
+                    if (userId) {
+                        const unenrollResults = await unenrollFromCourses(userId);
+                        const succeeded = unenrollResults.filter(r => r.success).length;
+                        if (succeeded > 0) studentsUnenrolled = 1;
+                        console.log(`[runScheduledUnenrollments] Student ${job.studentEmail}: unenrolled from ${succeeded} courses`);
+                    } else {
+                        console.warn(`[runScheduledUnenrollments] No Thinkific user ID for ${job.studentEmail}, skipping`);
+                    }
+                } else {
+                    // Group-level unenrollment (existing behavior)
+                    const members = await getGroupMembers(job.groupId);
+                    for (const member of members) {
+                        const userId = member.user_id;
+                        if (!userId) continue;
+                        studentsProcessed++;
+                        try {
+                            await unenrollFromCourses(userId);
+                            studentsUnenrolled++;
+                        } catch (error) {
+                            console.error(`Failed to unenroll userId=${userId}:`, error);
+                        }
+                    }
+
+                    const teacherAccess = await base44.asServiceRole.entities.TeacherAccess.filter({ teacherEmail: job.teacherEmail });
+                    if (teacherAccess.length > 0) {
+                        await base44.asServiceRole.entities.TeacherAccess.update(teacherAccess[0].id, { status: 'ended' });
                     }
                 }
 
@@ -99,11 +130,6 @@ Deno.serve(async (req) => {
                     studentsProcessed,
                     studentsUnenrolled,
                 });
-
-                const teacherAccess = await base44.asServiceRole.entities.TeacherAccess.filter({ teacherEmail: job.teacherEmail });
-                if (teacherAccess.length > 0) {
-                    await base44.asServiceRole.entities.TeacherAccess.update(teacherAccess[0].id, { status: 'ended' });
-                }
 
                 results.push({ jobId: job.id, teacherEmail: job.teacherEmail, success: true, studentsProcessed, studentsUnenrolled });
 
