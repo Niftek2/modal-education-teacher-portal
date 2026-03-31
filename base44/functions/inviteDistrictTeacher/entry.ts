@@ -23,10 +23,15 @@ const thinkificHeaders = {
 
 async function findThinkificUser(email) {
   const res = await fetch(
-    `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(email)}`,
+    `https://api.thinkific.com/api/public/v1/users?query[email]=${encodeURIComponent(email)}&limit=1`,
     { headers: thinkificHeaders }
   );
+  if (!res.ok) {
+    console.warn(`[findThinkificUser] Search failed (${res.status}) for ${email}`);
+    return null;
+  }
   const data = await res.json();
+  console.log(`[findThinkificUser] Search result for ${email}:`, JSON.stringify({ total: data.meta?.pagination?.total_items, found: data.items?.length }));
   return data.items?.[0] || null;
 }
 
@@ -35,18 +40,30 @@ async function createThinkificUser(email) {
   const firstName = parts[0] ? parts[0].charAt(0).toUpperCase() + parts[0].slice(1) : 'Teacher';
   const lastName = parts[1] ? parts[1].charAt(0).toUpperCase() + parts[1].slice(1) : '';
 
+  // Ensure last_name is never empty — Thinkific may reject empty strings
+  const safeLastName = lastName || 'Teacher';
+
   const res = await fetch('https://api.thinkific.com/api/public/v1/users', {
     method: 'POST',
     headers: thinkificHeaders,
     body: JSON.stringify({
       first_name: firstName,
-      last_name: lastName,
+      last_name: safeLastName,
       email,
-      send_welcome_email: false, // We send our own branded email
+      send_welcome_email: false,
     }),
   });
   const data = await res.json();
   if (!res.ok) {
+    console.warn(`[inviteDistrictTeacher] Thinkific create user failed (${res.status}):`, JSON.stringify(data));
+    // Always try to find the existing user on any 422 — email may already exist
+    if (res.status === 422) {
+      const existing = await findThinkificUser(email);
+      if (existing) {
+        console.log(`[inviteDistrictTeacher] Recovered existing user after 422: ${email} (id=${existing.id})`);
+        return existing;
+      }
+    }
     throw new Error(data?.message || data?.errors?.[0]?.message || `Failed to create Thinkific user (${res.status})`);
   }
   return data;
