@@ -208,9 +208,40 @@ Deno.serve(async (req) => {
       licensesUsed: (license.licensesUsed || 0) + 1,
     });
 
-    // Send password setup email
+    // Send password setup email + internal notification
     const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
     await sendInviteEmail(accessToken, normalizedTeacher, license.districtName, license.adminName, expiryDate);
+
+    // Internal notification to contact@modalmath.com
+    try {
+      const newUsed = (license.licensesUsed || 0) + 1;
+      const notifyLines = [
+        `To: contact@modalmath.com`,
+        `From: Modal Education <contact@modalmath.com>`,
+        `Subject: 👩‍🏫 Teacher Invited — ${license.districtName || normalizedAdmin}`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset=utf-8`,
+        ``,
+        `<h2 style="font-family:Arial,sans-serif;">Teacher Invited</h2>`,
+        `<table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;">`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">District:</td><td style="padding:6px 12px;">${license.districtName || '—'}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Admin:</td><td style="padding:6px 12px;">${license.adminName || normalizedAdmin} (${normalizedAdmin})</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Teacher Invited:</td><td style="padding:6px 12px;">${normalizedTeacher}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">License Status:</td><td style="padding:6px 12px;">${license.status}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">Seats Used:</td><td style="padding:6px 12px;">${newUsed} / ${license.totalLicenses}</td></tr>`,
+        `<tr><td style="padding:6px 12px;font-weight:bold;">All Invited Teachers:</td><td style="padding:6px 12px;">${[...invitedTeachers, normalizedTeacher].join(', ')}</td></tr>`,
+        expiryDate ? `<tr><td style="padding:6px 12px;font-weight:bold;">Expiry Date:</td><td style="padding:6px 12px;">${new Date(expiryDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>` : '',
+        `</table>`,
+      ].join('\r\n');
+      const encoded = btoa(unescape(encodeURIComponent(notifyLines))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw: encoded }),
+      });
+    } catch (notifyErr) {
+      console.warn('[inviteDistrictTeacher] Internal notification failed:', notifyErr.message);
+    }
 
     const failedCourses = enrollmentResults.filter(r => !r.success).map(r => r.course);
 
