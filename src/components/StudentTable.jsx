@@ -157,7 +157,7 @@ export default function StudentTable({ students, type = 'active', teacherEmail, 
                                                 e.stopPropagation();
                                                 setShowConfirm(student);
                                             }}
-                                            disabled={removing === (student.id || student.email)}
+                                            disabled={removing === student.email}
                                             className="text-gray-400 hover:text-red-600"
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -194,10 +194,10 @@ export default function StudentTable({ students, type = 'active', teacherEmail, 
                         </Button>
                         <Button
                             onClick={() => handleRemove(showConfirm)}
-                            disabled={removing === showConfirm?.id}
+                            disabled={removing === showConfirm?.email}
                             className="bg-red-600 hover:bg-red-700 text-white"
                         >
-                            {removing === showConfirm?.id ? 'Removing...' : 'Remove Student'}
+                            {removing === showConfirm?.email ? 'Removing...' : 'Remove Student'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
