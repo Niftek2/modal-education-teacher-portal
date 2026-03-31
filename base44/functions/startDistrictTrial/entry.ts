@@ -23,6 +23,30 @@ Deno.serve(async (req) => {
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + 14);
 
+    // Create Thinkific account for the district admin
+    try {
+      const parts = adminName.trim().split(' ');
+      const firstName = parts[0] || 'Admin';
+      const lastName = parts.slice(1).join(' ') || 'Admin';
+      const createRes = await fetch('https://api.thinkific.com/api/public/v1/users', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('THINKIFIC_API_ACCESS_TOKEN')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ first_name: firstName, last_name: lastName, email: normalizedEmail, send_welcome_email: false }),
+      });
+      if (!createRes.ok) {
+        const d = await createRes.json();
+        // 422 = already exists, that's fine
+        if (createRes.status !== 422) console.warn('[startDistrictTrial] Thinkific user creation failed:', d?.message);
+      } else {
+        console.log(`[startDistrictTrial] ✓ Thinkific account created for ${normalizedEmail}`);
+      }
+    } catch (thinkErr) {
+      console.warn('[startDistrictTrial] Thinkific setup failed:', thinkErr.message);
+    }
+
     const license = await base44.asServiceRole.entities.DistrictLicense.create({
       adminEmail: normalizedEmail,
       adminName,
@@ -68,26 +92,43 @@ Deno.serve(async (req) => {
     // Send confirmation email via Gmail
     try {
       const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
+      const dashboardUrl = `https://modal-math.base44.app/DistrictAdminDashboard?email=${encodeURIComponent(normalizedEmail)}`;
+      const thinkificLoginUrl = `https://${Deno.env.get('THINKIFIC_SUBDOMAIN')}.thinkific.com/users/password/new`;
+      const trialEndFormatted = trialEndDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
       const emailBody = [
         `To: ${normalizedEmail}`,
-        'From: Modal Education <contact@modalmath.com>',
-        'Subject: Your 14-Day Free Trial Has Started — Modal Math',
-        'MIME-Version: 1.0',
-        'Content-Type: text/html; charset=utf-8',
-        '',
-        `<h2>Welcome to Modal Math, ${adminName}!</h2>`,
-        `<p>Your 14-day free trial for <strong>${districtName}</strong> has been activated with <strong>${seats} teacher seats</strong>.</p>`,
-        `<p>Your trial ends on <strong>${trialEndDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>.</p>`,
-        `<p>You can now access your District Admin Dashboard to invite teachers and manage your program.</p>`,
-        `<p>If you have any questions, reply to this email or contact us at contact@modalmath.com.</p>`,
-        `<p>— The Modal Education Team</p>`,
+        `From: Modal Education <contact@modalmath.com>`,
+        `Subject: Your 14-Day Free Trial Has Started — Modal Math`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset=utf-8`,
+        ``,
+        `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#1e003a;max-width:600px;margin:0 auto;padding:24px;">`,
+        `<img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/698c9549de63fc919dec560c/f76ad98a9_LogoNoScript.png" alt="Modal Education" style="height:40px;margin-bottom:24px;" />`,
+        `<h2 style="color:#1e003a;">Welcome to Modal Math, ${adminName}!</h2>`,
+        `<p>Your <strong>14-day free trial</strong> for <strong>${districtName}</strong> is now active with <strong>${seats} teacher seats</strong>.</p>`,
+        `<div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;padding:14px 18px;margin:20px 0;font-size:14px;color:#7a5100;">`,
+        `⏳ Trial ends: <strong>${trialEndFormatted}</strong>`,
+        `</div>`,
+        `<h3 style="color:#1e003a;">Get Started in 2 Steps</h3>`,
+        `<ol style="line-height:2.2;color:#4b2865;font-size:15px;">`,
+        `<li><strong>Set up your Modal Math password</strong> — <a href="${thinkificLoginUrl}" style="color:#520096;">Click here</a>, enter your email (${normalizedEmail}), and click "Send me reset password instructions".</li>`,
+        `<li><strong>Invite your teachers</strong> from your Admin Dashboard — each teacher gets an automatic email to set up their account.</li>`,
+        `</ol>`,
+        `<p style="margin-top:28px;"><a href="${dashboardUrl}" style="background:#520096;color:white;padding:14px 28px;text-decoration:none;border-radius:8px;display:inline-block;font-weight:bold;font-size:16px;">Go to Admin Dashboard →</a></p>`,
+        `<p style="margin-top:32px;color:#666;font-size:13px;">Questions? Email us at <a href="mailto:contact@modalmath.com" style="color:#520096;">contact@modalmath.com</a></p>`,
+        `<p style="color:#666;font-size:13px;">— The Modal Education Team</p>`,
+        `</body></html>`,
       ].join('\r\n');
 
-      const encoded = btoa(unescape(encodeURIComponent(emailBody))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(emailBody);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+      const raw = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
       await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ raw: encoded }),
+        body: JSON.stringify({ raw }),
       });
     } catch (emailErr) {
       console.warn('[startDistrictTrial] Email send failed:', emailErr.message);

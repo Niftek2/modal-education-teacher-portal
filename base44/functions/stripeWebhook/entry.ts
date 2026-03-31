@@ -24,7 +24,7 @@ async function findOrCreateThinkificUser(email, fullName) {
   // Create new user
   const parts = (fullName || email.split('@')[0]).split(' ');
   const firstName = parts[0] || 'Admin';
-  const lastName = parts.slice(1).join(' ') || '';
+  const lastName = parts.slice(1).join(' ') || 'Admin';
 
   const createRes = await fetch('https://api.thinkific.com/api/public/v1/users', {
     method: 'POST',
