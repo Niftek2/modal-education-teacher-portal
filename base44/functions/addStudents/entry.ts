@@ -3,6 +3,22 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 const THINKIFIC_API_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 
+const thinkificHeaders = {
+    'Authorization': `Bearer ${THINKIFIC_API_TOKEN}`,
+    'Content-Type': 'application/json',
+};
+
+const COURSE_ENROLLMENTS = [
+    { name: 'Your Classroom', id: Deno.env.get("CLASSROOM_PRODUCT_ID") },
+    { name: 'PK', id: Deno.env.get("PK_COURSE_ID") },
+    { name: 'K', id: Deno.env.get("K_COURSE_ID") },
+    { name: 'L1', id: Deno.env.get("L1_COURSE_ID") },
+    { name: 'L2', id: Deno.env.get("L2_COURSE_ID") },
+    { name: 'L3', id: Deno.env.get("L3_COURSE_ID") },
+    { name: 'L4', id: Deno.env.get("L4_COURSE_ID") },
+    { name: 'L5', id: Deno.env.get("L5_COURSE_ID") },
+].filter(c => c.id);
+
 function generateStudentEmail(firstName, lastInitial) {
     const randomDigits = Math.floor(1000 + Math.random() * 9000);
     const cleanFirst = firstName.toLowerCase().replace(/[^a-z]/g, '');
