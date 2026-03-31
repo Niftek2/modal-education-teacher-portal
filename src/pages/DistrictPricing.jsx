@@ -190,7 +190,7 @@ export default function DistrictPricing() {
                 </button>
                 <button type="submit" disabled={loading}
                   style={{ flex: 2, background: '#520096', color: 'white', border: 'none', borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
-                  {loading ? 'Redirecting...' : `Pay $${(billing === 'annual' ? getTierForSeats(modalSeats).annualRate : getTierForSeats(modalSeats).monthlyRate) * modalSeats} →`}
+                  {loading ? 'Redirecting...' : 'Continue →'}
                 </button>
               </div>
             </form>
