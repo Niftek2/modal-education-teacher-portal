@@ -74,6 +74,7 @@ export default function DistrictPricing() {
   // Pre-checkout modal state
   const [showModal, setShowModal] = useState(false);
   const [pendingTier, setPendingTier] = useState(null);
+  const [modalSeats, setModalSeats] = useState(10);
   const [adminEmail, setAdminEmail] = useState('');
   const [adminName, setAdminName] = useState('');
   const [districtName, setDistrictName] = useState('');
@@ -86,6 +87,11 @@ export default function DistrictPricing() {
 
   const openCheckoutModal = (tier) => {
     setPendingTier(tier);
+    // Pre-seed seats: use slider value if it's in this tier's range, else use tier min
+    const preSeeds = sliderSeats >= tier.minSeats && sliderSeats <= Math.min(tier.maxSeats, 50)
+      ? sliderSeats
+      : tier.minSeats;
+    setModalSeats(preSeeds);
     setCheckoutError('');
     setShowModal(true);
   };
@@ -96,10 +102,7 @@ export default function DistrictPricing() {
     setLoading(true);
     setCheckoutError('');
     try {
-      const seats = Math.max(
-        pendingTier.minSeats,
-        sliderSeats >= pendingTier.minSeats && sliderSeats <= pendingTier.maxSeats ? sliderSeats : pendingTier.minSeats
-      );
+      const seats = modalSeats;
       const res = await base44.functions.invoke('createStripeCheckout', {
         seats,
         billing,
@@ -128,10 +131,42 @@ export default function DistrictPricing() {
       {/* Pre-checkout Modal */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ background: 'white', borderRadius: 20, padding: '36px', maxWidth: 480, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+          <div style={{ background: 'white', borderRadius: 20, padding: '36px', maxWidth: 500, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1e003a', marginBottom: 6 }}>Almost there!</h2>
-            <p style={{ color: '#4b2865', fontSize: 14, marginBottom: 24 }}>We'll use this to create your admin account and send your purchase confirmation.</p>
+            <p style={{ color: '#4b2865', fontSize: 14, marginBottom: 24 }}>Configure your plan and we'll create your admin account.</p>
             <form onSubmit={handleCheckout} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Seat Selector */}
+              {pendingTier && (() => {
+                const minS = pendingTier.minSeats;
+                const maxS = Math.min(pendingTier.maxSeats === Infinity ? 50 : pendingTier.maxSeats, 50);
+                const modalRate = billing === 'annual' ? getTierForSeats(modalSeats).annualRate : getTierForSeats(modalSeats).monthlyRate;
+                const modalTotal = modalRate * modalSeats;
+                return (
+                  <div style={{ background: '#f7f2fd', borderRadius: 12, padding: '16px 18px', border: '1.5px solid #d4aff5' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#520096' }}>Teacher Seats</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button type="button" onClick={() => setModalSeats(s => Math.max(minS, s - 1))}
+                          style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #520096', background: 'white', color: '#520096', fontWeight: 700, fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>−</button>
+                        <span style={{ fontSize: 22, fontWeight: 800, color: '#1e003a', minWidth: 32, textAlign: 'center' }}>{modalSeats}</span>
+                        <button type="button" onClick={() => setModalSeats(s => Math.min(maxS, s + 1))}
+                          style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #520096', background: 'white', color: '#520096', fontWeight: 700, fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>+</button>
+                      </div>
+                    </div>
+                    <input type="range" min={minS} max={maxS} value={modalSeats} onChange={e => setModalSeats(Number(e.target.value))}
+                      style={{ width: '100%', accentColor: '#520096', height: 6 }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 13 }}>
+                      <span style={{ color: '#4b2865' }}>${modalRate}/teacher/{billing === 'annual' ? 'yr' : 'mo'}</span>
+                      <span style={{ fontWeight: 800, color: '#1e003a', fontSize: 16 }}>${modalTotal.toLocaleString()} total/{billing === 'annual' ? 'yr' : 'mo'}</span>
+                    </div>
+                    {modalSeats >= 5 && (
+                      <div style={{ marginTop: 8, fontSize: 12, color: '#15803d', fontWeight: 600 }}>🎉 Qualifies for 14-day free trial — <a href="/DistrictTrial" style={{ color: '#520096' }}>use that instead?</a></div>
+                    )}
+                  </div>
+                );
+              })()}
+
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, color: '#520096', display: 'block', marginBottom: 6 }}>Work Email *</label>
                 <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="admin@district.edu" required
@@ -155,7 +190,7 @@ export default function DistrictPricing() {
                 </button>
                 <button type="submit" disabled={loading}
                   style={{ flex: 2, background: '#520096', color: 'white', border: 'none', borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
-                  {loading ? 'Redirecting...' : 'Continue to Payment →'}
+                  {loading ? 'Redirecting...' : `Pay $${(billing === 'annual' ? getTierForSeats(modalSeats).annualRate : getTierForSeats(modalSeats).monthlyRate) * modalSeats} →`}
                 </button>
               </div>
             </form>
