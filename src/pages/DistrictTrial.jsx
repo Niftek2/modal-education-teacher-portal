@@ -72,7 +72,7 @@ export default function DistrictTrial() {
             '✓ All 4 learning modalities',
             '✓ Teacher dashboard & reports',
             '✓ District admin dashboard',
-            '✓ Up to 10 students per teacher seat',
+
             '✓ No credit card required',
           ].map(f => (
             <div key={f} style={{ fontSize: 14, color: '#3b006e', fontWeight: 500 }}>{f}</div>
