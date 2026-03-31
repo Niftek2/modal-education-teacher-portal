@@ -17,6 +17,7 @@ const COURSE_ENROLLMENTS = [
     { name: 'L3', id: Deno.env.get("L3_COURSE_ID") },
     { name: 'L4', id: Deno.env.get("L4_COURSE_ID") },
     { name: 'L5', id: Deno.env.get("L5_COURSE_ID") },
+    { name: 'Assignments', id: '3359727' },
 ].filter(c => c.id);
 
 function generateStudentEmail(firstName, lastInitial) {
@@ -128,14 +129,7 @@ Deno.serve(async (req) => {
         if (!teacherEmail) return Response.json({ error: 'teacherEmail is required' }, { status: 400 });
         if (!students || !Array.isArray(students) || students.length === 0)
             return Response.json({ error: 'students array is required' }, { status: 400 });
-        if (students.length > 10)
-            return Response.json({ error: 'Maximum 10 students per request' }, { status: 400 });
-
         const groupId = providedGroupId || null;
-
-        const activeCount = await getActiveStudentCount(teacherEmail, base44);
-        if (activeCount + students.length > 10)
-            return Response.json({ error: 'Roster limit reached (10 active students)' }, { status: 400 });
 
         const results = [];
 
