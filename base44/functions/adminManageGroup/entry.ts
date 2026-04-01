@@ -17,6 +17,12 @@ const COURSE_IDS = [
     Deno.env.get('L5_COURSE_ID'),
 ].filter(Boolean);
 
+const THINKIFIC_HEADERS = {
+    'X-Auth-API-Key': THINKIFIC_TOKEN,
+    'X-Auth-Subdomain': Deno.env.get('THINKIFIC_SUBDOMAIN'),
+    'Content-Type': 'application/json',
+};
+
 async function requireAdminSession(req) {
     const token = req.headers.get('Authorization')?.replace('Bearer ', '');
     if (!token) return null;
@@ -29,17 +35,11 @@ async function requireAdminSession(req) {
     } catch { return null; }
 }
 
-const THINKIFIC_HEADERS = {
-    'X-Auth-API-Key': THINKIFIC_TOKEN,
-    'X-Auth-Subdomain': Deno.env.get('THINKIFIC_SUBDOMAIN'),
-    'Content-Type': 'application/json',
-};
-
 async function thinkificGet(path) {
     const res = await fetch(`${THINKIFIC_BASE}${path}`, { headers: THINKIFIC_HEADERS });
     if (!res.ok) {
         const errText = await res.text();
-        console.error('Error data:', errText);
+        console.error(`Thinkific GET ${path} failed ${res.status}:`, errText);
         return null;
     }
     return res.json();
@@ -65,31 +65,25 @@ async function thinkificDelete(path) {
     return { ok: res.ok, status: res.status };
 }
 
-// Find user by email in Thinkific
 async function findUserByEmail(email) {
     const data = await thinkificGet(`/users?query[email]=${encodeURIComponent(email)}`);
     const users = data?.items || [];
     return users.length > 0 ? users[0] : null;
 }
 
-// Add a student (by email) to a Thinkific group + enroll in all courses
-async function addStudentToGroup(studentEmail, groupId, base44, teacherEmail) {
-    // Find the Thinkific user
+async function addStudentToGroup(studentEmail, groupId, teacherEmail) {
     const user = await findUserByEmail(studentEmail);
     if (!user) throw new Error(`No Thinkific user found for ${studentEmail}`);
 
-    // Add to group
     const addResult = await thinkificPost(`/groups/${groupId}/members`, { user_id: user.id });
-    if (!addResult.ok && addResult.status !== 422) { // 422 = already a member
+    if (!addResult.ok && addResult.status !== 422) {
         throw new Error(`Failed to add ${studentEmail} to group: ${addResult.status}`);
     }
 
-    // Enroll in all courses
     await Promise.allSettled(COURSE_IDS.map(courseId =>
         thinkificPost('/enrollments', { user_id: user.id, course_id: Number(courseId), activated_at: new Date().toISOString() })
     ));
 
-    // Ensure DB record exists
     const existing = await base44.entities.StudentAccessCode.filter({ studentEmail: studentEmail.toLowerCase() });
     if (existing.length === 0) {
         await base44.entities.StudentAccessCode.create({
@@ -102,16 +96,13 @@ async function addStudentToGroup(studentEmail, groupId, base44, teacherEmail) {
     return { success: true, userId: user.id };
 }
 
-// Remove a student (by Thinkific userId) from a group
-async function removeStudentFromGroup(studentEmail, groupId, userId, base44, teacherEmail) {
-    // Find membership record
+async function removeStudentFromGroup(studentEmail, groupId, userId, teacherEmail) {
     const memberData = await thinkificGet(`/group_users?query[group_id]=${groupId}&query[user_id]=${userId}`);
     const membership = memberData?.items?.[0];
     if (membership) {
         await thinkificDelete(`/group_users/${membership.id}`);
     }
 
-    // Archive in DB
     const user = await findUserByEmail(studentEmail);
     const firstName = user?.first_name || studentEmail.split('@')[0];
     const lastName = user?.last_name || '';
@@ -129,15 +120,13 @@ async function removeStudentFromGroup(studentEmail, groupId, userId, base44, tea
         });
     }
 
-    // Remove from active access codes
     const codes = await base44.entities.StudentAccessCode.filter({ studentEmail: studentEmail.toLowerCase() });
     await Promise.allSettled(codes.map(c => base44.entities.StudentAccessCode.delete(c.id)));
 
     return { success: true };
 }
 
-// Sync: ensure all DB students are in their teacher's Thinkific group
-async function syncTeacherGroup(teacherEmail, groupId, base44) {
+async function syncTeacherGroup(teacherEmail, groupId) {
     const accessCodes = await base44.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail });
     const archived = await base44.entities.ArchivedStudent.filter({ teacherEmail });
     const archivedEmails = new Set(archived.map(a => a.studentEmail?.toLowerCase()));
@@ -150,22 +139,38 @@ async function syncTeacherGroup(teacherEmail, groupId, base44) {
     const currentMembers = await thinkificGet(`/users?query[group_id]=${groupId}&limit=100`);
     const currentEmails = new Set((currentMembers?.items || []).map(u => u.email?.toLowerCase()));
 
+    console.log(`[sync] Group ${groupId} has ${currentEmails.size} current members. DB has ${activeStudents.length} active students.`);
+
     for (const student of activeStudents) {
         const email = student.studentEmail?.toLowerCase();
-        if (!email || currentEmails.has(email)) {
+        if (!email) continue;
+
+        if (currentEmails.has(email)) {
             results.skipped.push(email);
             continue;
         }
+
         try {
             const user = await findUserByEmail(email);
-            if (!user) { results.errors.push({ email, reason: 'User not found in Thinkific' }); continue; }
+            if (!user) {
+                console.warn(`[sync] No Thinkific user for ${email}`);
+                results.errors.push({ email, reason: 'User not found in Thinkific' });
+                continue;
+            }
 
-            await thinkificPost(`/groups/${groupId}/members`, { user_id: user.id });
+            console.log(`[sync] Adding ${email} (userId=${user.id}) to group ${groupId}`);
+            const addResult = await thinkificPost(`/groups/${groupId}/members`, { user_id: user.id });
+            if (!addResult.ok && addResult.status !== 422) {
+                throw new Error(`Status ${addResult.status}: ${JSON.stringify(addResult.data)}`);
+            }
+
             await Promise.allSettled(COURSE_IDS.map(courseId =>
                 thinkificPost('/enrollments', { user_id: user.id, course_id: Number(courseId), activated_at: new Date().toISOString() })
             ));
+
             results.added.push(email);
         } catch (e) {
+            console.error(`[sync] Error adding ${email}:`, e.message);
             results.errors.push({ email, reason: e.message });
         }
     }
@@ -183,19 +188,19 @@ Deno.serve(async (req) => {
 
         if (action === 'add') {
             if (!studentEmail || !groupId || !teacherEmail) return Response.json({ error: 'studentEmail, groupId, teacherEmail required' }, { status: 400 });
-            const result = await addStudentToGroup(studentEmail, groupId, base44, teacherEmail);
+            const result = await addStudentToGroup(studentEmail, groupId, teacherEmail);
             return Response.json(result);
         }
 
         if (action === 'remove') {
             if (!studentEmail || !groupId || !userId || !teacherEmail) return Response.json({ error: 'studentEmail, groupId, userId, teacherEmail required' }, { status: 400 });
-            const result = await removeStudentFromGroup(studentEmail, groupId, userId, base44, teacherEmail);
+            const result = await removeStudentFromGroup(studentEmail, groupId, userId, teacherEmail);
             return Response.json(result);
         }
 
         if (action === 'sync') {
             if (!teacherEmail || !groupId) return Response.json({ error: 'teacherEmail, groupId required' }, { status: 400 });
-            const result = await syncTeacherGroup(teacherEmail, groupId, base44);
+            const result = await syncTeacherGroup(teacherEmail, groupId);
             return Response.json(result);
         }
 
