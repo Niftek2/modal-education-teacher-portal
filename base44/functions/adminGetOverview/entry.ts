@@ -1,5 +1,7 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClient } from 'npm:@base44/sdk@0.8.23';
 import { jwtVerify } from 'npm:jose@5.9.6';
+
+const base44 = createClient({ appId: Deno.env.get('BASE44_APP_ID') });
 
 const ALLOWED_ADMINS = ['nadiajiftekhar@gmail.com', 'modalmath@gmail.com'];
 const THINKIFIC_BASE = 'https://api.thinkific.com/api/public/v1';
@@ -30,13 +32,11 @@ Deno.serve(async (req) => {
         const session = await requireAdminSession(req);
         if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-        const base44 = createClientFromRequest(req);
-
         // Fetch all data in parallel
         const [teacherGroups, accessCodes, archivedStudents] = await Promise.all([
-            base44.asServiceRole.entities.TeacherGroup.list(),
-            base44.asServiceRole.entities.StudentAccessCode.list(),
-            base44.asServiceRole.entities.ArchivedStudent.list(),
+            base44.entities.TeacherGroup.list(),
+            base44.entities.StudentAccessCode.list(),
+            base44.entities.ArchivedStudent.list(),
         ]);
 
         // Group students by teacher email

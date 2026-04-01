@@ -1,5 +1,7 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClient } from 'npm:@base44/sdk@0.8.23';
 import { jwtVerify } from 'npm:jose@5.9.6';
+
+const base44 = createClient({ appId: Deno.env.get('BASE44_APP_ID') });
 
 const ALLOWED_ADMINS = ['nadiajiftekhar@gmail.com', 'modalmath@gmail.com'];
 const THINKIFIC_BASE = 'https://api.thinkific.com/api/public/v1';
@@ -80,9 +82,9 @@ async function addStudentToGroup(studentEmail, groupId, base44, teacherEmail) {
     ));
 
     // Ensure DB record exists
-    const existing = await base44.asServiceRole.entities.StudentAccessCode.filter({ studentEmail: studentEmail.toLowerCase() });
+    const existing = await base44.entities.StudentAccessCode.filter({ studentEmail: studentEmail.toLowerCase() });
     if (existing.length === 0) {
-        await base44.asServiceRole.entities.StudentAccessCode.create({
+        await base44.entities.StudentAccessCode.create({
             studentEmail: studentEmail.toLowerCase(),
             createdAt: new Date().toISOString(),
             createdByTeacherEmail: teacherEmail,
@@ -106,9 +108,9 @@ async function removeStudentFromGroup(studentEmail, groupId, userId, base44, tea
     const firstName = user?.first_name || studentEmail.split('@')[0];
     const lastName = user?.last_name || '';
 
-    const existing = await base44.asServiceRole.entities.ArchivedStudent.filter({ studentEmail: studentEmail.toLowerCase(), teacherEmail });
+    const existing = await base44.entities.ArchivedStudent.filter({ studentEmail: studentEmail.toLowerCase(), teacherEmail });
     if (existing.length === 0) {
-        await base44.asServiceRole.entities.ArchivedStudent.create({
+        await base44.entities.ArchivedStudent.create({
             studentEmail: studentEmail.toLowerCase(),
             studentFirstName: firstName,
             studentLastName: lastName,
@@ -120,16 +122,16 @@ async function removeStudentFromGroup(studentEmail, groupId, userId, base44, tea
     }
 
     // Remove from active access codes
-    const codes = await base44.asServiceRole.entities.StudentAccessCode.filter({ studentEmail: studentEmail.toLowerCase() });
-    await Promise.allSettled(codes.map(c => base44.asServiceRole.entities.StudentAccessCode.delete(c.id)));
+    const codes = await base44.entities.StudentAccessCode.filter({ studentEmail: studentEmail.toLowerCase() });
+    await Promise.allSettled(codes.map(c => base44.entities.StudentAccessCode.delete(c.id)));
 
     return { success: true };
 }
 
 // Sync: ensure all DB students are in their teacher's Thinkific group
 async function syncTeacherGroup(teacherEmail, groupId, base44) {
-    const accessCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail });
-    const archived = await base44.asServiceRole.entities.ArchivedStudent.filter({ teacherEmail });
+    const accessCodes = await base44.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail });
+    const archived = await base44.entities.ArchivedStudent.filter({ teacherEmail });
     const archivedEmails = new Set(archived.map(a => a.studentEmail?.toLowerCase()));
 
     const activeStudents = accessCodes.filter(c => !archivedEmails.has(c.studentEmail?.toLowerCase()));
@@ -168,7 +170,6 @@ Deno.serve(async (req) => {
         const session = await requireAdminSession(req);
         if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-        const base44 = createClientFromRequest(req);
         const body = await req.json();
         const { action, studentEmail, groupId, userId, teacherEmail } = body;
 
