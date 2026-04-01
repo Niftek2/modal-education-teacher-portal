@@ -37,11 +37,24 @@ Deno.serve(async (req) => {
         if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
         // Fetch all data in parallel
-        const [teacherGroups, accessCodes, archivedStudents] = await Promise.all([
+        const [teacherGroups, accessCodes, archivedStudents, teacherAccesses] = await Promise.all([
             base44.entities.TeacherGroup.list(),
             base44.entities.StudentAccessCode.list(),
             base44.entities.ArchivedStudent.list(),
+            base44.entities.TeacherAccess.list(),
         ]);
+
+        // Build enrollment map by teacher email
+        const enrollmentByTeacher = {};
+        for (const ta of teacherAccesses) {
+            const email = ta.teacherEmail?.toLowerCase().trim();
+            if (!email) continue;
+            enrollmentByTeacher[email] = {
+                status: ta.status,
+                currentPeriodEndAt: ta.currentPeriodEndAt,
+                subscriptionId: ta.subscriptionId,
+            };
+        }
 
         // Group students by teacher email
         const studentsByTeacher = {};
@@ -114,12 +127,13 @@ Deno.serve(async (req) => {
         const teachers = Object.values(teacherMap).map(t => ({
             ...t,
             dbStudents: studentsByTeacher[t.email] || [],
+            enrollment: enrollmentByTeacher[t.email] || null,
         }));
 
         // Include teachers who have students but no TeacherGroup record
         for (const [email, students] of Object.entries(studentsByTeacher)) {
             if (!teacherMap[email]) {
-                teachers.push({ email, groups: [], dbStudents: students, thinkificStudents: [] });
+                teachers.push({ email, groups: [], dbStudents: students, thinkificStudents: [], enrollment: enrollmentByTeacher[email] || null });
             }
         }
 
