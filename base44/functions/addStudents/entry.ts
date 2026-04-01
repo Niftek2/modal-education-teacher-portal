@@ -1,10 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
-const THINKIFIC_API_TOKEN = Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
+const THINKIFIC_API_TOKEN = Deno.env.get("THINKIFIC_API_KEY") || Deno.env.get("THINKIFIC_API_ACCESS_TOKEN");
 const THINKIFIC_SUBDOMAIN = Deno.env.get("THINKIFIC_SUBDOMAIN");
 
 const thinkificHeaders = {
-    'Authorization': `Bearer ${THINKIFIC_API_TOKEN}`,
+    'X-Auth-API-Key': THINKIFIC_API_TOKEN,
+    'X-Auth-Subdomain': THINKIFIC_SUBDOMAIN,
     'Content-Type': 'application/json',
 };
 
@@ -74,11 +75,10 @@ async function provisionThinkificUser(firstName, lastInitial) {
 }
 
 async function addToGroup(userId, groupId) {
-    // Thinkific requires POST /group_memberships with numeric {group_id, user_id}
-    const res = await fetch('https://api.thinkific.com/api/public/v1/group_memberships', {
+    const res = await fetch(`https://api.thinkific.com/api/public/v1/groups/${groupId}/members`, {
         method: 'POST',
         headers: thinkificHeaders,
-        body: JSON.stringify({ group_id: Number(groupId), user_id: Number(userId) }),
+        body: JSON.stringify({ user_id: Number(userId) }),
     });
     if (res.ok) return;
     if (res.status === 422) {
