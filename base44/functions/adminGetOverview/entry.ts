@@ -21,7 +21,11 @@ async function requireAdminSession(req) {
 
 async function thinkificGet(path) {
     const res = await fetch(`${THINKIFIC_BASE}${path}`, {
-        headers: { 'Authorization': `Bearer ${THINKIFIC_TOKEN}`, 'Content-Type': 'application/json' }
+        headers: {
+            'X-Auth-API-Key': THINKIFIC_TOKEN,
+            'X-Auth-Subdomain': Deno.env.get('THINKIFIC_SUBDOMAIN'),
+            'Content-Type': 'application/json',
+        }
     });
     if (!res.ok) return null;
     return res.json();

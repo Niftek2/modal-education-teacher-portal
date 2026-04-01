@@ -29,18 +29,26 @@ async function requireAdminSession(req) {
     } catch { return null; }
 }
 
+const THINKIFIC_HEADERS = {
+    'X-Auth-API-Key': THINKIFIC_TOKEN,
+    'X-Auth-Subdomain': Deno.env.get('THINKIFIC_SUBDOMAIN'),
+    'Content-Type': 'application/json',
+};
+
 async function thinkificGet(path) {
-    const res = await fetch(`${THINKIFIC_BASE}${path}`, {
-        headers: { 'Authorization': `Bearer ${THINKIFIC_TOKEN}`, 'Content-Type': 'application/json' }
-    });
-    if (!res.ok) return null;
+    const res = await fetch(`${THINKIFIC_BASE}${path}`, { headers: THINKIFIC_HEADERS });
+    if (!res.ok) {
+        const errText = await res.text();
+        console.error('Error data:', errText);
+        return null;
+    }
     return res.json();
 }
 
 async function thinkificPost(path, body) {
     const res = await fetch(`${THINKIFIC_BASE}${path}`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${THINKIFIC_TOKEN}`, 'Content-Type': 'application/json' },
+        headers: THINKIFIC_HEADERS,
         body: JSON.stringify(body),
     });
     const text = await res.text();
@@ -52,7 +60,7 @@ async function thinkificPost(path, body) {
 async function thinkificDelete(path) {
     const res = await fetch(`${THINKIFIC_BASE}${path}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${THINKIFIC_TOKEN}`, 'Content-Type': 'application/json' },
+        headers: THINKIFIC_HEADERS,
     });
     return { ok: res.ok, status: res.status };
 }
