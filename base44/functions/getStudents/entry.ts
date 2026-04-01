@@ -119,9 +119,20 @@ Deno.serve(async (req) => {
 
         const students = Array.from(mergedMap.values());
 
+        // Archived students come directly from ArchivedStudent records (not from mergedMap,
+        // since their StudentAccessCode is deleted on removal)
+        const archivedStudentsList = (archivedRecords || []).map(r => ({
+            id: r.studentThinkificUserId || null,
+            firstName: r.studentFirstName || r.studentEmail?.split('@')[0] || '',
+            lastName: r.studentLastName || '',
+            email: r.studentEmail,
+            password: 'Math1234!',
+            archivedAt: r.archivedAt,
+        }));
+
         return Response.json({
             activeStudents: students.filter(s => !archivedEmailSet.has(s.email)),
-            archivedStudents: students.filter(s => archivedEmailSet.has(s.email)),
+            archivedStudents: archivedStudentsList,
         });
 
     } catch (error) {
