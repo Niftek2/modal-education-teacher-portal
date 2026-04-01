@@ -47,6 +47,7 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
+import AdminDashboard from './pages/AdminDashboard';
 import Assign from './pages/Assign';
 import Dashboard from './pages/Dashboard';
 import DistrictAdminDashboard from './pages/DistrictAdminDashboard';
@@ -64,6 +65,7 @@ import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "AdminDashboard": AdminDashboard,
     "Assign": Assign,
     "Dashboard": Dashboard,
     "DistrictAdminDashboard": DistrictAdminDashboard,
