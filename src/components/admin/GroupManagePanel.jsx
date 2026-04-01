@@ -3,6 +3,7 @@ import { RefreshCw, UserPlus, UserMinus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/components/api';
+import StudentEnrollmentPanel from './StudentEnrollmentPanel';
 
 export default function GroupManagePanel({ group, teacher, sessionToken, onRefresh }) {
     const [syncing, setSyncing] = useState(false);
@@ -134,20 +135,23 @@ export default function GroupManagePanel({ group, teacher, sessionToken, onRefre
                 <div className="space-y-1">
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">In Thinkific Group ({thinkificStudents.length})</p>
                     {thinkificStudents.map(s => (
-                        <div key={s.email} className="flex items-center justify-between bg-white border border-gray-100 rounded-lg px-3 py-2">
-                            <div>
-                                <p className="text-sm font-medium text-gray-800">{s.firstName} {s.lastName}</p>
-                                <p className="text-xs text-gray-500">{s.email}</p>
+                        <div key={s.email} className="bg-white border border-gray-100 rounded-lg px-3 py-2">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-800">{s.firstName} {s.lastName}</p>
+                                    <p className="text-xs text-gray-500">{s.email}</p>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemove(s)}
+                                    disabled={removing === s.email}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                >
+                                    {removing === s.email ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserMinus className="w-3 h-3" />}
+                                </Button>
                             </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemove(s)}
-                                disabled={removing === s.email}
-                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            >
-                                {removing === s.email ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserMinus className="w-3 h-3" />}
-                            </Button>
+                            <StudentEnrollmentPanel student={s} sessionToken={sessionToken} />
                         </div>
                     ))}
                 </div>
