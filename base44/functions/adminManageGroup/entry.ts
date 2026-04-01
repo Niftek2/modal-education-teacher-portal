@@ -5,7 +5,7 @@ const base44 = createClient({ appId: Deno.env.get('BASE44_APP_ID') });
 
 const ALLOWED_ADMINS = ['nadiajiftekhar@gmail.com', 'modalmath@gmail.com'];
 const THINKIFIC_BASE = 'https://api.thinkific.com/api/public/v1';
-const THINKIFIC_TOKEN = Deno.env.get('THINKIFIC_API_ACCESS_TOKEN');
+const THINKIFIC_TOKEN = Deno.env.get('THINKIFIC_API_KEY') || Deno.env.get('THINKIFIC_API_ACCESS_TOKEN');
 
 const COURSE_IDS = [
     Deno.env.get('PK_COURSE_ID'),
