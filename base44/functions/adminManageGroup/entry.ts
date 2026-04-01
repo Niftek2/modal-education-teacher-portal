@@ -71,13 +71,21 @@ async function findUserByEmail(email) {
     return users.length > 0 ? users[0] : null;
 }
 
+async function getGroupName(groupId) {
+    const data = await thinkificGet(`/groups/${groupId}`);
+    return data?.group?.name || null;
+}
+
 async function addStudentToGroup(studentEmail, groupId, teacherEmail) {
     const user = await findUserByEmail(studentEmail);
     if (!user) throw new Error(`No Thinkific user found for ${studentEmail}`);
 
-    const addResult = await thinkificPost(`/groups/${groupId}/members`, { user_id: user.id });
-    if (!addResult.ok && addResult.status !== 422) {
-        throw new Error(`Failed to add ${studentEmail} to group: ${addResult.status}`);
+    const groupName = await getGroupName(groupId);
+    if (!groupName) throw new Error(`Group ${groupId} not found in Thinkific`);
+
+    const addResult = await thinkificPost(`/group_users`, { user_id: user.id, group_names: [groupName] });
+    if (!addResult.ok) {
+        throw new Error(`Failed to add ${studentEmail} to group: ${addResult.status} ${JSON.stringify(addResult.data)}`);
     }
 
     await Promise.allSettled(COURSE_IDS.map(courseId =>
@@ -135,11 +143,17 @@ async function syncTeacherGroup(teacherEmail, groupId) {
 
     const results = { added: [], skipped: [], errors: [] };
 
+    // Get group name (needed for the group_users API)
+    const groupName = await getGroupName(groupId);
+    if (!groupName) {
+        return { added: [], skipped: [], errors: [{ reason: `Group ${groupId} not found in Thinkific` }] };
+    }
+
     // Get current group members to avoid duplicate adds
     const currentMembers = await thinkificGet(`/users?query[group_id]=${groupId}&limit=100`);
     const currentEmails = new Set((currentMembers?.items || []).map(u => u.email?.toLowerCase()));
 
-    console.log(`[sync] Group ${groupId} has ${currentEmails.size} current members. DB has ${activeStudents.length} active students.`);
+    console.log(`[sync] Group "${groupName}" (${groupId}) has ${currentEmails.size} current members. DB has ${activeStudents.length} active students.`);
 
     for (const student of activeStudents) {
         const email = student.studentEmail?.toLowerCase();
@@ -158,9 +172,9 @@ async function syncTeacherGroup(teacherEmail, groupId) {
                 continue;
             }
 
-            console.log(`[sync] Adding ${email} (userId=${user.id}) to group ${groupId}`);
-            const addResult = await thinkificPost(`/groups/${groupId}/members`, { user_id: user.id });
-            if (!addResult.ok && addResult.status !== 422) {
+            console.log(`[sync] Adding ${email} (userId=${user.id}) to group "${groupName}"`);
+            const addResult = await thinkificPost(`/group_users`, { user_id: user.id, group_names: [groupName] });
+            if (!addResult.ok) {
                 throw new Error(`Status ${addResult.status}: ${JSON.stringify(addResult.data)}`);
             }
 
