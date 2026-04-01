@@ -1,7 +1,13 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 import { jwtVerify } from 'npm:jose@5.9.6';
 
 const THINKIFIC_BASE = 'https://api.thinkific.com/api/public/v1';
+const THINKIFIC_TOKEN = Deno.env.get('THINKIFIC_API_KEY') || Deno.env.get('THINKIFIC_API_ACCESS_TOKEN');
+const THINKIFIC_HEADERS = {
+  'X-Auth-API-Key': THINKIFIC_TOKEN,
+  'X-Auth-Subdomain': Deno.env.get('THINKIFIC_SUBDOMAIN'),
+  'Content-Type': 'application/json',
+};
 
 async function requireSession(token) {
   if (!token) return null;
@@ -14,16 +20,12 @@ async function requireSession(token) {
 }
 
 async function thinkificGet(path) {
-  const token = Deno.env.get('THINKIFIC_API_ACCESS_TOKEN');
-  return fetch(`${THINKIFIC_BASE}${path}`, {
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-  });
+  return fetch(`${THINKIFIC_BASE}${path}`, { headers: THINKIFIC_HEADERS });
 }
 
 Deno.serve(async (req) => {
   try {
     const body = await req.json();
-    // Support token from Authorization header (preferred) or body fallback
     const headerToken = req.headers.get('Authorization')?.replace('Bearer ', '');
     const session = await requireSession(headerToken || body.sessionToken);
     if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -61,7 +63,6 @@ Deno.serve(async (req) => {
               const isMember = membersData.items?.some(u => u.id === Number(session.userId));
               if (isMember) {
                 groups.push({ id: String(group.id), name: group.name });
-                // Save to DB for future fast lookup
                 await base44.asServiceRole.entities.TeacherGroup.create({
                   teacherEmail: session.email,
                   teacherThinkificUserId: String(session.userId),
