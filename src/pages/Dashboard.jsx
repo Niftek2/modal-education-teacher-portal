@@ -10,7 +10,7 @@ import AddStudentModal from '../components/AddStudentModal';
 import SnapshotModal from '../components/SnapshotModal';
 import AddHistoricalDataModal from '../components/AddHistoricalDataModal';
 import { api } from '@/components/api';
-import GrowthMetrics from '../components/GrowthMetrics.jsx';
+import GrowthMetrics from '@/components/GrowthMetrics.jsx';
 
 export default function Dashboard() {
     const [teacher, setTeacher] = useState(null);

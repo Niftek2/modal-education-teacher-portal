@@ -26,7 +26,6 @@ function getGrowth(attempts) {
 function QuizCard({ quiz, studentData, avgLatest, growthScores, compareStudents }) {
     const [expanded, setExpanded] = useState(false);
 
-    // Filter to only comparison students if any selected
     const displayData = compareStudents.length > 0
         ? studentData.filter(s => compareStudents.includes(s.name))
         : studentData;
@@ -148,7 +147,6 @@ export default function ClassGrowthView({ students, quizMap }) {
     }, [quizStats]);
 
     const filteredStats = levelFilter === 'All' ? quizStats : quizStats.filter(q => q.level === levelFilter);
-
     const allNames = useMemo(() => students.map(s => `${s.firstName} ${s.lastName}`), [students]);
 
     const toggleCompare = (name) => {
@@ -161,40 +159,32 @@ export default function ClassGrowthView({ students, quizMap }) {
 
     return (
         <div className="space-y-4">
-            {/* Controls */}
             <div className="flex flex-wrap gap-3 items-center">
-                {/* Level filter */}
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 font-medium">Level:</span>
                     <div className="flex gap-1 flex-wrap">
                         {levels.map(l => (
-                            <button
-                                key={l}
-                                onClick={() => setLevelFilter(l)}
-                                className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${levelFilter === l ? 'bg-purple-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                            >
+                            <button key={l} onClick={() => setLevelFilter(l)}
+                                className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${levelFilter === l ? 'bg-purple-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                                 {l}
                             </button>
                         ))}
                     </div>
                 </div>
 
-                {/* Compare students */}
                 {allNames.length > 0 && (
                     <div className="flex items-center gap-2 ml-auto">
                         <span className="text-xs text-gray-500 font-medium">Compare:</span>
                         <div className="flex gap-1 flex-wrap max-w-xs">
                             {allNames.map(name => (
-                                <button
-                                    key={name}
-                                    onClick={() => toggleCompare(name)}
-                                    className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${compareStudents.includes(name) ? 'bg-purple-700 text-white border-purple-700' : 'border-gray-300 text-gray-500 hover:border-purple-400 hover:text-purple-600'}`}
-                                >
+                                <button key={name} onClick={() => toggleCompare(name)}
+                                    className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${compareStudents.includes(name) ? 'bg-purple-700 text-white border-purple-700' : 'border-gray-300 text-gray-500 hover:border-purple-400 hover:text-purple-600'}`}>
                                     {name.split(' ')[0]}
                                 </button>
                             ))}
                             {compareStudents.length > 0 && (
-                                <button onClick={() => setCompareStudents([])} className="text-xs px-2 py-0.5 rounded-full border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
+                                <button onClick={() => setCompareStudents([])}
+                                    className="text-xs px-2 py-0.5 rounded-full border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
                                     Clear
                                 </button>
                             )}
@@ -208,11 +198,7 @@ export default function ClassGrowthView({ students, quizMap }) {
             ) : (
                 <div className="space-y-3">
                     {filteredStats.map(q => (
-                        <QuizCard
-                            key={q.quiz}
-                            {...q}
-                            compareStudents={compareStudents}
-                        />
+                        <QuizCard key={q.quiz} {...q} compareStudents={compareStudents} />
                     ))}
                 </div>
             )}
