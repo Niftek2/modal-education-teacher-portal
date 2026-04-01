@@ -111,7 +111,7 @@ export default function StudentDetail({ student, isOpen, onClose, sessionToken }
 
     const getSortedQuizzes = () => {
         if (quizSort === 'level') {
-            return [...quizzes].sort((a, b) => a.level.localeCompare(b.level));
+            return [...quizzes].sort((a, b) => (a.level || '').localeCompare(b.level || ''));
         }
         // Sort by time: most recent first
         return [...quizzes].sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
