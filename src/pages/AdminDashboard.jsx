@@ -1,12 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Shield, Loader2, Users } from 'lucide-react';
+import { RefreshCw, Shield, Loader2, Users, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/components/api';
 import TeacherRow from '@/components/admin/TeacherRow';
 
-const ALLOWED_ADMINS = ['nadiajiftekhar@gmail.com', 'modalmath@gmail.com'];
+const ALLOWED_ADMINS_SET = new Set(['nadiajiftekhar@gmail.com', 'modalmath@gmail.com']);
+
+function AdminLogin({ onLogin }) {
+    const [email, setEmail] = useState('');
+    const [sent, setSent] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    // Check if there's already a valid token in localStorage on mount
+    useEffect(() => {
+        const token = localStorage.getItem('modal_math_session');
+        if (token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                if (ALLOWED_ADMINS_SET.has(payload.email?.toLowerCase())) {
+                    onLogin(token, payload.email);
+                }
+            } catch {}
+        }
+    }, []);
+
+    const handleSend = async (e) => {
+        e.preventDefault();
+        if (!ALLOWED_ADMINS_SET.has(email.toLowerCase())) {
+            setError('This email is not authorized as an admin.');
+            return;
+        }
+        setLoading(true);
+        setError('');
+        try {
+            await api.call('authRequestLink', { email });
+            setSent(true);
+        } catch (err) {
+            setError(err.message || 'Failed to send login link');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-white flex items-center justify-center p-6">
+            <div className="max-w-sm w-full">
+                <div className="text-center mb-8">
+                    <Shield className="w-12 h-12 text-purple-900 mx-auto mb-3" />
+                    <h1 className="text-2xl font-bold text-gray-900">Admin Login</h1>
+                    <p className="text-gray-500 text-sm mt-1">Enter your admin email to receive a magic link</p>
+                </div>
+                {sent ? (
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
+                        <p className="text-green-800 font-medium">Magic link sent to <strong>{email}</strong></p>
+                        <p className="text-green-700 text-sm mt-1">Click the link in your email to log in.</p>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSend} className="space-y-4">
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input
+                                type="email"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                placeholder="admin@example.com"
+                                className="pl-10"
+                                required
+                            />
+                        </div>
+                        {error && <p className="text-red-600 text-sm">{error}</p>}
+                        <Button type="submit" disabled={loading} className="w-full bg-[#632a8c] hover:bg-[#7b35ae] text-white">
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                            Send Magic Link
+                        </Button>
+                    </form>
+                )}
+            </div>
+        </div>
+    );
+}
 
 export default function AdminDashboard() {
     const [sessionToken, setSessionToken] = useState(null);
@@ -57,18 +132,7 @@ export default function AdminDashboard() {
     }).length;
 
     if (!sessionToken) {
-        return (
-            <div className="min-h-screen bg-white flex items-center justify-center p-6">
-                <div className="text-center max-w-sm">
-                    <Shield className="w-12 h-12 text-purple-900 mx-auto mb-4" />
-                    <h1 className="text-xl font-bold text-gray-900 mb-2">Admin Access Only</h1>
-                    <p className="text-gray-500 text-sm mb-4">You must be logged in as an admin to view this page.</p>
-                    <Button onClick={() => navigate('/Home')} className="bg-[#632a8c] hover:bg-[#7b35ae] text-white">
-                        Go to Login
-                    </Button>
-                </div>
-            </div>
-        );
+        return <AdminLogin onLogin={(token, email) => { setSessionToken(token); setAdminEmail(email); loadData(token); }} />;
     }
 
     return (
