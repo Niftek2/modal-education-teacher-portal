@@ -10,6 +10,7 @@ import AddStudentModal from '../components/AddStudentModal';
 import SnapshotModal from '../components/SnapshotModal';
 import AddHistoricalDataModal from '../components/AddHistoricalDataModal';
 import { api } from '@/components/api';
+import GrowthMetrics from '../components/GrowthMetrics';
 
 export default function Dashboard() {
     const [teacher, setTeacher] = useState(null);
@@ -217,6 +218,12 @@ export default function Dashboard() {
                         >
                             Archive ({archivedStudents.length})
                         </TabsTrigger>
+                        <TabsTrigger
+                            value="growth"
+                            className="data-[state=active]:bg-[#632a8c] data-[state=active]:text-white"
+                        >
+                            Growth Metrics
+                        </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="active">
@@ -252,6 +259,13 @@ export default function Dashboard() {
                             sessionToken={localStorage.getItem('modal_math_session')}
                             onStudentSelected={handleStudentSelected}
                             activities={studentActivities}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="growth">
+                        <GrowthMetrics
+                            students={activeStudents}
+                            events={studentActivities}
                         />
                     </TabsContent>
                 </Tabs>
