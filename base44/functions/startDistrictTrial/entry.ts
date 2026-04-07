@@ -1,4 +1,13 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+
+function encodeEmailToBase64Url(emailString) {
+    const bytes = new TextEncoder().encode(emailString);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 Deno.serve(async (req) => {
   try {
@@ -79,7 +88,7 @@ Deno.serve(async (req) => {
         `<tr><td style="padding:6px 12px;font-weight:bold;">Trial Ends:</td><td style="padding:6px 12px;">${trialEndDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>`,
         `</table>`,
       ].join('\r\n');
-      const encodedNotify = btoa(unescape(encodeURIComponent(adminNotifyBody))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const encodedNotify = encodeEmailToBase64Url(adminNotifyBody);
       await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -120,11 +129,7 @@ Deno.serve(async (req) => {
         `</body></html>`,
       ].join('\r\n');
 
-      const encoder = new TextEncoder();
-      const bytes = encoder.encode(emailBody);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-      const raw = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const raw = encodeEmailToBase64Url(emailBody);
       await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
