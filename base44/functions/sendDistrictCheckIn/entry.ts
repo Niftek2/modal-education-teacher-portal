@@ -60,7 +60,7 @@ function buildCheckInEmailHtml({ adminName, districtName, dashboardUrl }) {
             <div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;padding:16px 20px;text-align:center;">
               <p style="margin:0 0 8px;font-size:14px;color:#7a5100;font-weight:bold;">Ready to upgrade?</p>
               <p style="margin:0 0 12px;font-size:13px;color:#7a5100;">Unlock unlimited teacher seats and keep your students learning all year.</p>
-              <a href="https://modal-math.base44.app/DistrictPricing" style="background:#f59e0b;color:#1e003a;padding:10px 24px;text-decoration:none;border-radius:7px;display:inline-block;font-weight:bold;font-size:14px;">
+              <a href="https://www.modalmath.com/DistrictPricing" style="background:#f59e0b;color:#1e003a;padding:10px 24px;text-decoration:none;border-radius:7px;display:inline-block;font-weight:bold;font-size:14px;">
                 View Pricing Plans
               </a>
             </div>
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
 
         const results = [];
         for (const t of targets) {
-            const dashboardUrl = `https://modal-math.base44.app/DistrictAdminDashboard?email=${encodeURIComponent(t.adminEmail)}`;
+            const dashboardUrl = `https://www.modalmath.com/DistrictAdminDashboard?email=${encodeURIComponent(t.adminEmail)}`;
             const htmlBody = buildCheckInEmailHtml({ adminName: t.adminName, districtName: t.districtName, dashboardUrl });
 
             const emailRaw = [

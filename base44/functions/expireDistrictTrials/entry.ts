@@ -45,7 +45,7 @@ async function expireEnrollment(enrollmentId) {
 }
 
 async function sendExpiryEmail(accessToken, adminEmail, adminName, districtName) {
-    const upgradeUrl = 'https://modal-math.base44.app/DistrictPricing';
+    const upgradeUrl = 'https://www.modalmath.com/DistrictPricing';
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f3ff;font-family:Arial,sans-serif;">
