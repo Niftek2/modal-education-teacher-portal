@@ -1,5 +1,14 @@
 import Stripe from 'npm:stripe@14.21.0';
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+
+function encodeEmailToBase64Url(emailString) {
+    const bytes = new TextEncoder().encode(emailString);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
@@ -67,13 +76,7 @@ async function sendWelcomeEmail(accessToken, adminEmail, adminName, districtName
     `</body></html>`,
   ].join('\r\n');
 
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(emailBody);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 8192) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-  }
-  const raw = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const raw = encodeEmailToBase64Url(emailBody);
 
   const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST',
@@ -186,7 +189,7 @@ Deno.serve(async (req) => {
         `<tr><td style="padding:6px 12px;font-weight:bold;">Stripe Session:</td><td style="padding:6px 12px;">${session.id}</td></tr>`,
         `</table>`,
       ].join('\r\n');
-      const encoded = btoa(unescape(encodeURIComponent(notifyBody))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const encoded = encodeEmailToBase64Url(notifyBody);
       await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
