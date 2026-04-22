@@ -32,16 +32,26 @@ export default function StudentTable({ students, type = 'active', teacherEmail, 
 
     const getLastActive = (email) => {
         const normalizedEmail = email.trim().toLowerCase();
-        const studentActivities = activities.filter(a => 
-            a.studentEmail?.trim().toLowerCase() === normalizedEmail &&
-            (['user_signin', 'user.signin', 'quiz_attempted', 'lesson_completed', 'enrollment_progress'].includes(a.eventType))
+        // Any activity event counts — if the student has any event, they've been active
+        const studentActivities = activities.filter(a =>
+            a.studentEmail?.trim().toLowerCase() === normalizedEmail && a.occurredAt
         );
         if (studentActivities.length === 0) return null;
-        
-        const sorted = studentActivities.sort((a, b) => 
+
+        const sorted = studentActivities.sort((a, b) =>
             new Date(b.occurredAt) - new Date(a.occurredAt)
         );
         return sorted[0];
+    };
+
+    const LEVEL_COLORS = {
+        PK: 'bg-pink-100 text-pink-800',
+        K: 'bg-purple-100 text-purple-800',
+        L1: 'bg-blue-100 text-blue-800',
+        L2: 'bg-cyan-100 text-cyan-800',
+        L3: 'bg-teal-100 text-teal-800',
+        L4: 'bg-emerald-100 text-emerald-800',
+        L5: 'bg-amber-100 text-amber-800',
     };
 
     const handleRemove = async (student) => {
@@ -103,6 +113,7 @@ export default function StudentTable({ students, type = 'active', teacherEmail, 
                         <TableRow className="bg-gray-50 border-b border-gray-200">
                             <TableHead className="font-semibold text-black">Student</TableHead>
                             <TableHead className="font-semibold text-black">Email</TableHead>
+                            <TableHead className="font-semibold text-black">Level</TableHead>
                             <TableHead className="font-semibold text-black">Last Activity</TableHead>
                             <TableHead className="w-12"></TableHead>
                         </TableRow>
@@ -124,6 +135,15 @@ export default function StudentTable({ students, type = 'active', teacherEmail, 
                                 </TableCell>
                                 <TableCell className="text-gray-600 text-sm">
                                     {student.email}
+                                </TableCell>
+                                <TableCell>
+                                    {student.level ? (
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${LEVEL_COLORS[student.level] || 'bg-gray-100 text-gray-700'}`}>
+                                            {student.level}
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs text-gray-400">—</span>
+                                    )}
                                 </TableCell>
                                 <TableCell className="text-gray-600 text-sm">
                                     <TooltipProvider>

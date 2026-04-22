@@ -179,6 +179,26 @@ export default function Assign() {
         }
     };
 
+    const getLocalRosterStudents = () => {
+        try {
+            const raw = localStorage.getItem('mm_teacher_roster_students');
+            const arr = raw ? JSON.parse(raw) : [];
+            return Array.isArray(arr) ? arr : [];
+        } catch {
+            return [];
+        }
+    };
+
+    const LEVEL_COLORS = {
+        PK: 'bg-pink-100 text-pink-800',
+        K: 'bg-purple-100 text-purple-800',
+        L1: 'bg-blue-100 text-blue-800',
+        L2: 'bg-cyan-100 text-cyan-800',
+        L3: 'bg-teal-100 text-teal-800',
+        L4: 'bg-emerald-100 text-emerald-800',
+        L5: 'bg-amber-100 text-amber-800',
+    };
+
     const loadData = async (token) => {
         const activeToken = token || localStorage.getItem('modal_math_session');
         try {
@@ -195,15 +215,30 @@ export default function Assign() {
             setCatalog(catalogData);
             setExistingAssignments(assignmentsResult.assignments || []);
 
-            // Roster from dashboard's cached localStorage (set when dashboard loads)
-            const rosterEmails = getLocalRosterEmails();
-            const rosterStudents = rosterEmails
-                .map(email => ({
-                    email: String(email).toLowerCase().trim(),
-                    firstName: String(email).split('@')[0],
-                    lastName: '',
-                }))
-                .sort((a, b) => a.email.localeCompare(b.email));
+            // Roster from dashboard's cached localStorage (set when dashboard loads).
+            // Prefer the richer student objects (with names + level); fall back to emails-only.
+            const richRoster = getLocalRosterStudents();
+            let rosterStudents;
+            if (richRoster.length > 0) {
+                rosterStudents = richRoster
+                    .map(s => ({
+                        email: String(s.email).toLowerCase().trim(),
+                        firstName: s.firstName || String(s.email).split('@')[0],
+                        lastName: s.lastName || '',
+                        level: s.level || null,
+                    }))
+                    .sort((a, b) => (a.firstName || a.email).localeCompare(b.firstName || b.email));
+            } else {
+                const rosterEmails = getLocalRosterEmails();
+                rosterStudents = rosterEmails
+                    .map(email => ({
+                        email: String(email).toLowerCase().trim(),
+                        firstName: String(email).split('@')[0],
+                        lastName: '',
+                        level: null,
+                    }))
+                    .sort((a, b) => a.email.localeCompare(b.email));
+            }
 
             setStudents(rosterStudents);
             setPageLoaded(true);
@@ -397,8 +432,17 @@ export default function Assign() {
                                         onCheckedChange={() => toggleStudent(student.email)}
                                         onClick={(e) => e.stopPropagation()}
                                     />
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-medium text-black truncate">{student.email.split('@')[0]}</p>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-medium text-black truncate">
+                                                {student.firstName || student.email.split('@')[0]}{student.lastName ? ` ${student.lastName}` : ''}
+                                            </p>
+                                            {student.level && (
+                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${LEVEL_COLORS[student.level] || 'bg-gray-100 text-gray-700'}`}>
+                                                    {student.level}
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-xs text-gray-400 truncate">{student.email}</p>
                                         {sa.length > 0 && (
                                             <p className="text-xs text-gray-400">{completed}/{sa.length} done</p>

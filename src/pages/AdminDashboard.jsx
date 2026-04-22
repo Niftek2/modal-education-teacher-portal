@@ -98,7 +98,7 @@ export default function AdminDashboard() {
             // Decode JWT to check email
             try {
                 const payload = JSON.parse(atob(token.split('.')[1]));
-                if (ALLOWED_ADMINS.includes(payload.email?.toLowerCase())) {
+                if (ALLOWED_ADMINS_SET.has(payload.email?.toLowerCase())) {
                     setSessionToken(token);
                     setAdminEmail(payload.email);
                     loadData(token);

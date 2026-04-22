@@ -63,10 +63,17 @@ export default function Dashboard() {
                 setArchivedStudents(archived);
                 setStudentActivities(activityResponse.events || []);
 
-                // Persist roster for Assign page
+                // Persist roster for Assign page (include names + level so Assign shows real data)
                 const rosterEmails = active.map(s => s.email);
+                const rosterStudents = active.map(s => ({
+                    email: s.email,
+                    firstName: s.firstName || '',
+                    lastName: s.lastName || '',
+                    level: s.level || null,
+                }));
                 if (rosterEmails.length > 0) {
                     localStorage.setItem('mm_teacher_roster_emails', JSON.stringify(rosterEmails));
+                    localStorage.setItem('mm_teacher_roster_students', JSON.stringify(rosterStudents));
                     localStorage.setItem('mm_teacher_roster_saved_at', new Date().toISOString());
                 }
             }

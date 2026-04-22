@@ -47,14 +47,22 @@ Deno.serve(async (req) => {
         const groupId = providedGroupId || await getGroupIdForTeacher(teacherEmail, base44);
         if (!groupId) return Response.json({ error: 'No groupId found for this teacher' }, { status: 400 });
 
-        const [groupUsersResult, archivedRecords, accessCodes] = await Promise.all([
+        const [groupUsersResult, archivedRecords, accessCodes, studentProfiles] = await Promise.all([
             getGroupMembers(groupId).catch(err => {
                 console.warn('[getStudents] Thinkific group API failed, will use DB only:', err.message);
                 return null;
             }),
             base44.asServiceRole.entities.ArchivedStudent.filter({ teacherEmail }),
             base44.asServiceRole.entities.StudentAccessCode.filter({ createdByTeacherEmail: teacherEmail }),
+            base44.asServiceRole.entities.StudentProfile.list('-lastSeenAt', 2000).catch(() => []),
         ]);
+
+        // Build email → level map from StudentProfile
+        const levelByEmail = new Map();
+        for (const p of (studentProfiles || [])) {
+            const e = p.email?.toLowerCase().trim();
+            if (e && p.level) levelByEmail.set(e, p.level);
+        }
 
         const archivedEmailSet = new Set(
             (archivedRecords || []).map(s => s.studentEmail?.toLowerCase().trim()).filter(Boolean)
@@ -70,7 +78,7 @@ Deno.serve(async (req) => {
         // Merge: start with DB students (no Thinkific profile data available)
         const mergedMap = new Map();
         for (const email of dbEmailSet) {
-            mergedMap.set(email, { id: null, firstName: email.split('@')[0], lastName: '', email, password: 'Math1234!' });
+            mergedMap.set(email, { id: null, firstName: email.split('@')[0], lastName: '', email, password: 'Math1234!', level: levelByEmail.get(email) || null });
         }
 
         if (groupUsersResult !== null) {
@@ -90,6 +98,7 @@ Deno.serve(async (req) => {
                     lastName: u.last_name,
                     email,
                     password: 'Math1234!',
+                    level: levelByEmail.get(email) || null,
                 });
             }
 
