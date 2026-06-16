@@ -1,0 +1,136 @@
+{
+  "name": "StudentAssignment",
+  "type": "object",
+  "properties": {
+    "teacherEmail": {
+      "type": "string",
+      "description": "Email of teacher who assigned this"
+    },
+    "groupId": {
+      "type": "string",
+      "description": "Thinkific group ID (optional)"
+    },
+    "studentEmail": {
+      "type": "string",
+      "description": "Student email (normalized: lowercase, trimmed)"
+    },
+    "studentUserId": {
+      "type": "string",
+      "description": "Thinkific user ID (optional)"
+    },
+    "catalogId": {
+      "type": "string",
+      "description": "Reference to AssignmentCatalog.id"
+    },
+    "sourceKey": {
+      "type": "string",
+      "description": "Copied from AssignmentCatalog.sourceKey \u2014 stable idempotency key"
+    },
+    "title": {
+      "type": "string",
+      "description": "Lesson/Quiz name (from catalog)"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Chapter name (from catalog)"
+    },
+    "level": {
+      "type": "string",
+      "description": "Course level (copied from catalog)",
+      "default": "Elementary"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "quiz",
+        "lesson"
+      ],
+      "description": "Type of assignment (legacy, same as contentType)"
+    },
+    "contentType": {
+      "type": "string",
+      "enum": [
+        "quiz",
+        "lesson"
+      ],
+      "description": "Normalized content type"
+    },
+    "courseId": {
+      "type": "string",
+      "description": "Thinkific course ID (optional)"
+    },
+    "lessonId": {
+      "type": "string",
+      "description": "Thinkific lesson ID (for completion matching)"
+    },
+    "quizId": {
+      "type": "string",
+      "description": "Thinkific quiz ID (for completion matching)"
+    },
+    "thinkificUrl": {
+      "type": "string",
+      "description": "Direct URL to the content (legacy)"
+    },
+    "contentUrl": {
+      "type": "string",
+      "description": "Deep link to exact lesson/quiz page in Thinkific"
+    },
+    "assignedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When assignment was created"
+    },
+    "dueAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional due date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "assigned",
+        "completed",
+        "archived"
+      ],
+      "default": "assigned",
+      "description": "Current assignment status"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When student completed this"
+    },
+    "completedByEventId": {
+      "type": "string",
+      "description": "ActivityEvent.id that marked this complete"
+    },
+    "completionEventId": {
+      "type": "string",
+      "description": "Thinkific webhook event ID that triggered completion (for idempotency)"
+    },
+    "score": {
+      "type": "number",
+      "description": "Quiz score as a percentage 0-100, set when quiz.attempted webhook is received"
+    },
+    "dedupeKey": {
+      "type": "string",
+      "description": "Unique key: assign:studentEmail:sourceKey or assign:studentEmail:catalogId",
+      "unique": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional data (e.g. grade, correctCount, totalQuestions)"
+    }
+  },
+  "required": [
+    "teacherEmail",
+    "studentEmail",
+    "catalogId",
+    "title",
+    "type",
+    "thinkificUrl",
+    "assignedAt",
+    "status",
+    "dedupeKey"
+  ]
+}

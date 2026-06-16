@@ -1,0 +1,72 @@
+{
+  "name": "QuizCompletion",
+  "type": "object",
+  "properties": {
+    "externalId": {
+      "type": "string",
+      "description": "Stable deduplication key: quiz_attempt.id or hash of (user+quiz+lesson+time)"
+    },
+    "studentId": {
+      "type": "string",
+      "description": "Thinkific student user ID"
+    },
+    "studentEmail": {
+      "type": "string",
+      "description": "Student email address"
+    },
+    "studentName": {
+      "type": "string",
+      "description": "Student name"
+    },
+    "quizId": {
+      "type": "string",
+      "description": "Thinkific quiz ID"
+    },
+    "quizName": {
+      "type": "string",
+      "description": "Quiz title"
+    },
+    "courseId": {
+      "type": "string",
+      "description": "Thinkific course ID"
+    },
+    "courseName": {
+      "type": "string",
+      "description": "Course name"
+    },
+    "score": {
+      "type": "number",
+      "description": "Points earned"
+    },
+    "maxScore": {
+      "type": "number",
+      "description": "Maximum possible points"
+    },
+    "percentage": {
+      "type": "number",
+      "description": "Score percentage"
+    },
+    "attemptNumber": {
+      "type": "number",
+      "description": "Attempt number",
+      "default": 1
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the quiz was completed"
+    },
+    "timeSpentSeconds": {
+      "type": "number",
+      "description": "Time spent on quiz in seconds"
+    }
+  },
+  "required": [
+    "externalId",
+    "studentId",
+    "quizId",
+    "quizName",
+    "score",
+    "maxScore"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "name": "ArchivedStudent",
+  "type": "object",
+  "properties": {
+    "studentThinkificUserId": {
+      "type": "string",
+      "description": "Student's Thinkific user ID"
+    },
+    "studentEmail": {
+      "type": "string",
+      "description": "Student email"
+    },
+    "studentFirstName": {
+      "type": "string",
+      "description": "Student first name"
+    },
+    "studentLastName": {
+      "type": "string",
+      "description": "Student last name"
+    },
+    "teacherEmail": {
+      "type": "string",
+      "description": "Email of the teacher who owned this student"
+    },
+    "teacherThinkificUserId": {
+      "type": "string",
+      "description": "Teacher who owned this student"
+    },
+    "groupId": {
+      "type": "string",
+      "description": "Group the student was in"
+    },
+    "archivedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the student was archived"
+    }
+  },
+  "required": [
+    "studentEmail",
+    "archivedAt"
+  ]
+}

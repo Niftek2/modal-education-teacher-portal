@@ -1,0 +1,76 @@
+{
+  "name": "ScheduledUnenrollment",
+  "type": "object",
+  "properties": {
+    "dedupeKey": {
+      "type": "string",
+      "description": "Unique key for idempotency"
+    },
+    "jobType": {
+      "type": "string",
+      "enum": [
+        "group",
+        "student"
+      ],
+      "default": "group",
+      "description": "Whether this unenrolls a whole group or a single student"
+    },
+    "teacherEmail": {
+      "type": "string",
+      "description": "Teacher's email address"
+    },
+    "groupId": {
+      "type": "string",
+      "description": "Thinkific group ID (for group jobs)"
+    },
+    "studentEmail": {
+      "type": "string",
+      "description": "Student email (for student jobs)"
+    },
+    "studentThinkificUserId": {
+      "type": "string",
+      "description": "Student Thinkific user ID (for student jobs)"
+    },
+    "runAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When to execute the unenrollment"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "scheduled",
+        "completed",
+        "failed"
+      ],
+      "description": "Job execution status"
+    },
+    "sourceWebhookId": {
+      "type": "string",
+      "description": "Webhook event ID that triggered this"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the job was completed"
+    },
+    "errorMessage": {
+      "type": "string",
+      "description": "Error message if job failed"
+    },
+    "studentsProcessed": {
+      "type": "number",
+      "description": "Number of students processed"
+    },
+    "studentsUnenrolled": {
+      "type": "number",
+      "description": "Number of students successfully unenrolled"
+    }
+  },
+  "required": [
+    "dedupeKey",
+    "teacherEmail",
+    "runAt",
+    "status"
+  ]
+}

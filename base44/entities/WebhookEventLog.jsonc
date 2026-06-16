@@ -1,0 +1,37 @@
+{
+  "name": "WebhookEventLog",
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When webhook was received"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Webhook topic"
+    },
+    "rawPayload": {
+      "type": "string",
+      "description": "Full webhook payload as JSON"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "error"
+      ],
+      "description": "Processing status"
+    },
+    "errorMessage": {
+      "type": "string",
+      "description": "Error message if status is error"
+    }
+  },
+  "required": [
+    "timestamp",
+    "topic",
+    "rawPayload",
+    "status"
+  ]
+}

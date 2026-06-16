@@ -1,0 +1,86 @@
+{
+  "name": "AssignmentCatalog",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Content title (lesson name or quiz name from Thinkific)"
+    },
+    "level": {
+      "type": "string",
+      "description": "Course level (e.g., 'L1', 'PK', 'K', etc.)",
+      "default": "Elementary"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "quiz",
+        "lesson"
+      ],
+      "description": "Type of assignment (legacy field, same as contentType)"
+    },
+    "contentType": {
+      "type": "string",
+      "enum": [
+        "quiz",
+        "lesson"
+      ],
+      "description": "Normalized content type: lesson or quiz"
+    },
+    "lessonType": {
+      "type": "string",
+      "description": "Lesson sub-type from Thinkific (e.g., Video, PDF, Text)"
+    },
+    "courseId": {
+      "type": "string",
+      "description": "Thinkific course ID"
+    },
+    "lessonId": {
+      "type": "string",
+      "description": "Thinkific lesson ID (legacy, use thinkificLessonId)"
+    },
+    "thinkificLessonId": {
+      "type": "number",
+      "description": "Thinkific lesson ID (for lesson content)"
+    },
+    "thinkificQuizId": {
+      "type": "number",
+      "description": "Thinkific quiz ID (for quiz content)"
+    },
+    "quizId": {
+      "type": "string",
+      "description": "Thinkific quiz ID (legacy)"
+    },
+    "thinkificUrl": {
+      "type": "string",
+      "description": "Direct URL to the content in Thinkific"
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this assignment is available to teachers"
+    },
+    "sourceKey": {
+      "type": "string",
+      "description": "Idempotency key for sync: thinkific:{courseId}:{contentType}:{contentId}"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Chapter/topic name from Thinkific (legacy)"
+    },
+    "chapterId": {
+      "type": "string",
+      "description": "Thinkific chapter ID"
+    },
+    "chapterName": {
+      "type": "string",
+      "description": "Chapter name from Thinkific"
+    }
+  },
+  "required": [
+    "title",
+    "level",
+    "type",
+    "thinkificUrl"
+  ]
+}

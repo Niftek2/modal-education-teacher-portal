@@ -1,0 +1,30 @@
+{
+  "name": "StudentPortalSession",
+  "type": "object",
+  "properties": {
+    "studentEmail": {
+      "type": "string",
+      "description": "Student email"
+    },
+    "sessionToken": {
+      "type": "string",
+      "description": "JWT session token"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When session expires"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When session was created"
+    }
+  },
+  "required": [
+    "studentEmail",
+    "sessionToken",
+    "expiresAt",
+    "createdAt"
+  ]
+}

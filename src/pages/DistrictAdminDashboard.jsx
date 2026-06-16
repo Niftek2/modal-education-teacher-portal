@@ -15,6 +15,7 @@ export default function DistrictAdminDashboard() {
   const [inviteSuccess, setInviteSuccess] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [error, setError] = useState('');
+  const [removingEmail, setRemovingEmail] = useState('');
 
   // Auto-load from URL params
   useEffect(() => {
@@ -81,6 +82,29 @@ export default function DistrictAdminDashboard() {
       setInviteError(err.message || 'Failed to send invite.');
     } finally {
       setInviteLoading(false);
+    }
+  };
+
+  const handleRemove = async (teacherEmail) => {
+    if (!window.confirm(`Remove ${teacherEmail} from your district license? This will revoke their access and free up 1 seat.`)) return;
+    setRemovingEmail(teacherEmail);
+    setInviteError('');
+    setInviteSuccess('');
+    try {
+      const res = await base44.functions.invoke('removeDistrictTeacher', {
+        adminEmail: email,
+        teacherEmail,
+      });
+      if (res.data?.success) {
+        setInviteSuccess(`${teacherEmail} has been removed and 1 seat is now available.`);
+        await loadLicense(email);
+      } else {
+        setInviteError(res.data?.error || 'Failed to remove teacher.');
+      }
+    } catch (err) {
+      setInviteError(err.message || 'Failed to remove teacher.');
+    } finally {
+      setRemovingEmail('');
     }
   };
 
@@ -248,6 +272,28 @@ export default function DistrictAdminDashboard() {
                       <CheckCircle2 size={16} color="#15803d" />
                       <span style={{ flex: 1, color: '#3b006e' }}>{teacherEmail}</span>
                       <span style={{ fontSize: 12, color: '#8c3dd4', fontWeight: 600 }}>Invited</span>
+                      <button
+                        onClick={() => handleRemove(teacherEmail)}
+                        disabled={removingEmail === teacherEmail || license.status === 'expired' || license.status === 'canceled'}
+                        title="Remove teacher and free this seat"
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid #d4aff5',
+                          borderRadius: 8,
+                          padding: '4px 10px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: '#b91c1c',
+                          cursor: removingEmail === teacherEmail ? 'wait' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          opacity: (license.status === 'expired' || license.status === 'canceled') ? 0.4 : 1,
+                        }}
+                      >
+                        <X size={12} />
+                        {removingEmail === teacherEmail ? 'Removing...' : 'Remove'}
+                      </button>
                     </div>
                   ))}
                 </div>

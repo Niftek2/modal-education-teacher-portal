@@ -1,0 +1,79 @@
+{
+  "name": "DistrictLicense",
+  "type": "object",
+  "properties": {
+    "adminEmail": {
+      "type": "string",
+      "description": "Email of the district admin who purchased/manages this license"
+    },
+    "adminName": {
+      "type": "string",
+      "description": "Full name of the district admin"
+    },
+    "adminTitle": {
+      "type": "string",
+      "description": "Title/role of the district admin (e.g., Curriculum Director)"
+    },
+    "districtName": {
+      "type": "string",
+      "description": "Name of the school/district"
+    },
+    "totalLicenses": {
+      "type": "integer",
+      "description": "Total number of teacher licenses purchased or granted"
+    },
+    "licensesUsed": {
+      "type": "integer",
+      "default": 0,
+      "description": "Number of teachers currently invited/using licenses"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "trial",
+        "active",
+        "expired",
+        "canceled"
+      ],
+      "description": "Status of the district license"
+    },
+    "billingPeriod": {
+      "type": "string",
+      "enum": [
+        "annual",
+        "monthly"
+      ],
+      "description": "Billing frequency"
+    },
+    "pricePerSeat": {
+      "type": "number",
+      "description": "Price per teacher seat at time of purchase"
+    },
+    "trialEndDate": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Date when the free trial ends"
+    },
+    "purchaseDate": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Date of license purchase"
+    },
+    "stripeCheckoutSessionId": {
+      "type": "string",
+      "description": "Stripe Checkout Session ID"
+    },
+    "invitedTeachers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of teacher emails that have been invited"
+    }
+  },
+  "required": [
+    "adminEmail",
+    "totalLicenses",
+    "status"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "LessonCourseMap",
+  "type": "object",
+  "properties": {
+    "lessonId": {
+      "type": "string",
+      "description": "Thinkific lesson ID (unique key)"
+    },
+    "courseId": {
+      "type": "string",
+      "description": "Thinkific course ID"
+    },
+    "courseName": {
+      "type": "string",
+      "description": "Course name (Level label like PK, K, L1, etc)"
+    },
+    "lastSeenAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time this mapping was seen in a webhook"
+    }
+  },
+  "required": [
+    "lessonId",
+    "courseId",
+    "courseName"
+  ]
+}

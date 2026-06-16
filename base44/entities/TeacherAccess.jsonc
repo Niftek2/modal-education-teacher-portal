@@ -1,0 +1,45 @@
+{
+  "name": "TeacherAccess",
+  "type": "object",
+  "properties": {
+    "teacherEmail": {
+      "type": "string",
+      "description": "Teacher's email address"
+    },
+    "thinkificUserId": {
+      "type": "string",
+      "description": "Teacher's Thinkific user ID"
+    },
+    "subscriptionId": {
+      "type": "string",
+      "description": "Thinkific subscription ID"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "canceling",
+        "ended"
+      ],
+      "description": "Subscription status"
+    },
+    "currentPeriodEndAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When current access period ends"
+    },
+    "currentPeriodEndSource": {
+      "type": "string",
+      "description": "How period end was determined (e.g., 'fixed_plus_1_month')"
+    },
+    "lastWebhookId": {
+      "type": "string",
+      "description": "Last webhook event ID that updated this record"
+    }
+  },
+  "required": [
+    "teacherEmail",
+    "thinkificUserId",
+    "status"
+  ]
+}

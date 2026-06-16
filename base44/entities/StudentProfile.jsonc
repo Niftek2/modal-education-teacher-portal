@@ -1,0 +1,47 @@
+{
+  "name": "StudentProfile",
+  "type": "object",
+  "properties": {
+    "thinkificUserId": {
+      "type": "integer",
+      "description": "Thinkific user ID (canonical student identity)"
+    },
+    "displayName": {
+      "type": "string",
+      "description": "Student display name (first + last)"
+    },
+    "email": {
+      "type": "string",
+      "description": "Student email (normalized: lowercase, trimmed)"
+    },
+    "firstName": {
+      "type": "string",
+      "description": "Student first name"
+    },
+    "lastName": {
+      "type": "string",
+      "description": "Student last name"
+    },
+    "lastSeenAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last activity timestamp"
+    },
+    "level": {
+      "type": "string",
+      "description": "Current academic level (PK, K, L1\u2013L5), updated on each quiz attempt",
+      "enum": [
+        "PK",
+        "K",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5"
+      ]
+    }
+  },
+  "required": [
+    "thinkificUserId"
+  ]
+}

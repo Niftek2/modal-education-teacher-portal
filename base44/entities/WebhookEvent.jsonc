@@ -1,0 +1,29 @@
+{
+  "name": "WebhookEvent",
+  "type": "object",
+  "properties": {
+    "webhookId": {
+      "type": "string",
+      "description": "Unique webhook event ID from Thinkific"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Webhook topic (e.g., quiz.attempted, lesson.completed, user.signin)"
+    },
+    "receivedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Server timestamp when webhook was received"
+    },
+    "payloadJson": {
+      "type": "string",
+      "description": "Full raw webhook payload as JSON string"
+    }
+  },
+  "required": [
+    "webhookId",
+    "topic",
+    "receivedAt",
+    "payloadJson"
+  ]
+}

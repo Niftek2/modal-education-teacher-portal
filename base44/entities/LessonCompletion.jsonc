@@ -1,0 +1,50 @@
+{
+  "name": "LessonCompletion",
+  "type": "object",
+  "properties": {
+    "externalId": {
+      "type": "string",
+      "description": "Stable deduplication key: hash of (user+lesson+course+time)"
+    },
+    "studentId": {
+      "type": "string",
+      "description": "Thinkific student user ID"
+    },
+    "studentEmail": {
+      "type": "string",
+      "description": "Student email address"
+    },
+    "studentName": {
+      "type": "string",
+      "description": "Student name"
+    },
+    "lessonId": {
+      "type": "string",
+      "description": "Thinkific lesson ID"
+    },
+    "lessonName": {
+      "type": "string",
+      "description": "Lesson title"
+    },
+    "courseId": {
+      "type": "string",
+      "description": "Thinkific course ID"
+    },
+    "courseName": {
+      "type": "string",
+      "description": "Course name"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the lesson was completed"
+    }
+  },
+  "required": [
+    "externalId",
+    "studentId",
+    "lessonId",
+    "lessonName",
+    "completedAt"
+  ]
+}

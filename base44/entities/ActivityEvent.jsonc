@@ -1,0 +1,102 @@
+{
+  "name": "ActivityEvent",
+  "type": "object",
+  "properties": {
+    "thinkificUserId": {
+      "type": "integer",
+      "description": "Canonical student identity - Thinkific user ID (required)"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "webhook",
+        "csv"
+      ],
+      "description": "Data source (required)"
+    },
+    "eventType": {
+      "type": "string",
+      "description": "Event type in dot notation: resource.action (e.g., quiz.attempted, lesson.completed)"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event occurred (ISO string, required)"
+    },
+    "dedupeKey": {
+      "type": "string",
+      "description": "Idempotency key: wh:{webhookId} or csv:{hash} (required, unique)"
+    },
+    "webhookEventId": {
+      "type": "string",
+      "description": "Webhook event ID from wrapper (nullable, only for webhook source)"
+    },
+    "courseId": {
+      "type": "integer",
+      "description": "Thinkific course ID (nullable)"
+    },
+    "courseName": {
+      "type": "string",
+      "description": "Course name (nullable)"
+    },
+    "chapterId": {
+      "type": "integer",
+      "description": "Chapter ID (nullable)"
+    },
+    "chapterName": {
+      "type": "string",
+      "description": "Chapter name (nullable)"
+    },
+    "lessonId": {
+      "type": "integer",
+      "description": "Lesson ID (nullable)"
+    },
+    "lessonName": {
+      "type": "string",
+      "description": "Lesson title (nullable)"
+    },
+    "lessonType": {
+      "type": "string",
+      "description": "Lesson type (nullable)"
+    },
+    "lessonPosition": {
+      "type": "integer",
+      "description": "Lesson position in course (nullable)"
+    },
+    "attemptNumber": {
+      "type": "integer",
+      "description": "Quiz attempt number (nullable, for quiz events only)"
+    },
+    "grade": {
+      "type": "number",
+      "description": "Quiz grade/score percentage (nullable, for quiz events only)"
+    },
+    "correctCount": {
+      "type": "integer",
+      "description": "Number of correct answers (nullable, for quiz events only)"
+    },
+    "incorrectCount": {
+      "type": "integer",
+      "description": "Number of incorrect answers (nullable, for quiz events only)"
+    },
+    "studentEmail": {
+      "type": "string",
+      "description": "Student email (denormalized for convenience)"
+    },
+    "studentDisplayName": {
+      "type": "string",
+      "description": "Student display name (denormalized for convenience)"
+    },
+    "rawPayload": {
+      "type": "string",
+      "description": "Full webhook/CSV payload as JSON string"
+    }
+  },
+  "required": [
+    "thinkificUserId",
+    "source",
+    "eventType",
+    "occurredAt",
+    "dedupeKey"
+  ]
+}

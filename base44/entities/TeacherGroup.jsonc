@@ -1,0 +1,27 @@
+{
+  "name": "TeacherGroup",
+  "type": "object",
+  "properties": {
+    "teacherThinkificUserId": {
+      "type": "string",
+      "description": "Teacher's Thinkific user ID"
+    },
+    "teacherEmail": {
+      "type": "string",
+      "description": "Teacher's email address"
+    },
+    "thinkificGroupId": {
+      "type": "string",
+      "description": "Auto-created Thinkific group ID"
+    },
+    "thinkificGroupName": {
+      "type": "string",
+      "description": "Group name"
+    }
+  },
+  "required": [
+    "teacherThinkificUserId",
+    "teacherEmail",
+    "thinkificGroupId"
+  ]
+}
