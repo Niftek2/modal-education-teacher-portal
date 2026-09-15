@@ -179,6 +179,21 @@ Deno.serve(async (req) => {
       })
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
+    const knownCreationDates = new Set(
+      groupStudents
+        .map((student) => student.createdAt ? String(student.createdAt).slice(0, 10) : null)
+        .filter(Boolean)
+    );
+    const sameDayCandidates = users
+      .map(publicUser)
+      .filter((user) =>
+        user.email.endsWith('@modalmath.com') &&
+        !rosterByEmail.has(user.email) &&
+        user.createdAt &&
+        knownCreationDates.has(String(user.createdAt).slice(0, 10))
+      )
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
     const classroomEnrollments = enrollments
       .filter((enrollment) => Number(enrollment.course_id || enrollment.course?.id) === CLASSROOM_COURSE_ID)
       .map((enrollment) => ({
@@ -204,6 +219,7 @@ Deno.serve(async (req) => {
       fuzzyExternalSourceStudents,
       recentUnlinkedModalStudents,
       cohortCandidates,
+      sameDayCandidates,
       rosterCandidates: Array.from(rosterByEmail.values()),
       rosterCandidateCount: rosterByEmail.size,
     });
