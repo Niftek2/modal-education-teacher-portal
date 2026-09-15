@@ -101,11 +101,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Kearsten was not found in Thinkific' }, { status: 404 });
     }
 
-    const [enrollments, groups, users] = await Promise.all([
+    const [enrollments, groups, users, rawTeacherGroupLinks] = await Promise.all([
       listAll('/enrollments', { 'query[user_id]': teacher.id }, 10),
       listAll('/groups', {}, 20),
       listAll('/users', {}, 40),
+      listAll('/group_users', { 'query[user_id]': teacher.id }, 40).catch(() => []),
     ]);
+
+    const teacherGroupLinks = rawTeacherGroupLinks.filter((link) =>
+      Number(link.user_id || link.user?.id) === Number(teacher.id)
+    );
 
     const nameNeedles = [
       TARGET_NAME.toLowerCase(),
@@ -193,6 +198,7 @@ Deno.serve(async (req) => {
       classroomEnrollments,
       hasActiveClassroomEnrollment: classroomEnrollments.some((enrollment) => enrollment.active),
       totalGroupsScanned: groups.length,
+      teacherGroupLinks,
       candidateGroups: groupDetails,
       externalSourceStudents,
       fuzzyExternalSourceStudents,
