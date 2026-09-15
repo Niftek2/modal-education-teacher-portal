@@ -72,6 +72,19 @@ function normalizeEmail(value) {
     return String(value || '').toLowerCase().trim();
 }
 
+function normalizeClassroomName(value) {
+    return String(value || '')
+        .normalize('NFKD')
+        .toLowerCase()
+        .replace(/\[id:\s*\d+\]/g, ' ')
+        .replace(/’/g, "'")
+        .replace(/\s*'s\s+classroom\s*$/i, '')
+        .replace(/\s+classroom\s*$/i, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 function isActiveEnrollment(enrollment) {
     if (enrollment.expired === true) return false;
     const expiry = enrollment.expiry_date || enrollment.expires_at || null;
@@ -142,7 +155,6 @@ Deno.serve(async (req) => {
             }
         });
 
-        const activeTeacherIds = new Set(activeUserIds.map(Number));
         const existingTeacherGroups = await base44.asServiceRole.entities.TeacherGroup.list(
             'created_date',
             5000,
@@ -183,14 +195,36 @@ Deno.serve(async (req) => {
             const user = userById.get(Number(userId)) || { id: userId };
             const teacherEmail = normalizeEmail(user.email);
             const enrollment = activeEnrollmentByUserId.get(Number(userId));
-            const matchedGroups = groupSnapshots.filter(group =>
+            const memberGroups = groupSnapshots.filter(group =>
                 group.members.some(member => Number(member.id) === Number(userId))
             );
+            const teacherNameKey = normalizeClassroomName(
+                `${user.first_name || ''} ${user.last_name || ''}`
+            );
+            const matchedGroups = memberGroups.filter(group => {
+                const groupNameKey = normalizeClassroomName(group.name);
+                const nameMatches = teacherNameKey.length >= 5 && (
+                    groupNameKey.includes(teacherNameKey) || teacherNameKey.includes(groupNameKey)
+                );
+                const modalStudents = group.members.filter(member =>
+                    normalizeEmail(member.email).endsWith('@modalmath.com') &&
+                    Number(member.id) !== Number(userId)
+                );
+                const nonModalMembers = group.members.filter(member =>
+                    !normalizeEmail(member.email).endsWith('@modalmath.com')
+                );
+                const soleNonModalOwner = !teacherEmail.endsWith('@modalmath.com') &&
+                    modalStudents.length > 0 &&
+                    nonModalMembers.length === 1 &&
+                    Number(nonModalMembers[0].id) === Number(userId);
+
+                return nameMatches || soleNonModalOwner;
+            });
 
             const groupReports = matchedGroups.map(group => {
                 const students = group.members.filter(member =>
                     normalizeEmail(member.email).endsWith('@modalmath.com') &&
-                    !activeTeacherIds.has(Number(member.id))
+                    Number(member.id) !== Number(userId)
                 );
                 const groupKey = `${teacherEmail}|${group.id}`;
                 const missingStudentLinks = students.filter(student =>
@@ -213,6 +247,19 @@ Deno.serve(async (req) => {
             });
 
             const accessRecord = accessByEmail.get(teacherEmail);
+            const hasExistingGroupMapping = existingTeacherGroups.some(record =>
+                normalizeEmail(record.teacherEmail) === teacherEmail
+            );
+            const isTeacherCandidate = Boolean(
+                teacherEmail && (
+                    !teacherEmail.endsWith('@modalmath.com') ||
+                    matchedGroups.length > 0 ||
+                    accessRecord ||
+                    hasExistingGroupMapping
+                )
+            );
+            if (!isTeacherCandidate) continue;
+
             const issues = [];
             if (!teacherEmail) issues.push('Thinkific user has no email');
             if (user._error) issues.push(`Thinkific user lookup failed: ${user._error}`);
@@ -230,7 +277,7 @@ Deno.serve(async (req) => {
                 }
             }
 
-            if (mode === 'repair' && teacherEmail) {
+            if (mode === 'repair' && isTeacherCandidate && teacherEmail) {
                 try {
                     if (!accessRecord) {
                         const created = await base44.asServiceRole.entities.TeacherAccess.create({
