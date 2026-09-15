@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Plus, Search, AlertCircle, Settings, Upload } from 'lucide-react';
+import { LogOut, Plus, Search, AlertCircle, Settings, Upload, School, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -25,6 +25,8 @@ export default function Dashboard() {
     const [showStudentDetail, setShowStudentDetail] = useState(false);
     const [showSnapshot, setShowSnapshot] = useState(false);
     const [showHistoricalModal, setShowHistoricalModal] = useState(false);
+    const [settingUpClassroom, setSettingUpClassroom] = useState(false);
+    const [setupError, setSetupError] = useState('');
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -98,6 +100,25 @@ export default function Dashboard() {
         loadDashboard(sessionToken);
     };
 
+    const handleSetupClassroom = async () => {
+        const sessionToken = localStorage.getItem('modal_math_session');
+        if (!sessionToken) {
+            navigate('/Home');
+            return;
+        }
+
+        try {
+            setSettingUpClassroom(true);
+            setSetupError('');
+            await api.call('setupTeacherClassroom', { sessionToken }, sessionToken);
+            await loadDashboard(sessionToken);
+        } catch (error) {
+            setSetupError(error.message || 'We could not set up your classroom. Please try again.');
+        } finally {
+            setSettingUpClassroom(false);
+        }
+    };
+
     const handleStudentSelected = (student) => {
         setSelectedStudent(student);
         setShowStudentDetail(true);
@@ -120,16 +141,49 @@ export default function Dashboard() {
 
     if (!group) {
         return (
-            <div className="min-h-screen bg-white flex items-center justify-center p-6">
-                <div className="max-w-md text-center">
-                    <AlertCircle className="w-16 h-16 text-purple-900 mx-auto mb-4" />
-                    <h1 className="text-2xl font-semibold text-black mb-2">No Group Assigned</h1>
-                    <p className="text-gray-600 mb-6">
-                        You don't have a group set up yet. Please contact Modal Math support to create your classroom group.
+            <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-6">
+                <div className="w-full max-w-lg rounded-2xl border border-purple-100 bg-white p-8 shadow-sm text-center">
+                    <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-5">
+                        <School className="w-8 h-8 text-[#632a8c]" aria-hidden="true" />
+                    </div>
+                    <h1 className="text-2xl font-semibold text-black mb-2">Set Up Your Classroom</h1>
+                    <p className="text-gray-700 mb-2">
+                        Your teacher access is active{teacher?.firstName ? `, ${teacher.firstName}` : ''}.
                     </p>
-                    <Button onClick={handleLogout} variant="outline">
-                        Logout
-                    </Button>
+                    <p className="text-gray-600 mb-6">
+                        Create your classroom to add students, assign activities, and view progress from this dashboard.
+                    </p>
+
+                    {setupError && (
+                        <div role="alert" className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-left text-sm text-red-700 flex gap-2">
+                            <AlertCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+                            <span>{setupError}</span>
+                        </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center" aria-live="polite">
+                        <Button
+                            onClick={handleSetupClassroom}
+                            disabled={settingUpClassroom}
+                            className="bg-[#632a8c] hover:bg-[#7b35ae] text-white"
+                        >
+                            {settingUpClassroom ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+                                    Creating Classroom...
+                                </>
+                            ) : (
+                                <>
+                                    <School className="w-4 h-4 mr-2" aria-hidden="true" />
+                                    Create My Classroom
+                                </>
+                            )}
+                        </Button>
+                        <Button onClick={handleLogout} variant="outline" disabled={settingUpClassroom}>
+                            <LogOut className="w-4 h-4 mr-2" aria-hidden="true" />
+                            Logout
+                        </Button>
+                    </div>
                 </div>
             </div>
         );
