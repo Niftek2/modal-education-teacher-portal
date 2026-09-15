@@ -456,6 +456,16 @@ async function handleEnrollmentCreated(base44, payload, webhookId, dedupeKey, oc
     }
 }
 
+function normalizeClassroomLabel(value) {
+    return String(value || '')
+        .normalize('NFKD')
+        .toLowerCase()
+        .replace(/’/g, "'")
+        .replace(/\s*'s\s+classroom\s*$/i, '')
+        .replace(/\s+classroom\s*$/i, '')
+        .trim();
+}
+
 async function handleUserSignup(base44, payload, webhookId, dedupeKey, occurredAt, rawBody) {
     const userId = payload?.id;
     const email = payload?.email;
@@ -483,6 +493,41 @@ async function handleUserSignup(base44, payload, webhookId, dedupeKey, occurredA
 
     await base44.asServiceRole.entities.ActivityEvent.create(activity);
     console.log(`[WEBHOOK] ✓ User signup logged`);
+
+    // Legacy classroom signups identify the teacher through Thinkific's external_source.
+    // Persist that relationship so the student remains visible even before the next live roster sync.
+    const normalizedEmail = email.toLowerCase().trim();
+    const externalSource = String(payload?.external_source || '').trim();
+    if (normalizedEmail.endsWith('@modalmath.com') && externalSource) {
+        try {
+            const sourceKey = normalizeClassroomLabel(externalSource);
+            const teacherGroups = await base44.asServiceRole.entities.TeacherGroup.list();
+            const matchedGroup = teacherGroups.find(group =>
+                normalizeClassroomLabel(group.thinkificGroupName) === sourceKey
+            );
+
+            if (matchedGroup?.teacherEmail) {
+                const teacherEmail = matchedGroup.teacherEmail.toLowerCase().trim();
+                const existingCodes = await base44.asServiceRole.entities.StudentAccessCode.filter({
+                    studentEmail: normalizedEmail,
+                    createdByTeacherEmail: teacherEmail
+                });
+
+                if (existingCodes.length === 0) {
+                    await base44.asServiceRole.entities.StudentAccessCode.create({
+                        studentEmail: normalizedEmail,
+                        createdAt: occurredAt,
+                        createdByTeacherEmail: teacherEmail
+                    });
+                    console.log(`[WEBHOOK] ✓ Student linked from external_source: ${normalizedEmail} → ${teacherEmail}`);
+                }
+            } else {
+                console.warn(`[WEBHOOK] No TeacherGroup matched external_source="${externalSource}"`);
+            }
+        } catch (e) {
+            console.warn(`[WEBHOOK] external_source student link failed: ${e.message}`);
+        }
+    }
 }
 
 async function handleSubscriptionCanceled(base44, payload, webhookId) {
