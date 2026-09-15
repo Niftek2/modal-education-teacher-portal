@@ -42,7 +42,8 @@ Deno.serve(async (req) => {
     }
 
     // Get groups from DB first (fast)
-    const dbGroups = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail: session.email });
+    const teacherEmail = String(session.email || '').toLowerCase().trim();
+    const dbGroups = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail });
     let groups = dbGroups.map(g => ({ id: g.thinkificGroupId, name: g.thinkificGroupName }));
 
     // If no DB groups, try Thinkific
@@ -50,21 +51,21 @@ Deno.serve(async (req) => {
       try {
         let page = 1;
         while (true) {
-          const res = await thinkificGet(`/groups?page=${page}&per_page=50`);
+          const res = await thinkificGet(`/groups?page=${page}&limit=250`);
           if (!res.ok) break;
           const data = await res.json();
           const items = data.items || [];
           if (items.length === 0) break;
 
           for (const group of items) {
-            const membersRes = await thinkificGet(`/users?query[group_id]=${group.id}&limit=100`);
+            const membersRes = await thinkificGet(`/users?query[group_id]=${group.id}&limit=250`);
             if (membersRes.ok) {
               const membersData = await membersRes.json();
               const isMember = membersData.items?.some(u => u.id === Number(session.userId));
               if (isMember) {
                 groups.push({ id: String(group.id), name: group.name });
                 await base44.asServiceRole.entities.TeacherGroup.create({
-                  teacherEmail: session.email,
+                  teacherEmail,
                   teacherThinkificUserId: String(session.userId),
                   thinkificGroupId: String(group.id),
                   thinkificGroupName: group.name
@@ -72,8 +73,9 @@ Deno.serve(async (req) => {
               }
             }
           }
-          if (items.length < 50) break;
-          page++;
+          const nextPage = data.meta?.pagination?.next_page;
+          if (!nextPage) break;
+          page = Number(nextPage);
         }
       } catch (e) {
         console.warn('Could not fetch Thinkific groups:', e.message);
