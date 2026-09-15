@@ -332,7 +332,7 @@ Deno.serve(async (req) => {
 
                     const students = group.members.filter(member =>
                         normalizeEmail(member.email).endsWith('@modalmath.com') &&
-                        !activeTeacherIds.has(Number(member.id))
+                        Number(member.id) !== Number(userId)
                     );
                     for (const student of students) {
                         const studentEmail = normalizeEmail(student.email);
