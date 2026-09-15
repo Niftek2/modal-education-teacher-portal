@@ -250,8 +250,10 @@ Deno.serve(async (req) => {
             const hasExistingGroupMapping = existingTeacherGroups.some(record =>
                 normalizeEmail(record.teacherEmail) === teacherEmail
             );
+            const displayName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+            const isTestAccount = /^test/i.test(teacherEmail) || /\btest\b/i.test(displayName);
             const isTeacherCandidate = Boolean(
-                teacherEmail && (
+                !isTestAccount && teacherEmail && (
                     !teacherEmail.endsWith('@modalmath.com') ||
                     matchedGroups.length > 0 ||
                     accessRecord ||
@@ -360,7 +362,7 @@ Deno.serve(async (req) => {
             teacherReports.push({
                 userId: Number(userId),
                 email: teacherEmail,
-                name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+                name: displayName,
                 enrollmentId: enrollment.id || null,
                 expiryDate: enrollment.expiry_date || enrollment.expires_at || null,
                 base44AccessStatus: accessRecord?.status || null,
@@ -374,7 +376,8 @@ Deno.serve(async (req) => {
             classroomCourseId: CLASSROOM_COURSE_ID,
             summary: {
                 enrollmentCount: enrollments.length,
-                activeTeacherCount: activeUserIds.length,
+                activeTeacherCount: teacherReports.length,
+                skippedNonTeacherOrTestEnrollments: activeUserIds.length - teacherReports.length,
                 thinkificGroupCount: groups.length,
                 groupReadErrors: groupSnapshots.filter(group => group.error).length,
                 teachersWithoutGroup: teacherReports.filter(teacher => teacher.groups.length === 0).length,
