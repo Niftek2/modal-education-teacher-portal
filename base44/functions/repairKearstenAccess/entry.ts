@@ -72,6 +72,8 @@ function publicUser(user) {
     lastName: user.last_name || '',
     email: String(user.email || '').toLowerCase().trim(),
     externalSource: user.external_source || null,
+    createdAt: user.created_at || null,
+    company: user.company || null,
   };
 }
 
@@ -134,6 +136,23 @@ Deno.serve(async (req) => {
       )
       .map(publicUser);
 
+    const fuzzyExternalSourceStudents = users
+      .filter((user) => {
+        const source = String(user.external_source || '').trim().toLowerCase();
+        return String(user.email || '').toLowerCase().endsWith('@modalmath.com') &&
+          (source.includes('kearsten') || source.includes('connor') || source.includes('wausau'));
+      })
+      .map(publicUser);
+
+    const recentUnlinkedModalStudents = users
+      .filter((user) => {
+        const email = String(user.email || '').toLowerCase();
+        if (!email.endsWith('@modalmath.com')) return false;
+        const createdAt = user.created_at ? new Date(user.created_at).getTime() : 0;
+        return createdAt >= Date.now() - (45 * 24 * 60 * 60 * 1000);
+      })
+      .map(publicUser);
+
     const groupStudents = groupDetails
       .flatMap((group) => group.members)
       .filter((user) => user.email.endsWith('@modalmath.com'));
@@ -164,6 +183,8 @@ Deno.serve(async (req) => {
       totalGroupsScanned: groups.length,
       candidateGroups: groupDetails,
       externalSourceStudents,
+      fuzzyExternalSourceStudents,
+      recentUnlinkedModalStudents,
       rosterCandidates: Array.from(rosterByEmail.values()),
       rosterCandidateCount: rosterByEmail.size,
     });
