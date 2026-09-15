@@ -432,16 +432,40 @@ async function handleEnrollmentCreated(base44, payload, webhookId, dedupeKey, oc
     await base44.asServiceRole.entities.ActivityEvent.create(activity);
     console.log(`[WEBHOOK] ✓ Enrollment created logged`);
 
-    // Auto-create Thinkific group when enrolling in "Your Classroom"
+    // Keep teacher access and classroom setup in sync for every "Your Classroom" enrollment.
     if (Number(course?.id) === YOUR_CLASSROOM_COURSE_ID) {
         if (!email) {
-            console.error('[WEBHOOK] Missing email for Your Classroom group creation, skipping');
+            console.error('[WEBHOOK] Missing email for Your Classroom setup, skipping');
             return;
         }
+
+        const normalizedEmail = email.toLowerCase().trim();
+
+        try {
+            const accessRecords = await base44.asServiceRole.entities.TeacherAccess.filter({
+                teacherEmail: normalizedEmail
+            });
+            const accessData = {
+                teacherEmail: normalizedEmail,
+                thinkificUserId: String(userId),
+                status: 'active',
+                lastWebhookId: String(webhookId)
+            };
+
+            if (accessRecords.length === 0) {
+                await base44.asServiceRole.entities.TeacherAccess.create(accessData);
+                console.log(`[WEBHOOK] ✓ TeacherAccess created for ${normalizedEmail}`);
+            } else {
+                await base44.asServiceRole.entities.TeacherAccess.update(accessRecords[0].id, accessData);
+                console.log(`[WEBHOOK] ✓ TeacherAccess activated for ${normalizedEmail}`);
+            }
+        } catch (error) {
+            console.error(`[WEBHOOK] TeacherAccess sync failed for ${normalizedEmail}: ${error.message}`);
+        }
+
         console.log(`[WEBHOOK] Your Classroom enrollment detected for ${email}, creating group...`);
         const groupResult = await createThinkificClassroomGroup(userId, firstName, lastName, email);
         if (groupResult?.groupId) {
-            const normalizedEmail = email.toLowerCase().trim();
             const existing = await base44.asServiceRole.entities.TeacherGroup.filter({ teacherEmail: normalizedEmail });
             if (existing.length === 0) {
                 await base44.asServiceRole.entities.TeacherGroup.create({
